@@ -1,5 +1,9 @@
 # Extrair_novel
 
+[![Node.js](https://img.shields.io/badge/Node.js-v16%2B-green?logo=node.js)](https://nodejs.org/)
+[![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](./LICENSE)
+[![GitHub](https://img.shields.io/badge/GitHub-angeline1986-black?logo=github)](https://github.com/angeline1986)
+
 Projeto para extrair texto de arquivos DOCX, organizar traduções e gerar EPUBs consistentes.
 
 ## 🚀 Funcionalidades
