@@ -1,6 +1,11 @@
 node_modules/
-build/temp/
+build/
+data/
 .DS_Store
 ~$*.docx
 *.log
 npm-debug.log*
+*.xlsx
+*.tmp
+*.bak
+Thumbs.db
