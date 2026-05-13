@@ -2,13 +2,27 @@
   "type": "module",
   "name": "extrair_novel",
   "version": "1.0.0",
-  "description": "Projeto para extrair DOCX e gerar EPUBs organizados.",
+  "description": "Extração de DOCX e geração de EPUBs organizados com suporte a traduções.",
   "main": "src/cli.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/angeline1986/extrair_novel.git"
+  },
   "scripts": {
     "start": "node src/cli.js",
     "build:epub": "node src/cli.js build:epub",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "keywords": [
+    "docx",
+    "epub",
+    "converter",
+    "traducao",
+    "ebook",
+    "cli"
+  ],
+  "author": "Aline Souza <angeline.fm@gmail.com> (https://github.com/angeline1986)",
+  "license": "ISC",
   "dependencies": {
     "archiver": "^7.0.1",
     "docx": "^9.6.1",
@@ -17,7 +31,9 @@
     "uuid": "^14.0.0",
     "xlsx": "^0.18.5"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC"
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=7.0.0"
+  }
 }
+
