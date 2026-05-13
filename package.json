@@ -1,0 +1,23 @@
+{
+  "type": "module",
+  "name": "extrair_novel",
+  "version": "1.0.0",
+  "description": "Projeto para extrair DOCX e gerar EPUBs organizados.",
+  "main": "src/cli.js",
+  "scripts": {
+    "start": "node src/cli.js",
+    "build:epub": "node src/cli.js build:epub",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "archiver": "^7.0.1",
+    "docx": "^9.6.1",
+    "mammoth": "^1.12.0",
+    "puppeteer": "^24.42.0",
+    "uuid": "^14.0.0",
+    "xlsx": "^0.18.5"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

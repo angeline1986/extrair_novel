@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
+<head>
+<meta name="dtb:uid" content="673d5a15-3796-4d3a-bd62-eff3e064e4a9"/>
+<meta name="dtb:depth" content="2"/>
+<meta name="dtb:totalPageCount" content="0"/>
+<meta name="dtb:maxPageNumber" content="0"/>
+</head>
+<docTitle><text>Winter Field</text></docTitle>
+<navMap>
+
+<navPoint id="navPoint-v1" playOrder="1">
+  <navLabel><text>Volume 1</text></navLabel>
+  <content src="volume_01.xhtml"/>
+  
+<navPoint id="navPoint-v1-c1" playOrder="2">
+  <navLabel><text>Capítulo 1: País Frio.</text></navLabel>
+  <content src="chapter_0001.xhtml"/>
+</navPoint>
+
+<navPoint id="navPoint-v1-c2" playOrder="3">
+  <navLabel><text>Capítulo 2: Casamento.</text></navLabel>
+  <content src="chapter_0002.xhtml"/>
+</navPoint>
+
+<navPoint id="navPoint-v1-c3" playOrder="4">
+  <navLabel><text>Capítulo 3: Nova Vida.</text></navLabel>
+  <content src="chapter_0003.xhtml"/>
+</navPoint>
+
+<navPoint id="navPoint-v1-c4" playOrder="5">
+  <navLabel><text>Capítulo 4: Teste de Admissão.</text></navLabel>
+  <content src="chapter_0004.xhtml"/>
+</navPoint>
+</navPoint>
+
+<navPoint id="navPoint-v2" playOrder="6">
+  <navLabel><text>Volume 2</text></navLabel>
+  <content src="volume_02.xhtml"/>
+  
+<navPoint id="navPoint-v2-c1" playOrder="7">
+  <navLabel><text>Capítulo 5: O rumor sobre o consorte do Grão-Duque.</text></navLabel>
+  <content src="chapter_0005.xhtml"/>
+</navPoint>
+
+<navPoint id="navPoint-v2-c2" playOrder="8">
+  <navLabel><text>Capítulo 6: A Noite de Núpcias Tardia.</text></navLabel>
+  <content src="chapter_0006.xhtml"/>
+</navPoint>
+
+<navPoint id="navPoint-v2-c3" playOrder="9">
+  <navLabel><text>Capítulo 7: A Hora do Chá do Gato Ladrão.</text></navLabel>
+  <content src="chapter_0007.xhtml"/>
+</navPoint>
+
+<navPoint id="navPoint-v2-c4" playOrder="10">
+  <navLabel><text>Capítulo 8: Assuntos do Trono.</text></navLabel>
+  <content src="chapter_0008.xhtml"/>
+</navPoint>
+</navPoint>
+
+<navPoint id="navPoint-v3" playOrder="11">
+  <navLabel><text>Volume 3</text></navLabel>
+  <content src="volume_03.xhtml"/>
+  
+<navPoint id="navPoint-v3-c1" playOrder="12">
+  <navLabel><text>Capítulo 9: A Última Dança.</text></navLabel>
+  <content src="chapter_0009.xhtml"/>
+</navPoint>
+
+<navPoint id="navPoint-v3-c2" playOrder="13">
+  <navLabel><text>Capítulo 10: Profecia Sinistra.</text></navLabel>
+  <content src="chapter_0010.xhtml"/>
+</navPoint>
+
+<navPoint id="navPoint-v3-c3" playOrder="14">
+  <navLabel><text>Capítulo 11: Ensopado para o Fugitivo</text></navLabel>
+  <content src="chapter_0011.xhtml"/>
+</navPoint>
+
+<navPoint id="navPoint-v3-c4" playOrder="15">
+  <navLabel><text>Capítulo 12: O Rei do Norte.</text></navLabel>
+  <content src="chapter_0012.xhtml"/>
+</navPoint>
+</navPoint>
+
+<navPoint id="navPoint-v4" playOrder="16">
+  <navLabel><text>Volume 4</text></navLabel>
+  <content src="volume_04.xhtml"/>
+  
+<navPoint id="navPoint-v4-c1" playOrder="17">
+  <navLabel><text>Capítulo 13: Primeira Primavera.</text></navLabel>
+  <content src="chapter_0013.xhtml"/>
+</navPoint>
+
+<navPoint id="navPoint-v4-c2" playOrder="18">
+  <navLabel><text>Capítulo 14: A Cidade do Imperador.</text></navLabel>
+  <content src="chapter_0014.xhtml"/>
+</navPoint>
+
+<navPoint id="navPoint-v4-c3" playOrder="19">
+  <navLabel><text>Capítulo 15: O Intruso.</text></navLabel>
+  <content src="chapter_0015.xhtml"/>
+</navPoint>
+
+<navPoint id="navPoint-v4-c4" playOrder="20">
+  <navLabel><text>Capítulo 16: Outro mágico.</text></navLabel>
+  <content src="chapter_0016.xhtml"/>
+</navPoint>
+
+<navPoint id="navPoint-v4-c5" playOrder="21">
+  <navLabel><text>Capítulo 17: O Segredo de Rensley.</text></navLabel>
+  <content src="chapter_0017.xhtml"/>
+</navPoint>
+</navPoint>
+
+<navPoint id="navPoint-v5" playOrder="22">
+  <navLabel><text>Volume 5</text></navLabel>
+  <content src="volume_05.xhtml"/>
+  
+<navPoint id="navPoint-v5-c1" playOrder="23">
+  <navLabel><text>Capítulo 18: Torre Branca, Floresta Negra.</text></navLabel>
+  <content src="chapter_0018.xhtml"/>
+</navPoint>
+
+<navPoint id="navPoint-v5-c2" playOrder="24">
+  <navLabel><text>Capítulo 19: Pessoa Preciosa.</text></navLabel>
+  <content src="chapter_0019.xhtml"/>
+</navPoint>
+
+<navPoint id="navPoint-v5-c3" playOrder="25">
+  <navLabel><text>Capítulo 20: Tudo em seu devido lugar.</text></navLabel>
+  <content src="chapter_0020.xhtml"/>
+</navPoint>
+
+<navPoint id="navPoint-v5-c4" playOrder="26">
+  <navLabel><text>Capítulo 21: Primavera sem fim.</text></navLabel>
+  <content src="chapter_0021.xhtml"/>
+</navPoint>
+</navPoint>
+
+<navPoint id="navPoint-v6" playOrder="27">
+  <navLabel><text>Extras Volume 6</text></navLabel>
+  <content src="volume_06.xhtml"/>
+  
+<navPoint id="navPoint-v6-c1" playOrder="28">
+  <navLabel><text>Capítulo 1: Campo de Morangos.</text></navLabel>
+  <content src="chapter_0022.xhtml"/>
+</navPoint>
+
+<navPoint id="navPoint-v6-c2" playOrder="29">
+  <navLabel><text>Capítulo 2: Campo pequeno.</text></navLabel>
+  <content src="chapter_0023.xhtml"/>
+</navPoint>
+
+<navPoint id="navPoint-v6-c3" playOrder="30">
+  <navLabel><text>Capítulo 3: Campo dos Sonhos.</text></navLabel>
+  <content src="chapter_0024.xhtml"/>
+</navPoint>
+</navPoint>
+
+<navPoint id="navPoint-v7" playOrder="31">
+  <navLabel><text>Extras Volume 7</text></navLabel>
+  <content src="volume_07.xhtml"/>
+  
+<navPoint id="navPoint-v7-c1" playOrder="32">
+  <navLabel><text>Capítulo 1: O intruso</text></navLabel>
+  <content src="chapter_0025.xhtml"/>
+</navPoint>
+
+<navPoint id="navPoint-v7-c2" playOrder="33">
+  <navLabel><text>Capítulo 2: Uma breve despedida</text></navLabel>
+  <content src="chapter_0026.xhtml"/>
+</navPoint>
+
+<navPoint id="navPoint-v7-c3" playOrder="34">
+  <navLabel><text>Capítulo 3: Reencontro</text></navLabel>
+  <content src="chapter_0027.xhtml"/>
+</navPoint>
+
+<navPoint id="navPoint-v7-c4" playOrder="35">
+  <navLabel><text>Capítulo 4: O mundo do esquecimento</text></navLabel>
+  <content src="chapter_0028.xhtml"/>
+</navPoint>
+
+<navPoint id="navPoint-v7-c5" playOrder="36">
+  <navLabel><text>Capítulo 5: Uma nova aventura</text></navLabel>
+  <content src="chapter_0029.xhtml"/>
+</navPoint>
+
+<navPoint id="navPoint-v7-c6" playOrder="37">
+  <navLabel><text>Capítulo 6: Onde todos se reuniam</text></navLabel>
+  <content src="chapter_0030.xhtml"/>
+</navPoint>
+
+<navPoint id="navPoint-v7-c7" playOrder="38">
+  <navLabel><text>Capítulo 7: A luz do coração</text></navLabel>
+  <content src="chapter_0031.xhtml"/>
+</navPoint>
+
+<navPoint id="navPoint-v7-c8" playOrder="39">
+  <navLabel><text>Capítulo 8: Epílogo</text></navLabel>
+  <content src="chapter_0032.xhtml"/>
+</navPoint>
+</navPoint>
+</navMap>
+</ncx>
