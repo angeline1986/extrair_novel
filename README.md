@@ -2,114 +2,106 @@
 
 Projeto para extrair texto de arquivos DOCX, organizar traduções e gerar EPUBs consistentes.
 
-## Visão geral
+## 🚀 Funcionalidades
 
-O objetivo deste repositório é manter o processo de conversão e geração de EPUBs mais organizado. A estrutura atual separa:
+- ✅ Extração de texto de arquivos DOCX
+- ✅ Organização estruturada de traduções
+- ✅ Geração automática de EPUBs
+- ✅ Suporte a capas e metadados
+- ✅ CLI simples e intuitiva
 
-- código-fonte
-- entradas de dados
-- ativos de capa
-- resultados gerados
-- scripts legados
+## 📋 Pré-requisitos
 
-Isso facilita manter o projeto escalável e reduz a bagunça no root.
+- Node.js (versão 16 ou superior)
+- npm ou yarn
 
-## Estrutura do projeto
-
-- `package.json` — dependências, tipo de módulo e scripts principais
-- `README.md` — documentação do projeto
-- `.gitignore` — arquivos e pastas ignorados pelo Git
-- `src/` — código-fonte principal
-  - `src/cli.js` — entrada CLI
-  - `src/extract/` — leitura e parsing de arquivos DOCX
-  - `src/epub/` — geração de EPUB
-  - `src/translation/` — utilitários de tradução
-  - `src/utils/` — helpers genéricos
-  - `src/legacy/` — scripts antigos preservados para referência
-- `data/` — dados de trabalho
-  - `data/input/` — arquivos `.docx` de entrada originais
-  - `data/translated/` — traduções brutas ou arquivos em processamento
-  - `data/corrected/` — traduções revisadas usadas para gerar EPUB
-  - `data/assets/` — capas, imagens e outros recursos estáticos
-- `build/` — arquivos gerados e temporários
-  - `build/epub/` — EPUBs finais
-  - `build/temp/` — arquivos temporários de construção
-- `tests/` — testes e validações futuras
-
-## Dependências
-
-O projeto usa Node.js em modo de módulos (`type: module`). As dependências atuais são:
-
-- `archiver` — faz o arquivo EPUB (ZIP com estrutura específica)
-- `docx` — manipulação de arquivos DOCX e geração de conteúdo
-- `mammoth` — extração de texto de DOCX
-- `puppeteer` — scripts legados de scraping (não usados no fluxo principal)
-- `uuid` — identificadores únicos para metadados EPUB
-- `xlsx` — utilitários de planilha (preservado para uso futuro)
-
-## Instalação
-
-Instale as dependências com:
+## 📦 Instalação
 
 ```bash
+# Clone o repositório
+git clone https://github.com/angeline1986/extrair_novel.git
+cd extrair_novel
+
+# Instale as dependências
 npm install
 ```
 
-## Uso principal
+## 🔧 Uso
 
-### 1. Colocar arquivos de entrada
+### Preparação dos arquivos
 
-- `data/corrected/` — arquivo `.docx` pronto para conversão em EPUB.
-- `data/input/` — deixe aqui apenas os DOCX originais se quiser manter a versão bruta.
-
-### 2. Colocar capa
-
-- `data/assets/covers/cover2.jpg` — capa usada pelo gerador atual.
-
-Se quiser usar outra imagem, renomeie para `cover2.jpg` ou ajuste o caminho em `src/epub/epubGenerator.js`.
-
-### 3. Executar a geração
+1. **Arquivos DOCX:** Coloque em `data/corrected/`
+2. **Capas:** Coloque em `data/assets/covers/cover2.jpg`
+3. **Execute a geração:**
 
 ```bash
 npm run build:epub
 ```
 
-Esse comando:
+### Resultado
 
-- lê os `.docx` de `data/corrected/`
-- monta a estrutura EPUB em `build/temp/`
-- cria o arquivo final em `build/epub/`
+O EPUB será gerado em: `build/epub/Winter_Field_PTBR_corrigido.epub`
 
-### 4. Verificar resultado
+## 📁 Estrutura do projeto
 
-O EPUB gerado ficará em:
+```
+extrair_novel/
+├── src/                    # Código-fonte principal
+│   ├── cli.js             # Entrada CLI
+│   ├── extract/           # Leitura e parsing de DOCX
+│   ├── epub/              # Geração de EPUB
+│   ├── translation/       # Utilitários de tradução
+│   ├── utils/             # Helpers genéricos
+│   └── legacy/            # Scripts antigos preservados
+├── data/                  # Dados de trabalho
+│   ├── input/             # DOCX originais
+│   ├── translated/        # Traduções brutas
+│   ├── corrected/         # Traduções revisadas
+│   └── assets/            # Capas e recursos
+├── build/                 # Arquivos gerados
+│   ├── epub/              # EPUBs finais
+│   └── temp/              # Temporários
+├── tests/                 # Testes futuros
+├── package.json
+├── README.md
+└── .gitignore
+```
 
-- `build/epub/Winter_Field_PTBR_corrigido.epub`
+## 🛠️ Scripts disponíveis
 
-## Scripts disponíveis
+```bash
+npm start              # Executa o CLI principal
+npm run build:epub     # Gera EPUB a partir de data/corrected/
+```
 
-- `npm start` — abre o CLI principal (`src/cli.js`)
-- `npm run build:epub` — gera o EPUB a partir de `data/corrected/`
+## 📚 Dependências
 
-## Como funciona o fluxo
+### Principais
+- `archiver` — Criação de arquivos EPUB (ZIP estruturado)
+- `mammoth` — Extração de texto de DOCX
+- `uuid` — Identificadores únicos para metadados
 
-1. `src/cli.js` escolhe a operação.
-2. `src/epub/epubGenerator.js` monta a estrutura EPUB padrão.
-3. `src/extract/docxExtractor.js` lê e parseia os arquivos DOCX.
-4. `src/utils/fileUtils.js` fornece helpers de diretório e escrita.
+### Legadas
+- `docx` — Manipulação avançada de DOCX
+- `puppeteer` — Scripts de scraping (não usado no fluxo principal)
+- `xlsx` — Utilitários de planilha
 
-## Boas práticas
+## 🤝 Contribuição
 
-- mantenha apenas arquivos `.docx` válidos em `data/corrected/`
-- preserve imagens e capas em `data/assets/`
-- limpe `build/temp/` sempre que quiser refazer a geração completa
+1. Fork o projeto
+2. Crie uma branch para sua feature (`git checkout -b feature/nova-feature`)
+3. Commit suas mudanças (`git commit -am 'Adiciona nova feature'`)
+4. Push para a branch (`git push origin feature/nova-feature`)
+5. Abra um Pull Request
 
-## Arquivos legados
+## 📄 Licença
 
-A pasta `src/legacy/` contém scripts antigos que ainda podem ser úteis como referência, mas não fazem parte do fluxo principal atual.
+Este projeto está sob a licença ISC.
 
-## Dúvidas ou ajustes
+## 👤 Autor
 
-Se quiser alterar o nome do EPUB de saída, edite `OUTPUT_FILE` em `src/epub/epubGenerator.js`.
+**Aline Souza** - [angeline1986](https://github.com/angeline1986)
 
-Se quiser suportar outro formato de capa ou outra pasta de entrada, basta atualizar as constantes no mesmo arquivo.
+---
+
+⭐ Se este projeto te ajudou, considere dar uma estrela!
