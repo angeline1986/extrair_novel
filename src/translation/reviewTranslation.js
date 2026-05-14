@@ -320,13 +320,19 @@ export async function reviewTranslation(text, options = {}) {
     logResidualEnglish(blockIndex, reviewed);
     logSuspiciousPortuguese(blockIndex, reviewed);
 
-    if (!validation.ok) {
+    if (validation.severity === "critical") {
       console.warn(
-        `⚠️ Bloco ${blockIndex} falhou em validação grave na revisão. Mantendo original.`
+        `🚨 Bloco ${blockIndex} falhou em validação crítica na revisão. Mantendo versão anterior do bloco.`
       );
 
       reviewedChunks.push(originalChunk);
       continue;
+    }
+
+    if (validation.severity === "warning") {
+      console.warn(
+        `⚠️ Bloco ${blockIndex} com warning leve na revisão; mantendo revisão gerada.`
+      );
     }
 
     reviewed = normalizeSystemBlocks(reviewed);

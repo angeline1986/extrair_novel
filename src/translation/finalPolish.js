@@ -320,13 +320,19 @@ export async function finalPolish(text, options = {}) {
     logResidualEnglish(blockIndex, polished);
     logSuspiciousPortuguese(blockIndex, polished);
 
-    if (!validation.ok) {
+    if (validation.severity === "critical") {
       console.warn(
-        `⚠️ Bloco ${blockIndex} falhou em validação grave no polimento. Mantendo original.`
+        `🚨 Bloco ${blockIndex} falhou em validação crítica no polimento. Mantendo versão anterior do bloco.`
       );
 
       polishedChunks.push(originalChunk);
       continue;
+    }
+
+    if (validation.severity === "warning") {
+      console.warn(
+        `⚠️ Bloco ${blockIndex} com warning leve no polimento; mantendo polimento gerado.`
+      );
     }
 
     polished = normalizeSystemBlocks(polished);

@@ -91,7 +91,7 @@ export function extractProperNames(text) {
 }
 
 function shouldIgnoreName(name) {
-  const ignored = [
+  const ignored = new Set([
     "Chapter",
     "Arc",
     "Instance",
@@ -138,9 +138,50 @@ function shouldIgnoreName(name) {
     "Middle",
     "Wen",
     "Jianyan",
-  ];
+  ]);
 
-  return ignored.includes(name);
+  const genericWords = new Set([
+    "The",
+    "Of",
+    "And",
+    "For",
+    "With",
+    "From",
+    "By",
+    "To",
+    "In",
+    "On",
+    "At",
+    "Live",
+    "Room",
+    "Broadcast",
+    "Anchor",
+    "Viewers",
+    "Audience",
+    "Task",
+    "Points",
+    "System",
+    "Store",
+    "Users",
+    "Battery",
+    "Value",
+  ]);
+
+  const normalized = name.trim();
+
+  if (ignored.has(normalized)) {
+    return true;
+  }
+
+  const words = normalized.split(/\s+/);
+
+  if (words.some((word) => genericWords.has(word))) {
+    return true;
+  }
+
+  return words.some(
+    (word) => /^[A-Z][a-z]?$/.test(word) && word.length <= 2
+  );
 }
 
 function escapeRegExp(value) {

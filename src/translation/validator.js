@@ -141,6 +141,11 @@ const RESIDUAL_ENGLISH_TERMS = [
 ];
 
 const SUSPICIOUS_PORTUGUESE_PATTERNS = [
+  ["este era uma sala", /\bEste era uma sala\b/i],
+  ["um contagem regressiva", /\bum contagem regressiva\b/i],
+  ["o contagem regressiva", /\bo contagem regressiva\b/i],
+  ["chegou ao zero", /\bchegou ao zero\b/i],
+  ["backstage literal", /\bbackstage\b/i],
   ["luz de spot", /\bluz de spot\b/i],
   ["prisionões", /\bprisionões\b/i],
   ["serei seu servidor", /\bserei seu servidor\b/i],
@@ -185,6 +190,20 @@ const SUSPICIOUS_PORTUGUESE_PATTERNS = [
   ["seu histórico de vida", /\bseu histórico de vida\b/i],
 ];
 
+const MODEL_CONTAMINATION_PATTERNS = [
+  /here is the translation/i,
+  /i translated/i,
+  /segue a tradução/i,
+  /aqui está a tradução/i,
+  /thinking/i,
+  /reasoning/i,
+  /```/i,
+];
+
+function hasModelContamination(text) {
+  return MODEL_CONTAMINATION_PATTERNS.some((pattern) => pattern.test(text));
+}
+
 export function validateModelOutput({
   original,
   output,
@@ -199,19 +218,25 @@ export function validateModelOutput({
   checkProtectedTitles = true,
 } = {}) {
   const warnings = [];
-  const severeErrors = [];
+  const criticalErrors = [];
 
+  const messageEmpty = `[${stage}] Resposta vazia.`;
   if (!output || !output.trim()) {
-    const message = `[${stage}] Resposta vazia.`;
-    warnings.push(message);
-    severeErrors.push(message);
-    return { ok: false, warnings, severeErrors };
+    warnings.push(messageEmpty);
+    criticalErrors.push(messageEmpty);
+    return {
+      ok: false,
+      severity: "critical",
+      warnings,
+      errors: criticalErrors,
+      severeErrors: criticalErrors,
+    };
   }
 
-  if (hasThinkingLeak(output)) {
-    const message = `[${stage}] Vazou tag de raciocínio: /think ou <think>.`;
+  if (hasThinkingLeak(output) || hasModelContamination(output)) {
+    const message = `[${stage}] Contaminação do modelo detectada.`;
     warnings.push(message);
-    severeErrors.push(message);
+    criticalErrors.push(message);
   }
 
   const originalLength = original.length;
@@ -219,10 +244,10 @@ export function validateModelOutput({
 
   if (outputLength < originalLength * minLengthRatio) {
     const message = `[${stage}] Resposta muito curta: ${outputLength}/${originalLength} caracteres.`;
-    warnings.push(message);
-
     if (outputLength < originalLength * 0.35) {
-      severeErrors.push(message);
+      criticalErrors.push(message);
+    } else {
+      warnings.push(message);
     }
   }
 
@@ -234,15 +259,18 @@ export function validateModelOutput({
   const originalParagraphs = countParagraphs(original);
   const outputParagraphs = countParagraphs(output);
 
-  if (outputParagraphs < originalParagraphs * minParagraphRatio) {
+  if (outputParagraphs < originalParagraphs * 0.5) {
+    const message = `[${stage}] Perda significativa de parágrafos: ${outputParagraphs}/${originalParagraphs}.`;
+    criticalErrors.push(message);
+  } else if (outputParagraphs < originalParagraphs * minParagraphRatio) {
     const message = `[${stage}] Poucos parágrafos: ${outputParagraphs}/${originalParagraphs}.`;
     warnings.push(message);
   }
 
   if (hasAssistantPreamble(output)) {
-    const message = `[${stage}] A resposta contém comentário do modelo.`;
+    const message = `[${stage}] A resposta contém comentário ou prévia do modelo.`;
     warnings.push(message);
-    severeErrors.push(message);
+    criticalErrors.push(message);
   }
 
   if (requireSameNameTokens) {
@@ -250,10 +278,10 @@ export function validateModelOutput({
 
     if (missingTokens.length > 0) {
       const message = `[${stage}] Tokens de nomes ausentes: ${missingTokens.join(", ")}`;
-      warnings.push(message);
-
       if (hasSignificantMissingNameTokens(original, output)) {
-        severeErrors.push(message);
+        criticalErrors.push(message);
+      } else {
+        warnings.push(message);
       }
     }
   }
@@ -262,9 +290,12 @@ export function validateModelOutput({
     const residualEnglish = findResidualEnglish(output);
 
     if (residualEnglish.length > 0) {
-      warnings.push(
-        `[${stage}] Possível inglês residual: ${residualEnglish.join(", ")}`
-      );
+      const message = `[${stage}] Inglês residual detectado: ${residualEnglish.join(", ")}`;
+      if (hasMajorEnglishResidual(output, residualEnglish)) {
+        criticalErrors.push(message);
+      } else {
+        warnings.push(message);
+      }
     }
   }
 
@@ -284,7 +315,7 @@ export function validateModelOutput({
     if (changedCodes.length > 0) {
       const message = `[${stage}] Códigos possivelmente alterados: ${changedCodes.join(", ")}`;
       warnings.push(message);
-      severeErrors.push(message);
+      criticalErrors.push(message);
     }
   }
 
@@ -298,10 +329,14 @@ export function validateModelOutput({
     }
   }
 
+  const severity = criticalErrors.length > 0 ? "critical" : warnings.length > 0 ? "warning" : "ok";
+
   return {
-    ok: severeErrors.length === 0,
+    ok: severity !== "critical",
+    severity,
     warnings,
-    severeErrors,
+    errors: criticalErrors,
+    severeErrors: criticalErrors,
   };
 }
 
@@ -349,6 +384,9 @@ export function hasAssistantPreamble(text) {
     "claro",
     "aqui está",
     "segue",
+    "aqui está a tradução",
+    "here is the translation",
+    "i translated",
     "tradução:",
     "texto traduzido:",
     "texto revisado:",
@@ -358,9 +396,23 @@ export function hasAssistantPreamble(text) {
     "resultado:",
   ];
 
+  const badContains = [
+    /<think>/i,
+    /<thinking>/i,
+    /<reasoning>/i,
+    /\/think/i,
+    /```/i,
+    /thinking/i,
+    /reasoning/i,
+    /análise/i,
+    /explicação/i,
+    /analysis/i,
+    /explanation/i,
+  ];
+
   return (
     badStarts.some((start) => trimmed.startsWith(start)) ||
-    text.includes("```") ||
+    badContains.some((pattern) => pattern.test(text)) ||
     hasThinkingLeak(text)
   );
 }
@@ -371,6 +423,24 @@ export function findResidualEnglish(text) {
   return RESIDUAL_ENGLISH_TERMS.filter((term) =>
     cleaned.includes(term.toLowerCase())
   );
+}
+
+function hasMajorEnglishResidual(text, residualTerms) {
+  if (residualTerms.length > 5) return true;
+
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const englishLines = lines.filter((line) =>
+    RESIDUAL_ENGLISH_TERMS.some((term) =>
+      line.toLowerCase().includes(term.toLowerCase())
+    )
+  );
+
+  return englishLines.length >= 2 ||
+    lines.some((line) => /\bthis\b|\bthat\b|\bhere\b|\bwill\b|\bwould\b/i.test(line));
 }
 
 function removeAllowedEnglishTerms(text) {

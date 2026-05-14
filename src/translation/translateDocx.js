@@ -77,10 +77,6 @@ function logValidationWarnings(blockIndex, validation) {
   }
 }
 
-function shouldKeepOriginalChunk(validation) {
-  return !validation.ok;
-}
-
 function shouldAbortOnInvalidTranslation(options) {
   return options.abortOnInvalidTranslation ?? false;
 }
@@ -91,12 +87,36 @@ function shouldUseFastMode(options) {
 
 function shouldRunReview(options) {
   if (shouldUseFastMode(options)) return false;
-  return options.runReview ?? false;
+
+  if (typeof options.runReview !== "undefined") {
+    return options.runReview;
+  }
+
+  const env = process.env.ENABLE_REVIEW;
+  if (typeof env === "string") {
+    return env.toLowerCase() === "true";
+  }
+
+  return false;
 }
 
 function shouldRunPolish(options) {
   if (shouldUseFastMode(options)) return false;
-  return options.runPolish ?? true;
+
+  if (typeof options.runPolish !== "undefined") {
+    return options.runPolish;
+  }
+
+  const env = process.env.ENABLE_FINAL_POLISH;
+  if (typeof env === "string") {
+    return env.toLowerCase() !== "false";
+  }
+
+  return true;
+}
+
+function isCriticalValidation(validation) {
+  return validation.severity === "critical";
 }
 
 function buildOutputPath(inputPath, options = {}) {
@@ -219,25 +239,27 @@ export async function translateDocx(inputPath, options = {}) {
       stats.warnings += 1;
     }
 
-    if (shouldKeepOriginalChunk(validation)) {
-      console.warn(
-        `⚠️ Bloco ${blockIndex} falhou em validação grave.`
-      );
+    if (isCriticalValidation(validation)) {
+      console.warn(`🚨 Bloco ${blockIndex} falhou em validação crítica.`);
 
       if (shouldAbortOnInvalidTranslation(options)) {
         throw new Error(
-          `Tradução abortada: bloco ${blockIndex} falhou em validação grave.\n${(validation.severeErrors ?? validation.warnings).join("\n")}`
+          `Tradução abortada: bloco ${blockIndex} falhou em validação crítica.\n${(validation.severeErrors ?? validation.errors).join("\n")}`
         );
       }
 
       stats.fallback += 1;
 
       console.warn(
-        `⚠️ Mantendo texto original do bloco ${blockIndex} devido a erro grave.`
+        `⚠️ Aplicando fallback crítico para o bloco ${blockIndex}. Mantendo versão anterior do bloco.`
       );
 
       translatedChunks.push(originalChunk);
       continue;
+    }
+
+    if (validation.severity === "warning") {
+      console.warn(`⚠️ Bloco ${blockIndex} com warning leve; mantendo tradução gerada.`);
     }
 
     stats.accepted += 1;
