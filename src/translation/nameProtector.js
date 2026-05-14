@@ -1,27 +1,67 @@
-const ignoredPhrases = new Set([
-  "Oh God",
-  "The End",
-  "Thank You",
-  "Product Name",
-  "Reward Points",
-  "Viewing Value",
-  "Completion Degree",
-  "Collection Degree",
-  "Instance Difficulty Level",
-  "Highest Unlocking Progress",
-  "Related Plot",
-  "Initial Survival Time",
-  "Live Room",
-  "Status On",
-]);
+import { glossary } from "./glossary.js";
 
-const alwaysProtect = [
+const PROTECTED_PATTERNS = [
+  // tokens já protegidos
+  /\[\[NAME_\d+\]\]/g,
+
+  // códigos mistos
+  /\b[a-zA-Z]+\d+[a-zA-Z0-9]*\b/g,
+  /\b\d+[a-zA-Z]+[a-zA-Z0-9]*\b/g,
+
+  // colchetes/sistema
+  /\[[^\]]+\]/g,
+  /【[^】]+】/g,
+
+  // ids/salas
+  /\b\d{3,}[a-z]{2,}\b/gi,
+];
+
+const FIXED_PROTECTED_TERMS = [
+  // arcos
+  "Decai Middle School",
+  "Fukang Hospital",
+  "Antai Community",
+  "Fantasy Amusement Park",
+  "Ping An Asylum",
+  "Changsheng Building",
+  "Xingwang Hotel",
+  "Yuying University",
+  "Lucky Cruise Ship",
+
+  // arcos / locais adicionais
+  "Fukang Private General Hospital",
+  "Ping'an Asylum",
+  "Infinite Train",
+
+  // organizações
+  "Nightmare Live Studio",
+  "Oracle",
+  "Dark Fire",
+
+  // organizações / conceitos adicionais
+  "Nightmare",
+  "Integrity First",
+  "Anchor Hall",
+
+  // personagens
   "Wen Jianyan",
   "Su Cheng",
+  "Wu Zhu",
+  "Orange Candy",
+  "Hugo",
+  "Blond",
+  "Chen Mo",
+  "Yun Bilan",
+  "Wen Ya",
   "Qi Qian",
+  "Bai Xue",
+  "Dan Zhu",
+  "An Xin",
+  "Ji Guan",
+
+  // personagens adicionais
   "Tong Yao",
   "Zhang Yu",
-  "An Xin",
   "Kong Shixing",
   "Xu Yuan",
   "Xiao Jie",
@@ -29,113 +69,170 @@ const alwaysProtect = [
   "Dean Shen",
   "Teacher Yang",
   "Wang Ping",
-
-  "Decai Middle School",
-  "Nightmare",
-  "Nightmare Live Studio",
-  "Dark Fire",
-  "Oracle",
-  "Integrity First",
-  "Anchor Hall",
-  "Fukang Hospital",
-  "Fukang Private General Hospital",
-  "Antai Community",
-  "Fantasy Amusement Park",
-  "Ping'an Asylum",
-  "Lucky Cruise Ship",
-  "Infinite Train",
+  "Mason",
+  "Xiao Wen",
 ];
 
-const namePattern =
-  /\b([A-Z][a-z]+(?:['-][A-Za-z]+)?(?:\s+[A-Z][a-z]+(?:['-][A-Za-z]+)?){1,4})\b/g;
+export function extractProperNames(text) {
+  const detected = new Set();
+
+  // termos fixos primeiro
+  for (const term of FIXED_PROTECTED_TERMS) {
+    if (text.includes(term)) {
+      detected.add(term);
+    }
+  }
+
+  // nomes compostos estilo chinês/inglês
+  const compoundNames =
+    text.match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b/g) ?? [];
+
+  for (const name of compoundNames) {
+    if (shouldIgnoreName(name)) continue;
+
+    detected.add(name.trim());
+  }
+
+  return [...detected].sort((a, b) => b.length - a.length);
+}
+
+function shouldIgnoreName(name) {
+  const ignored = [
+    "Chapter",
+    "Arc",
+    "Instance",
+    "Status",
+    "Name",
+    "Age",
+    "Occupation",
+    "Related",
+    "Plot",
+    "Online",
+    "Viewers",
+    "System",
+    "Live",
+    "Room",
+    "Anchor",
+    "Broadcast",
+    "Identity",
+    "Card",
+    "Product",
+    "Reward",
+    "Points",
+    "Viewing",
+    "Value",
+    "Completion",
+    "Degree",
+    "Collection",
+    "Progress",
+    "Initial",
+    "Survival",
+    "Time",
+    "On",
+    "Air",
+    "The",
+    "End",
+    "Thank",
+    "You",
+    "However",
+    "After",
+    "There",
+    "What",
+    "This",
+    "That",
+    "Not",
+    "Middle",
+    "Wen",
+    "Jianyan",
+  ];
+
+  return ignored.includes(name);
+}
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function looksLikeBadName(candidate) {
-  if (!candidate) return true;
-  if (ignoredPhrases.has(candidate)) return true;
-
-  const words = candidate.split(/\s+/);
-
-  if (words.length > 4) return true;
-
-  const badWords = [
-    "Chapter",
-    "Level",
-    "Progress",
-    "Value",
-    "Points",
-    "Completion",
-    "Degree",
-    "Product",
-    "Name",
-    "Before",
-    "After",
-    "While",
-    "When",
-    "With",
-    "This",
-    "That",
-    "There",
-  ];
-
-  if (words.some((word) => badWords.includes(word))) return true;
-
-  return false;
+function getProtectedGlossaryTerms() {
+  return Object.keys(glossary).filter((term) => {
+    return FIXED_PROTECTED_TERMS.includes(term) || isLikelyProtectedTitle(term);
+  });
 }
 
-export function extractProperNames(text) {
-  const counts = new Map();
+function isLikelyProtectedTitle(term) {
+  return (
+    /\b(School|Hospital|Community|Amusement Park|Asylum|Building|Hotel|University|Cruise Ship|Train|Studio|Oracle|Fire|Hall)\b/.test(term) ||
+    term.includes("Nightmare")
+  );
+}
 
-  for (const fixed of alwaysProtect) {
-    if (text.includes(fixed)) {
-      counts.set(fixed, 9999);
+export function protectNames(text, names = []) {
+  let protectedText = text;
+
+  const map = {};
+
+  let counter = 1;
+
+  const allProtectedTerms = [
+    ...new Set([
+      ...names,
+      ...FIXED_PROTECTED_TERMS,
+      ...getProtectedGlossaryTerms(),
+    ]),
+  ]
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length);
+
+  // protege termos conhecidos
+  for (const term of allProtectedTerms) {
+    const token = createToken(counter++);
+
+    map[token] = term;
+
+    protectedText = protectedText.replace(
+      new RegExp(escapeRegExp(term), "g"),
+      token
+    );
+  }
+
+  // protege padrões especiais
+  for (const pattern of PROTECTED_PATTERNS) {
+    const matches = protectedText.match(pattern) ?? [];
+
+    for (const match of matches) {
+      if (alreadyProtected(match)) continue;
+
+      const token = createToken(counter++);
+
+      map[token] = match;
+
+      protectedText = protectedText.replace(match, token);
     }
   }
 
-  const matches = text.match(namePattern) ?? [];
-
-  for (const rawName of matches) {
-    const name = rawName.trim();
-
-    if (looksLikeBadName(name)) continue;
-
-    counts.set(name, (counts.get(name) ?? 0) + 1);
-  }
-
-  return [...counts.entries()]
-    .filter(([, count]) => count >= 2 || count === 9999)
-    .sort((a, b) => b[1] - a[1])
-    .map(([name]) => name);
+  return {
+    protectedText,
+    map,
+  };
 }
 
-export function protectNames(text, names) {
-  const map = new Map();
-  let protectedText = text;
+function alreadyProtected(text) {
+  return /\[\[NAME_\d+\]\]/.test(text);
+}
 
-  const sortedNames = [...new Set(names)].sort((a, b) => b.length - a.length);
-
-  sortedNames.forEach((name, index) => {
-    const token = `[[NAME_${String(index + 1).padStart(3, "0")}]]`;
-    map.set(token, name);
-
-    const escaped = escapeRegExp(name);
-    protectedText = protectedText.replace(
-      new RegExp(`\\b${escaped}\\b`, "g"),
-      token
-    );
-  });
-
-  return { protectedText, map };
+function createToken(number) {
+  return `[[NAME_${String(number).padStart(4, "0")}]]`;
 }
 
 export function restoreNames(text, map) {
   let restored = text;
 
-  for (const [token, name] of map.entries()) {
-    restored = restored.replaceAll(token, name);
+  const entries = Object.entries(map).sort(
+    (a, b) => b[0].length - a[0].length
+  );
+
+  for (const [token, original] of entries) {
+    restored = restored.replaceAll(token, original);
   }
 
   return restored;

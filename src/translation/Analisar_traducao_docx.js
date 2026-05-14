@@ -251,6 +251,51 @@ const expressionRules = [
     problem: "Construção possivelmente truncada",
     suggestion: "Revisar frase. Pode ser 'não pude sair para recebê-la/recebê-lo'.",
   },
+  {
+    regex: /\bluz de spot\b/i,
+    problem: "Tradução artificial",
+    suggestion: "Trocar por 'holofote'.",
+  },
+  {
+    regex: /\bprisionões\b/i,
+    problem: "Erro ortográfico",
+    suggestion: "Trocar por 'prisioneiros'.",
+  },
+  {
+    regex: /\bserei seu servidor\b/i,
+    problem: "Tradução literal inadequada",
+    suggestion: "Trocar por 'vou servi-lo' ou 'vou auxiliá-lo'.",
+  },
+  {
+    regex: /\bdistresse\b/i,
+    problem: "Palavra artificial/inadequada",
+    suggestion: "Trocar por 'angústia', 'aflição' ou 'desconforto'.",
+  },
+  {
+    regex: /\bpárpados\b/i,
+    problem: "Erro ortográfico",
+    suggestion: "Trocar por 'pálpebras'.",
+  },
+  {
+    regex: /\bque compositor\b/i,
+    problem: "Erro de tradução: composer/composture",
+    suggestion: "Trocar por 'que compostura'.",
+  },
+  {
+    regex: /\bEscola Secundária Decai\b/i,
+    problem: "Nome próprio traduzido",
+    suggestion: "Manter como 'Decai Middle School'.",
+  },
+  {
+    regex: /\b789\.326qwk\b/i,
+    problem: "Código alterado indevidamente",
+    suggestion: "Trocar por '789326qwk'.",
+  },
+  {
+    regex: /\/think|<\/?think>|<\/?thinking>|<\/?reasoning>/i,
+    problem: "Vazamento de raciocínio do modelo",
+    suggestion: "Remover tag de raciocínio.",
+  },
 ];
 
 function analyzeExpressions(rows, volume, chapterTitle, paragraphs) {
@@ -274,9 +319,6 @@ function analyzeExpressions(rows, volume, chapterTitle, paragraphs) {
 // =====================================================
 // CORREÇÕES AUTOMÁTICAS
 // =====================================================
-
-
-
 
 function corrigirTexto(texto) {
   let t = cleanText(texto);
@@ -342,11 +384,30 @@ function corrigirTexto(texto) {
       .replace(/\bcalada\b/g, "calado");
   }
 
+  // Correções específicas do projeto atual
+  t = t.replace(/\/think/gi, "");
+  t = t.replace(/<\/?think>/gi, "");
+  t = t.replace(/<\/?thinking>/gi, "");
+  t = t.replace(/<\/?reasoning>/gi, "");
+
+  t = t.replace(/\b789\.326qwk\b/g, "789326qwk");
+  t = t.replace(/\bEscola Secundária Decai\b/g, "Decai Middle School");
+
+  t = t.replace(/\bluz de spot\b/gi, "holofote");
+  t = t.replace(/\bprisionões\b/gi, "prisioneiros");
+  t = t.replace(/\bserei seu servidor\b/gi, "vou servi-lo");
+  t = t.replace(/\bdistresse\b/gi, "angústia");
+  t = t.replace(/\bpárpados\b/gi, "pálpebras");
+  t = t.replace(/\bque compositor\b/gi, "que compostura");
+  t = t.replace(/\bcesta de cimento\b/gi, "tambor de cimento");
+  t = t.replace(/\bmaior ordem\b/gi, "maior golpe");
+  t = t.replace(/\bambiente infestado\b/gi, "ambiente opressivo");
+  t = t.replace(/\besquinas dos olhos\b/gi, "cantos dos olhos");
+  t = t.replace(/\besquinas da boca\b/gi, "cantos da boca");
+  t = t.replace(/\bpequeno sombra\b/gi, "pequena sombra");
+
   return t;
 }
-
-
-
 
 // =====================================================
 // LEITURA DOCX

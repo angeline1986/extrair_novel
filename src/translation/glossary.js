@@ -1,65 +1,218 @@
 export const glossary = {
-  // Termos principais
+  // Sistema central
   "anchor": "streamer",
-  "anchors": "streamers",
+  "new anchor": "streamer novato",
   "novice anchor": "streamer novato",
   "rookie anchor": "streamer novato",
+  "old anchor": "streamer veterano",
   "senior anchor": "streamer veterano",
+  "host": "streamer",
 
   "live broadcast": "transmissão ao vivo",
   "live broadcast room": "sala de transmissão",
   "live room": "sala de transmissão",
-  "broadcasting interface": "interface da transmissão",
+  "broadcast room": "sala de transmissão",
+  "live broadcasting backstage": "bastidores da transmissão",
+  "broadcast interface": "interface da transmissão",
+  "live broadcast interface": "interface da transmissão",
+  "live broadcast square": "praça de transmissões ao vivo",
+  "Anchor Hall": "Salão dos Streamers",
+
   "barrage": "comentários",
   "comments": "comentários",
-  "viewers": "espectadores",
   "audience": "audiência",
+  "viewer": "espectador",
+  "viewers": "espectadores",
+  "online viewers": "espectadores online",
+  "popularity": "popularidade",
 
+  // Instância / jogo
   "instance": "instância",
+  "Instance": "Instância",
+  "instance difficulty": "dificuldade da instância",
+  "Instance Difficulty Level": "Nível de dificuldade da instância",
+  "difficulty level": "nível de dificuldade",
+  "clear the instance": "concluir a instância",
+  "clearing the instance": "concluir a instância",
+  "instance exploration": "exploração da instância",
+  "exploration degree": "grau de exploração",
+  "completion degree": "grau de conclusão",
+  "unlocking progress": "progresso de desbloqueio",
+  "plot modification": "modificação da trama",
+  "plot deviation": "desvio da trama",
+
+  // Pontos / recompensas
+  "points": "pontos",
+  "reward points": "pontos de recompensa",
+  "settlement": "liquidação",
+  "point settlement": "cálculo de pontos",
+  "system store": "loja do sistema",
+  "renaming card": "cartão de renomeação",
+  "survival time": "tempo de sobrevivência",
+  "Initial survival time allocation": "Alocação inicial do tempo de sobrevivência",
+  "Survival time allocation completed": "Alocação do tempo de sobrevivência concluída",
+
+  // Itens
+  "prop": "item",
+  "props": "itens",
+  "hidden item": "item oculto",
+  "hidden items": "itens ocultos",
+  "collection degree": "grau de coleta",
+  "collection progress": "progresso de coleta",
+  "novice gift": "presente de iniciante",
+  "novice gift package": "pacote de presente de iniciante",
+  "Product Name": "Nome do item",
+  "Apple Seedling": "Muda de maçã",
+
+  // Interface
+  "Identity Card": "Cartão de Identidade",
+  "ID Card": "Cartão de Identidade",
+  "Name": "Nome",
+  "Age": "Idade",
+  "Occupation": "Profissão",
+  "Related Plot": "Relacionado à Trama",
+  "Not unlocked": "Não desbloqueado",
+  "Not yet unlocked": "Ainda não desbloqueado",
+  "Status": "Status",
+  "On air": "Ao vivo",
+  "Viewing Value": "Valor de audiência",
+
+  // Organizações / conceitos
+  "Nightmare Live Studio": "Nightmare Live Studio",
+  "Nightmare live broadcast room": "sala de transmissão do Nightmare",
+  "guild": "guilda",
+  "big guild": "grande guilda",
+  "Oracle": "Oracle",
+  "Dark Fire": "Dark Fire",
+
+  // Arcos — manter como nomes próprios
+  "Decai Middle School": "Decai Middle School",
+  "Fukang Hospital": "Fukang Hospital",
+  "Antai Community": "Antai Community",
+  "Fantasy Amusement Park": "Fantasy Amusement Park",
+  "Ping An Asylum": "Ping An Asylum",
+  "Changsheng Building": "Changsheng Building",
+  "Xingwang Hotel": "Xingwang Hotel",
+  "Yuying University": "Yuying University",
+  "Lucky Cruise Ship": "Lucky Cruise Ship",
+
+  // Personagens — manter
+  "Wen Jianyan": "Wen Jianyan",
+  "Su Cheng": "Su Cheng",
+  "Wu Zhu": "Wu Zhu",
+  "Orange Candy": "Orange Candy",
+  "Hugo": "Hugo",
+  "Blond": "Blond",
+  "Chen Mo": "Chen Mo",
+  "Yun Bilan": "Yun Bilan",
+  "Wen Ya": "Wen Ya",
+  "Qi Qian": "Qi Qian",
+  "Bai Xue": "Bai Xue",
+  "Dan Zhu": "Dan Zhu",
+  "An Xin": "An Xin",
+  "Ji Guan": "Ji Guan",
+
+  // Correções recorrentes
+  "countless suns": "inúmeros sóis",
+  "palm-sized": "do tamanho da palma da mão",
+  "edge of the table": "borda da mesa",
+  "psychological quality": "controle psicológico",
+  "soul quality": "qualidade da alma",
+  "streamer soul quality": "qualidade da alma",
+  "creepy": "sinistro",
+  "downright creepy": "absolutamente sinistro",
+
+  // Sistema central — variações adicionais
+  "anchors": "streamers",
+  "streamers": "streamers",
+  "broadcasting interface": "interface da transmissão",
+  "live broadcasting room": "sala de transmissão",
+  "online audience": "espectadores online",
+  "audience rewards": "recompensas da audiência",
+
+  // Instância / jogo — variações adicionais
   "instances": "instâncias",
   "task": "tarefa",
   "main task": "tarefa principal",
-  "hidden item": "item oculto",
-  "survival time": "tempo de sobrevivência",
-  "countdown": "contagem regressiva",
-  "points": "pontos",
-  "reward points": "pontos de recompensa",
-
-  "ID card": "cartão de identidade",
-  "identity card": "cartão de identidade",
-  "system store": "loja do sistema",
-  "renaming card": "cartão de renomeação",
-
-  // Termos de mundo — preferencialmente manter
-  "Nightmare": "Nightmare",
-  "Nightmare Live Studio": "Nightmare Live Studio",
-  "Dark Fire": "Dark Fire",
-  "Oracle": "Oracle",
-  "Integrity First": "Integridade em Primeiro Lugar",
-
-  // Locais / títulos próprios
-  "Decai Middle School": "Decai Middle School",
-  "Fukang Hospital": "Fukang Hospital",
-  "Fukang Private General Hospital": "Fukang Private General Hospital",
-  "Anchor Hall": "Anchor Hall",
-  "Antai Community": "Antai Community",
-  "Fantasy Amusement Park": "Fantasy Amusement Park",
-  "Ping'an Asylum": "Ping'an Asylum",
-  "Lucky Cruise Ship": "Lucky Cruise Ship",
-  "Infinite Train": "Infinite Train",
-
-  // UI / sistema
-  "Instance Difficulty Level": "Nível de dificuldade da instância",
+  "live broadcast task": "tarefa da transmissão ao vivo",
+  "Instance Exploration": "Exploração da instância",
   "Highest Unlocking Progress": "Maior progresso de desbloqueio",
-  "Viewing Value": "Valor de visualização",
   "Completion Degree": "Grau de conclusão",
   "Collection Degree": "Grau de coleta",
-  "Product Name": "Nome do produto",
+  "Collection Progress": "Progresso de coleta",
+  "Plot Modification": "Modificação da trama",
+  "Plot Deviation": "Desvio da trama",
 
-  // Expressões que costumam sair mal
+  // Recompensas / itens — variações adicionais
   "newbie gift": "presente de iniciante",
-  "novice gift": "presente de iniciante",
   "rookie gift": "presente de iniciante",
+  "gift package": "pacote de presente",
   "flower pot": "vaso de flores",
-  "apple seedling": "muda de maçã",
+
+  // Interface — variações adicionais
+  "ID card": "cartão de identidade",
+  "identity card": "cartão de identidade",
+  "Initial Survival Time": "Tempo de sobrevivência inicial",
+
+  // Organizações / conceitos adicionais
+  "Nightmare": "Nightmare",
+  "Integrity First": "Integrity First",
+
+  // Locais / arcos adicionais
+  "Fukang Private General Hospital": "Fukang Private General Hospital",
+  "Ping'an Asylum": "Ping'an Asylum",
+  "Infinite Train": "Infinite Train",
+
+  // Personagens adicionais
+  "Tong Yao": "Tong Yao",
+  "Zhang Yu": "Zhang Yu",
+  "Kong Shixing": "Kong Shixing",
+  "Xu Yuan": "Xu Yuan",
+  "Xiao Jie": "Xiao Jie",
+  "Cheng Wei": "Cheng Wei",
+  "Dean Shen": "Dean Shen",
+  "Teacher Yang": "Teacher Yang",
+  "Wang Ping": "Wang Ping",
+  "Mason": "Mason",
+  "Xiao Wen": "Xiao Wen",
+
+  // Correções recorrentes adicionais
+  "psychological quality is good": "tem bom controle psicológico",
+  "soul contract": "contrato da alma",
+  "palm-sized screen": "tela do tamanho da palma da mão",
+  "viewing experience": "experiência de visualização",
+  "blood-red": "vermelho-sangue",
+  "scarlet": "escarlate",
+  "half-melted": "meio derretido",
+  "needle-like pain": "dor fina como agulhadas",
+
+  // Correções EPUB adicionais
+  "countdown": "contagem regressiva",
+  "spotlight": "holofote",
+  "distress": "angústia",
+  "corners of the eyes": "cantos dos olhos",
+  "corners of the mouth": "cantos da boca",
 };
+
+export const NON_PROTECTABLE_GLOSSARY_TERMS = [
+  "anchor",
+  "anchors",
+  "host",
+  "viewer",
+  "viewers",
+  "audience",
+  "comments",
+  "instance",
+  "instances",
+  "task",
+  "points",
+  "reward points",
+  "status",
+  "name",
+  "age",
+  "occupation",
+];
+
+export function isStructuralGlossaryTerm(term = "") {
+  return NON_PROTECTABLE_GLOSSARY_TERMS.includes(term);
+}
