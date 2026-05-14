@@ -158,7 +158,7 @@ REGRAS ABSOLUTAS:
 - Preserve diálogos.
 - Preserve quebras de parágrafo.
 - Preserve a quantidade de parágrafos sempre que possível.
-- Não traduza tokens como [[NAME_001]], [[NAME_002]], etc.
+- Não traduza tokens como §§NAME_0001§§, §§NAME_0002§§, etc.
 - Não altere nomes próprios.
 - Preserve nomes de personagens, organizações, locais e sistemas.
 - Preserve o tom narrativo de suspense, horror, humor e webnovel.
@@ -202,7 +202,7 @@ REGRAS ABSOLUTAS:
 - Não acrescente cenas.
 - Não reescreva a história.
 - Não mude o significado.
-- Não altere tokens como [[NAME_001]], [[NAME_002]], etc.
+- Não altere tokens como §§NAME_0001§§, §§NAME_0002§§, etc.
 - Não altere nomes próprios.
 - Preserve diálogos.
 - Preserve quebras de parágrafo.
@@ -261,7 +261,7 @@ REGRAS ABSOLUTAS:
 - Não remova diálogos.
 - Não adicione comentários.
 - Não altere nomes próprios.
-- Não altere tokens [[NAME_001]], [[NAME_002]], etc.
+- Não altere tokens §§NAME_0001§§, §§NAME_0002§§, etc.
 - Preserve a mesma quantidade de parágrafos sempre que possível.
 - Nunca remova linhas.
 - Nunca combine parágrafos sem necessidade.

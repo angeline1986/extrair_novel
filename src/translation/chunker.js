@@ -172,6 +172,8 @@ function isSystemBlock(text) {
   return (
     /^\[.*?\]/.test(trimmed) ||
     /^【.*?】/.test(trimmed) ||
-    /^[-—]*\s*(Nome|Idade|Profissão|Status|Espectadores|Sala|Nível|Grau|Progresso|Valor|Relacionado|Alocação|Pontos|Item|Produto)/i.test(trimmed)
+    /^[-—]*\s*(Nome|Idade|Profissão|Status|Espectadores|Sala|Nível|Grau|Progresso|Valor|Relacionado|Alocação|Pontos|Item|Produto)/i.test(trimmed) ||
+    /^\|/.test(trimmed) ||
+    trimmed.includes("|")
   );
 }

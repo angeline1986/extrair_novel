@@ -189,9 +189,9 @@ export function validateModelOutput({
   original,
   output,
   stage = "unknown",
-  minLengthRatio = 0.7,
+  minLengthRatio = 0.55,
   maxLengthRatio = 1.8,
-  minParagraphRatio = 0.7,
+  minParagraphRatio = 0.55,
   requireSameNameTokens = true,
   checkResidualEnglish = true,
   checkSuspiciousPortuguese = true,
@@ -220,13 +220,15 @@ export function validateModelOutput({
   if (outputLength < originalLength * minLengthRatio) {
     const message = `[${stage}] Resposta muito curta: ${outputLength}/${originalLength} caracteres.`;
     warnings.push(message);
-    severeErrors.push(message);
+
+    if (outputLength < originalLength * 0.35) {
+      severeErrors.push(message);
+    }
   }
 
   if (outputLength > originalLength * maxLengthRatio) {
     const message = `[${stage}] Resposta muito longa: ${outputLength}/${originalLength} caracteres.`;
     warnings.push(message);
-    severeErrors.push(message);
   }
 
   const originalParagraphs = countParagraphs(original);
@@ -235,7 +237,6 @@ export function validateModelOutput({
   if (outputParagraphs < originalParagraphs * minParagraphRatio) {
     const message = `[${stage}] Poucos parágrafos: ${outputParagraphs}/${originalParagraphs}.`;
     warnings.push(message);
-    severeErrors.push(message);
   }
 
   if (hasAssistantPreamble(output)) {
@@ -312,7 +313,7 @@ export function countParagraphs(text) {
 }
 
 export function findNameTokens(text) {
-  return [...new Set(text.match(/\[\[NAME_\d+\]\]/g) ?? [])];
+  return [...new Set(text.match(/§§NAME_\d+§§/g) ?? [])];
 }
 
 export function findMissingNameTokens(original, output) {

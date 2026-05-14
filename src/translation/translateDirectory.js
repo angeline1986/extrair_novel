@@ -38,17 +38,17 @@ async function main() {
     try {
       await translateDocx(inputPath, {
         outputPath,
-        model: "qwen3:8b",
+        model: "qwen2.5:7b",
         onlyFirstChapter: false,
-        runReview: true,
+        runReview: false,
         runPolish: true,
         abortOnInvalidTranslation: false,
-        translationMaxChars: 3000,
-        reviewMaxChars: 1500,
-        polishMaxChars: 1200,
-        translationNumPredict: 4096,
-        reviewNumPredict: 2048,
-        polishNumPredict: 2048,
+        translationMaxChars: 2600,
+        reviewMaxChars: 2600,
+        polishMaxChars: 2600,
+        translationNumPredict: 3072,
+        reviewNumPredict: 3072,
+        polishNumPredict: 3072,
       });
 
       successCount += 1;

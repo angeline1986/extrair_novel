@@ -1,6 +1,6 @@
 const DEFAULT_OLLAMA_URL = "http://localhost:11434/api/generate";
 
-export async function translateWithOllama(prompt, model = "qwen3:8b", options = {}) {
+export async function translateWithOllama(prompt, model = "qwen2.5:7b", options = {}) {
   const url = options.url ?? process.env.OLLAMA_URL ?? DEFAULT_OLLAMA_URL;
 
   const payload = {
@@ -19,12 +19,12 @@ Não inclua raciocínio.
 Não inclua notas.
 Não use tags como <think>, </think> ou /think.`,
     options: removeUndefinedValues({
-      temperature: options.temperature ?? 0.1,
-      top_p: options.topP ?? 0.9,
+      temperature: options.temperature ?? 0.15,
+      top_p: options.topP ?? 0.85,
       top_k: options.topK,
       num_ctx: options.numCtx,
-      num_predict: options.numPredict ?? 4096,
-      repeat_penalty: options.repeatPenalty ?? 1.08,
+      num_predict: options.numPredict ?? 3072,
+      repeat_penalty: options.repeatPenalty ?? 1.12,
     }),
   };
 
@@ -49,7 +49,7 @@ Não use tags como <think>, </think> ou /think.`,
   } catch (error) {
     if (error.name === "AbortError") {
       throw new Error(
-        `Timeout no Ollama após ${timeoutMs}ms. Considere reduzir numPredict/maxChars ou aumentar timeoutMs.`
+        `AbortError/timeout no Ollama após ${timeoutMs}ms. Considere reduzir numPredict/maxChars ou aumentar timeoutMs.`
       );
     }
 

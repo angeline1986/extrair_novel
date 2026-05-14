@@ -1,19 +1,13 @@
-import { glossary } from "./glossary.js";
-
 const PROTECTED_PATTERNS = [
-  // tokens já protegidos
-  /\[\[NAME_\d+\]\]/g,
+  // tokens já protegidos no novo formato
+  /§§NAME_\d+§§/g,
 
-  // códigos mistos
-  /\b[a-zA-Z]+\d+[a-zA-Z0-9]*\b/g,
-  /\b\d+[a-zA-Z]+[a-zA-Z0-9]*\b/g,
+  // códigos especiais e identificadores com letras e números
+  /\b(?=[A-Za-z0-9]*\d)(?=[A-Za-z0-9]*[A-Za-z])[A-Za-z0-9]{6,}\b/g,
 
-  // colchetes/sistema
+  // colchetes/sistema leves
   /\[[^\]]+\]/g,
   /【[^】]+】/g,
-
-  // ids/salas
-  /\b\d{3,}[a-z]{2,}\b/gi,
 ];
 
 const FIXED_PROTECTED_TERMS = [
@@ -153,19 +147,6 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function getProtectedGlossaryTerms() {
-  return Object.keys(glossary).filter((term) => {
-    return FIXED_PROTECTED_TERMS.includes(term) || isLikelyProtectedTitle(term);
-  });
-}
-
-function isLikelyProtectedTitle(term) {
-  return (
-    /\b(School|Hospital|Community|Amusement Park|Asylum|Building|Hotel|University|Cruise Ship|Train|Studio|Oracle|Fire|Hall)\b/.test(term) ||
-    term.includes("Nightmare")
-  );
-}
-
 export function protectNames(text, names = []) {
   let protectedText = text;
 
@@ -177,7 +158,6 @@ export function protectNames(text, names = []) {
     ...new Set([
       ...names,
       ...FIXED_PROTECTED_TERMS,
-      ...getProtectedGlossaryTerms(),
     ]),
   ]
     .filter(Boolean)
@@ -217,11 +197,11 @@ export function protectNames(text, names = []) {
 }
 
 function alreadyProtected(text) {
-  return /\[\[NAME_\d+\]\]/.test(text);
+  return /§§NAME_\d+§§/.test(text);
 }
 
 function createToken(number) {
-  return `[[NAME_${String(number).padStart(4, "0")}]]`;
+  return `§§NAME_${String(number).padStart(4, "0")}§§`;
 }
 
 export function restoreNames(text, map) {

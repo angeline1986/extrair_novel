@@ -31,7 +31,7 @@ IMPORTANTE:
 - NÃO use markdown.
 - NÃO explique nada.
 - NÃO altere nomes próprios.
-- NÃO altere tokens [[NAME_001]], [[NAME_002]], etc.
+- NÃO altere tokens §§NAME_0001§§, §§NAME_0002§§, etc.
 - Responda SOMENTE com o texto revisado.
 
 Seu trabalho é SOMENTE:
@@ -163,8 +163,8 @@ function hasSuspiciousExpansion(original, reviewed, ratio = 1.9) {
 }
 
 function hasLostNameTokens(original, reviewed) {
-  const originalTokens = original.match(/\[\[NAME_\d+\]\]/g) ?? [];
-  const reviewedTokens = reviewed.match(/\[\[NAME_\d+\]\]/g) ?? [];
+  const originalTokens = original.match(/§§NAME_\d+§§/g) ?? [];
+  const reviewedTokens = reviewed.match(/§§NAME_\d+§§/g) ?? [];
 
   return originalTokens.some((token) => !reviewedTokens.includes(token));
 }
@@ -258,7 +258,7 @@ function shouldKeepOriginalBecauseOfStructure(originalChunk, reviewed, blockInde
 }
 
 export async function reviewTranslation(text, options = {}) {
-  const model = options.model ?? "qwen3:8b";
+  const model = options.model ?? "qwen2.5:7b";
 
   // menor para reduzir risco de resumo/corte
   const maxChars = options.maxChars ?? 1500;

@@ -31,7 +31,7 @@ IMPORTANTE:
 - NÃO use markdown.
 - NÃO explique nada.
 - NÃO altere nomes próprios.
-- NÃO altere tokens [[NAME_001]], [[NAME_002]], etc.
+- NÃO altere tokens §§NAME_0001§§, §§NAME_0002§§, etc.
 - Responda SOMENTE com o texto final polido.
 
 Seu trabalho é SOMENTE:
@@ -163,8 +163,8 @@ function hasSuspiciousExpansion(original, polished, ratio = 1.8) {
 }
 
 function hasLostNameTokens(original, polished) {
-  const originalTokens = original.match(/\[\[NAME_\d+\]\]/g) ?? [];
-  const polishedTokens = polished.match(/\[\[NAME_\d+\]\]/g) ?? [];
+  const originalTokens = original.match(/§§NAME_\d+§§/g) ?? [];
+  const polishedTokens = polished.match(/§§NAME_\d+§§/g) ?? [];
 
   return originalTokens.some((token) => !polishedTokens.includes(token));
 }
@@ -258,12 +258,12 @@ function shouldKeepOriginalBecauseInvalid(originalChunk, polished, blockIndex) {
 }
 
 export async function finalPolish(text, options = {}) {
-  const model = options.model ?? "qwen3:8b";
+  const model = options.model ?? "qwen2.5:7b";
 
-  // menor para evitar perda de conteúdo
-  const maxChars = options.maxChars ?? 1200;
+  // chunks maiores para qwen2.5:7b e menos fragmentação
+  const maxChars = options.maxChars ?? 2600;
 
-  const numPredict = options.numPredict ?? 2048;
+  const numPredict = options.numPredict ?? 3072;
 
   console.log("✨ Polimento final da tradução...");
 

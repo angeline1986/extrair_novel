@@ -153,7 +153,7 @@ export async function translateDocx(inputPath, options = {}) {
 
   const chunks = chunkText(
     protectedText,
-    options.translationMaxChars ?? 1800
+    options.translationMaxChars ?? 2600
   );
 
   console.log(`✅ Total de blocos: ${chunks.length}`);
@@ -180,8 +180,8 @@ export async function translateDocx(inputPath, options = {}) {
 
     try {
       translated = await translateWithOllama(prompt, model, {
-        temperature: options.translationTemperature ?? 0.1,
-        numPredict: options.translationNumPredict ?? 2048,
+        temperature: options.translationTemperature ?? 0.15,
+        numPredict: options.translationNumPredict ?? 3072,
       });
 
       translated = normalizeSystemBlocks(translated);
@@ -254,7 +254,7 @@ export async function translateDocx(inputPath, options = {}) {
       {
         model: options.reviewModel ?? model,
         maxChars: options.reviewMaxChars ?? 2600,
-        numPredict: options.reviewNumPredict ?? 2048,
+        numPredict: options.reviewNumPredict ?? 3072,
       }
     );
   } else {
@@ -269,7 +269,8 @@ export async function translateDocx(inputPath, options = {}) {
       {
         model: options.polishModel ?? model,
         maxChars: options.polishMaxChars ?? 2600,
-        numPredict: options.polishNumPredict ?? 2048,
+        numPredict: options.polishNumPredict ?? 3072,
+        temperature: options.polishTemperature ?? 0.1,
       }
     );
   } else {
