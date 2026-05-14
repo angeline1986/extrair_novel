@@ -275,6 +275,9 @@ function analyzeExpressions(rows, volume, chapterTitle, paragraphs) {
 // CORREÇÕES AUTOMÁTICAS
 // =====================================================
 
+
+
+
 function corrigirTexto(texto) {
   let t = cleanText(texto);
 
@@ -296,8 +299,26 @@ function corrigirTexto(texto) {
   );
   t = t.replace(/\bsócio do Grão-Duque\b/gi, "consorte do Grão-Duque");
 
+  // CALL -> LIGAR (telefone) errado em fantasia/histórico
+  // Regras específicas primeiro
+  t = t.replace(/\bo duque ligou para\b/gi, "o duque mandou chamar");
+  t = t.replace(/\ba princesa ligou para\b/gi, "a princesa chamou");
+
+  // Pronomes comuns
+  t = t.replace(/\bligou para ela\b/gi, "a chamou");
+  t = t.replace(/\bligou para ele\b/gi, "o chamou");
+
+  t = t.replace(/\bestava ligando para ela\b/gi, "estava chamando ela");
+  t = t.replace(/\bestava ligando para ele\b/gi, "estava chamando ele");
+
+  // Genéricos
+  t = t.replace(/\bligou para\b/gi, "mandou chamar");
+  t = t.replace(/\bligar para\b/gi, "mandar chamar");
+
+  t = t.replace(/\bme ligue\b/gi, "me chame");
+  t = t.replace(/\bligue para mim\b/gi, "mande me chamar");
+
   // Correções de gênero só quando o parágrafo cita Rensley.
-  // Isso evita trocar "ela" de outras personagens.
   if (/\bRensley\b/i.test(t)) {
     t = t
       .replace(/\bela\b/g, "ele")
@@ -323,6 +344,9 @@ function corrigirTexto(texto) {
 
   return t;
 }
+
+
+
 
 // =====================================================
 // LEITURA DOCX
