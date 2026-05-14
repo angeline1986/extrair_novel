@@ -9,3 +9,10 @@ npm-debug.log*
 *.tmp
 *.bak
 Thumbs.db
+*.swp
+*.swo
+*~
+.cache/
+.env
+.env.local
+.env.*.local
