@@ -2,6 +2,8 @@ import fs from "fs/promises";
 import path from "path";
 import mammoth from "mammoth";
 import { Document, Packer, Paragraph, TextRun } from "docx";
+import { reviewTranslation } from "./reviewTranslation.js";
+import { finalPolish } from "./finalPolish.js";
 
 import { translateWithOllama } from "./ollamaClient.js";
 import { buildTranslationPrompt } from "./prompts.js";
@@ -80,7 +82,18 @@ console.log("🧪 Modo teste: traduzindo apenas 1 capítulo.");
   }
 
   const translatedProtectedText = translatedChunks.join("\n\n");
-  const finalText = restoreNames(translatedProtectedText, map);
+  const reviewedProtectedText = await reviewTranslation(translatedProtectedText, {
+    model,
+    maxChars: 1500,
+  });
+
+  const polishedProtectedText = await finalPolish(reviewedProtectedText, {
+    model: "qwen3:8b",
+    maxChars: 1200,
+  });
+
+  const finalText = restoreNames(polishedProtectedText, map);
+
 
   const parsed = path.parse(inputPath);
   const outputPath =
