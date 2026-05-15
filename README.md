@@ -26,6 +26,8 @@ Projeto para extrair texto de arquivos DOCX, organizar traduções e gerar EPUBs
 | **Ollama** | 0.1.0 | IA para tradução automática (opcional) |
 | **Modelo** | qwen2.5:7b | Modelo de linguagem para tradução (opcional) |
 
+> `Traducao_corrigida/`, `build/`, `build_epub_docx/`, `data/` e `node_modules/` são pastas de artefatos gerados e não devem ser versionadas.
+
 ## 📦 Instalação
 
 ```bash
@@ -41,8 +43,8 @@ npm install
 
 ### Fluxo principal: gerar EPUB
 
-1. **Arquivos DOCX:** coloque os arquivos corrigidos em `data/corrected/`
-2. **Capas:** coloque a capa em `data/assets/covers/cover2.jpg`
+1. **Arquivos DOCX:** coloque os arquivos corrigidos em `Traducao_corrigida/`
+2. **Capa:** coloque `cover2.jpg` na raiz do projeto (`./cover2.jpg`)
 3. **Execute a geração:**
 
 ```bash
@@ -51,7 +53,9 @@ npm run build:epub
 
 ### Resultado
 
-O EPUB será gerado em: `build/epub/Winter_Field_PTBR_corrigido.epub`
+O EPUB final será gerado como: `./Winter_Field_PTBR_corrigido.epub`
+
+> O diretório interno temporário `build_epub_docx/` é criado durante o processo e pode ser removido após a geração.
 
 ### Fluxo de revisão de tradução
 
@@ -72,7 +76,7 @@ node src/translation/Analisar_traducao_docx.js corrigir
 #### Diretórios usados por esse utilitário
 
 - `Traducao/` → arquivos DOCX de tradução originais
-- `Traducao_corrigida/` → saída de DOCX corrigidos
+- `Traducao_corrigida/` → saída de DOCX corrigidos (entrada para a geração de EPUB)
 
 > O utilitário cobre revisão automática de gênero e expressões, além de transformar hífens de diálogo em travessões.
 
@@ -160,7 +164,7 @@ extrair_novel/
 
 ```bash
 npm start                                   # Executa o CLI principal e mostra ajuda
-npm run build:epub                          # Gera EPUB a partir de data/corrected/
+npm run build:epub                          # Gera EPUB a partir de Traducao_corrigida/
 ```
 
 ## 🧠 Scripts manuais úteis
