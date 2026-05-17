@@ -1,120 +1,83 @@
 const fs = require("fs");
 const path = require("path");
 const AdmZip = require("adm-zip");
-const cheerio = require("cheerio");
+const crypto = require("crypto");
 const { Document, Packer, Paragraph, HeadingLevel } = require("docx");
 
-const workflowDir = path.resolve(__dirname, "..");
-const inputDir = path.join(workflowDir, "input");
-const inputEpub = process.argv[2] ? path.resolve(process.argv[2]) : findSingleEpub(inputDir);
+// Importar módulos
+const config = require('./modules/config.cjs');
+const utils = require('./modules/utils.cjs');
+const textProcessor = require('./modules/text-processor.cjs');
+const chapterParser = require('./modules/chapter-parser.cjs');
+const epubReader = require('./modules/epub-reader.cjs');
+const docxGenerator = require('./modules/docx-generator.cjs');
+const validation = require('./modules/validation.cjs');
+
+const { workflowDir, inputDir, TARGET_DOCX_KB, TARGET_DOCX_BYTES, MIN_SIGNIFICANT_TEXT_CHARS, VERBOSE } = config;
+const { formatTimestampForPath, findSingleEpub, safeFileName, logVerbose } = utils;
+const { normalizeText, cleanForDocx, titleCase, isTextualEpubPath } = textProcessor;
+const { 
+  parseChapterMetaFromTocTitle, 
+  parseChapterHeader, 
+  getChapterGroup, 
+  makeFallbackMeta, 
+  chapterHeading 
+} = chapterParser;
+const { 
+  setZip, 
+  loadOpfPath, 
+  loadSpineItems, 
+  loadTocItems, 
+  mergeTocMetadataIntoSpineItems,
+  readZipText 
+} = epubReader;
+const { 
+  removeDuplicatedHeaders, 
+  estimateChapterBytes, 
+  groupChaptersByTargetSize, 
+  writeDocxFile,
+  readDocxParagraphTexts
+} = docxGenerator;
+const { 
+  setReadZipText,
+  auditSourceCoverage, 
+  createCheck, 
+  formatGroupRangeByPosition, 
+  getWorkTitleFromToc 
+} = validation;
+
+// ============================================
+// CONFIGURAÇÃO INICIAL
+// ============================================
+
+const inputEpub = process.argv[2]
+  ? path.resolve(process.argv[2])
+  : findSingleEpub(inputDir);
+
 let outputDir = process.argv[3] ? path.resolve(process.argv[3]) : "";
 let logsDir = "";
+
 const runTimestamp = formatTimestampForPath();
+
 const titleBasePath = process.argv[4]
   ? path.resolve(process.argv[4])
   : path.join(workflowDir, "input", "chapter_titles.txt");
-const CHAPTERS_PER_DOCX = Number(process.argv[5] || 4);
 
-if (!Number.isInteger(CHAPTERS_PER_DOCX) || CHAPTERS_PER_DOCX <= 0) {
-  throw new Error(`Quantidade inválida de capítulos por DOCX: ${process.argv[5]}`);
+if (!Number.isFinite(TARGET_DOCX_KB) || TARGET_DOCX_KB <= 0) {
+  throw new Error(`Tamanho-alvo inválido em KB: ${process.argv[5]}`);
 }
 
 if (!fs.existsSync(inputEpub)) {
   throw new Error(`EPUB não encontrado: ${inputEpub}`);
 }
 
-const ARC_NAME_OVERRIDES = {
-  10: "Infinite Train",
-};
-
 const zip = new AdmZip(inputEpub);
+setZip(zip);
+setReadZipText(readZipText);
 
-function formatTimestampForPath(date = new Date()) {
-  const pad = (value) => String(value).padStart(2, "0");
-
-  return [
-    pad(date.getDate()),
-    pad(date.getMonth() + 1),
-    date.getFullYear(),
-  ].join("-") + "_" + [
-    pad(date.getHours()),
-    pad(date.getMinutes()),
-    pad(date.getSeconds()),
-  ].join("-");
-}
-
-function findSingleEpub(dir) {
-  if (!fs.existsSync(dir)) {
-    throw new Error(`Pasta de entrada não encontrada: ${dir}`);
-  }
-
-  const epubFiles = fs
-    .readdirSync(dir)
-    .filter((file) => file.toLowerCase().endsWith(".epub"))
-    .sort((a, b) => a.localeCompare(b, "pt-BR", { numeric: true }));
-
-  if (epubFiles.length === 0) {
-    throw new Error(`Nenhum arquivo .epub encontrado em: ${dir}`);
-  }
-
-  if (epubFiles.length > 1) {
-    throw new Error(
-      `Mais de um arquivo .epub encontrado em ${dir}. Informe o caminho do EPUB explicitamente.`
-    );
-  }
-
-  return path.join(dir, epubFiles[0]);
-}
-
-function cleanForDocx(text) {
-  return String(text || "")
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "")
-    .replace(/\uFFFE|\uFFFF/g, "")
-    .trim();
-}
-
-function normalizeText(text) {
-  return cleanForDocx(text).replace(/\s+/g, " ").trim();
-}
-
-function readZipText(filePath) {
-  const entry = zip.getEntry(filePath);
-  if (!entry) throw new Error(`Arquivo não encontrado no EPUB: ${filePath}`);
-  return entry.getData().toString("utf8");
-}
-
-function safeFileName(name) {
-  return normalizeText(name)
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^\w\s.-]/g, "")
-    .replace(/\s+/g, "_");
-}
-
-function titleCase(str) {
-  if (!str) return "";
-
-  const lowerWords = new Set([
-    "a", "an", "and", "as", "at", "but", "by", "for", "from",
-    "in", "into", "nor", "of", "on", "or", "over", "the", "to", "with",
-  ]);
-
-  return normalizeText(str)
-    .toLowerCase()
-    .split(/\s+/)
-    .map((word, index) => {
-      if (index > 0 && lowerWords.has(word)) return word;
-      return word.charAt(0).toUpperCase() + word.slice(1);
-    })
-    .join(" ");
-}
-
-function cleanBaseTitle(title) {
-  return normalizeText(title)
-    .replace(/^\[|\]$/g, "")
-    .replace(/\.\.\.$/, "...")
-    .trim();
-}
+// ============================================
+// CARREGAR BASE DE TÍTULOS
+// ============================================
 
 function loadTitleBase(filePath) {
   const result = {
@@ -132,554 +95,170 @@ function loadTitleBase(filePath) {
 
   for (const line of lines) {
     const text = normalizeText(line);
-
     const volumeMatch = text.match(/^\*\*Volume\s+(\d+):\s*(.+?)\*\*$/i);
-
     if (volumeMatch) {
-      const volumeNumber = Number(volumeMatch[1]);
-      const volumeName = cleanBaseTitle(volumeMatch[2]);
-
-      result.arcNamesByNumber.set(volumeNumber, titleCase(volumeName));
+      result.arcNamesByNumber.set(
+        Number(volumeMatch[1]),
+        titleCase(cleanBaseTitle(volumeMatch[2]))
+      );
       continue;
     }
-
     const chapterMatch = text.match(/^(\d+)\.\s+(.+)$/);
-
     if (chapterMatch) {
-      const chapterNumber = chapterMatch[1];
-      const chapterTitle = cleanBaseTitle(chapterMatch[2]);
-
-      result.chapterTitlesByNumber.set(chapterNumber, titleCase(chapterTitle));
+      result.chapterTitlesByNumber.set(
+        chapterMatch[1],
+        titleCase(cleanBaseTitle(chapterMatch[2]))
+      );
     }
   }
-
   return result;
+}
+
+function cleanBaseTitle(title) {
+  return normalizeText(title)
+    .replace(/^\[|\]$/g, "")
+    .replace(/\.\.\.$/, "...")
+    .trim();
 }
 
 const TITLE_BASE = loadTitleBase(titleBasePath);
 
-function parseArcFromTocTitle(title) {
-  const text = normalizeText(title);
+// ============================================
+// EXTRAÇÃO DE PARÁGRAFOS (com cache)
+// ============================================
 
-  let match = text.match(/\[Arc\s*(\d+)(?::\s*([^\]]+))?\]/i);
-
-  if (match) {
-    return {
-      number: Number(match[1]),
-      name: match[2] ? normalizeText(match[2]) : null,
-    };
-  }
-
-  match = text.match(/^Arc\s*(\d+)\s*:\s*(.+)$/i);
-
-  if (match) {
-    return {
-      number: Number(match[1]),
-      name: normalizeText(match[2]),
-    };
-  }
-
-  return null;
-}
-
-function getChapterGroup(chapterNumber) {
-  return String(chapterNumber).split(".")[0];
-}
-
-function parseChapterMetaFromTocTitle(title) {
-  const text = normalizeText(title);
-
-  if (/^prologue$/i.test(text) || /^epilogue$/i.test(text)) {
-    const label = titleCase(text);
-
-    return {
-      arcName: "",
-      chapterNumber: label,
-      chapterTitle: label,
-      rawLines: [],
-    };
-  }
-
-  let match = text.match(/^(\d+)\.\s+(.+)$/);
-
-  if (!match) {
-    match = text.match(/\b(\d+)\.\s+(.+?)(?:\s+\(\d+\/\d+\))?$/);
-  }
-
-  if (!match) return null;
-
-  return {
-    arcName: "",
-    chapterNumber: normalizeText(match[1]),
-    chapterTitle: titleCase(match[2]),
-    rawLines: [],
-  };
-}
-
-function parseChapterHeader(lines, tocTitle = "") {
-  const cleanLines = lines.slice(0, 40).map(normalizeText).filter(Boolean);
-
-  for (const text of cleanLines) {
-    const titledMatch = text.match(/^(.*?)Chapter\s+([\d.]+)\s*:\s*(.+)$/i);
-
-    if (titledMatch) {
-      return {
-        arcName: normalizeText(titledMatch[1]),
-        chapterNumber: normalizeText(titledMatch[2]),
-        chapterTitle: titleCase(titledMatch[3]),
-        rawLines: [text],
-      };
-    }
-  }
-
-  for (let i = 0; i < cleanLines.length - 1; i++) {
-    const current = cleanLines[i];
-    const next = cleanLines[i + 1];
-
-    const splitMatch = next.match(/^Chapter\s+([\d.]+)\s*:\s*(.+)$/i);
-
-    if (splitMatch && !/^WTNL/i.test(current) && !/^Chapter/i.test(current)) {
-      return {
-        arcName: current,
-        chapterNumber: normalizeText(splitMatch[1]),
-        chapterTitle: titleCase(splitMatch[2]),
-        rawLines: [current, next],
-      };
-    }
-  }
-
-  for (const text of cleanLines) {
-    const looseMatch = text.match(/^Chapter\s+([\d.]+)\s*:\s*(.+)$/i);
-
-    if (looseMatch) {
-      return {
-        arcName: "",
-        chapterNumber: normalizeText(looseMatch[1]),
-        chapterTitle: titleCase(looseMatch[2]),
-        rawLines: [text],
-      };
-    }
-  }
-
-  for (let i = 0; i < cleanLines.length; i++) {
-    const text = cleanLines[i];
-
-    const fullMatch = text.match(/^(.*?)Chapter\s+([\d.]+)$/i);
-
-    if (fullMatch) {
-      return {
-        arcName: normalizeText(fullMatch[1]),
-        chapterNumber: normalizeText(fullMatch[2]),
-        chapterTitle: "",
-        rawLines: [text],
-      };
-    }
-
-    const next = cleanLines[i + 1] || "";
-    const splitMatch = next.match(/^Chapter\s+([\d.]+)$/i);
-
-    if (splitMatch && !/^WTNL/i.test(text) && !/^Chapter/i.test(text)) {
-      return {
-        arcName: text,
-        chapterNumber: normalizeText(splitMatch[1]),
-        chapterTitle: "",
-        rawLines: [text, next],
-      };
-    }
-  }
-
-  const tocMatch = normalizeText(tocTitle).match(
-    /Chapter\s+([\d.]+)(?::\s*(.+))?/i
-  );
-
-  if (tocMatch) {
-    return {
-      arcName: "",
-      chapterNumber: normalizeText(tocMatch[1]),
-      chapterTitle: tocMatch[2] ? titleCase(tocMatch[2]) : "",
-      rawLines: [],
-    };
-  }
-
-  return null;
-}
-
-function removeDuplicatedHeaders(paragraphs, meta) {
-  if (!meta) return paragraphs;
-
-  const escapedNumber = meta.chapterNumber.replace(/\./g, "\\.");
-
-  return paragraphs.filter((p, index) => {
-    const text = normalizeText(p);
-
-    if (!text) return false;
-
-    if (
-      index < 3 &&
-      /^(prologue|epilogue)$/i.test(meta.chapterNumber) &&
-      new RegExp(`^${meta.chapterNumber}$`, "i").test(text)
-    ) {
-      return false;
-    }
-
-    if (
-      index < 3 &&
-      /^\d+$/.test(meta.chapterNumber) &&
-      new RegExp(`\\b${escapedNumber}\\.\\s+.+`, "i").test(text) &&
-      text.length <= 180
-    ) {
-      return false;
-    }
-
-    // Remove: WTNL Chapter 1 [Arc 1]
-    if (/^WTNL\s+Chapter\s+[\d.]+(\s+\[.*?\])?$/i.test(text)) return false;
-
-    // Remove: Chapter 1
-    if (/^Chapter\s+[\d.]+$/i.test(text)) return false;
-
-    // Remove: Chapter 1 [Arc 1]
-    if (/^Chapter\s+[\d.]+\s+\[Arc\s*\d+\]$/i.test(text)) return false;
-
-    // Remove: Chapter 628 [Arc 10]
-    if (
-      new RegExp(
-        `^Chapter\\s+${escapedNumber}\\s+\\[Arc\\s*\\d+\\]$`,
-        "i"
-      ).test(text)
-    ) {
-      return false;
-    }
-
-    // Remove: Decai Middle SchoolChapter 2.2: Title
-    const chapterHeaderRegex = new RegExp(
-      `^.*?Chapter\\s+${escapedNumber}(?::.*)?$`,
-      "i"
-    );
-
-    if (chapterHeaderRegex.test(text)) return false;
-
-    // Remove: Thank you @Eline for the Kofi.
-    if (/^Thank you\s+@.+?\s+for the Kofi\.?$/i.test(text)) return false;
-
-    // Remove: Thanks @Name for the Kofi.
-    if (/^Thanks\s+@.+?\s+for the Kofi\.?$/i.test(text)) return false;
-
-    if (meta.rawLines.includes(text)) return false;
-
-    return true;
-  });
-}
+const paragraphCache = new Map();
 
 async function extractChapterParagraphs(chapterPath) {
+  if (paragraphCache.has(chapterPath)) {
+    return paragraphCache.get(chapterPath);
+  }
+  
   const html = readZipText(chapterPath);
-  const $ = cheerio.load(html);
-
+  const $ = require('cheerio').load(html);
   $("script, style").remove();
-
+  
   const paragraphs = [];
-
   $("h1, h2, h3, h4, p").each((_, el) => {
     const text = normalizeText($(el).text());
     if (text) paragraphs.push(text);
   });
-
+  
   if (paragraphs.length === 0) {
     const fallback = normalizeText($("body").text());
     if (fallback) paragraphs.push(fallback);
   }
-
+  
+  paragraphCache.set(chapterPath, paragraphs);
   return paragraphs;
 }
 
-const tocPath = zip
-  .getEntries()
-  .map((entry) => entry.entryName)
-  .find((name) => name.toLowerCase().endsWith("toc.ncx"));
+// ============================================
+// BUILD ITENS TEXTUAIS DO SPINE
+// ============================================
 
-if (!tocPath) {
-  throw new Error("toc.ncx não encontrado no EPUB.");
-}
-
-const tocDir = path.dirname(tocPath);
-const tocXml = readZipText(tocPath);
-const $toc = cheerio.load(tocXml, { xmlMode: true });
-
-const tocItems = [];
-
-$toc("navPoint").each((_, el) => {
-  const title = normalizeText(
-    $toc(el).children("navLabel").children("text").first().text()
-  );
-
-  const src = $toc(el).children("content").attr("src");
-  if (!src) return;
-
-  const cleanSrc = src.split("#")[0];
-  const fullPath = path
-    .normalize(path.join(tocDir, cleanSrc))
-    .replaceAll("\\", "/");
-
-  tocItems.push({ title, path: fullPath });
-});
-
-function buildArcSkeletonsFromToc(items) {
-  const arcs = [];
-  let currentArc = null;
-  let afterLastArc = false;
-
-  const extras = {
-    number: null,
-    arcName: "Extras",
-    isExtras: true,
-    items: [],
-    chapters: [],
-  };
-
-  for (const item of items) {
-    const arcStart = parseArcFromTocTitle(item.title);
-    const isEnd = /\[End\]/i.test(item.title);
-    const isChapter = /chapter/i.test(item.title);
-
-    if (arcStart) {
-      if (currentArc && currentArc.items.length > 0) arcs.push(currentArc);
-
-      currentArc = {
-        number: arcStart.number,
-        arcName: ARC_NAME_OVERRIDES[arcStart.number] || arcStart.name || null,
-        isExtras: false,
-        items: [],
-        chapters: [],
-      };
-
-      afterLastArc = false;
+async function buildAllTextualItemsFromSpine(spineItemsWithTitles) {
+  const result = [];
+  let position = 0;
+  
+  for (const item of spineItemsWithTitles) {
+    if (!isTextualEpubPath(item.path)) continue;
+    position++;
+    
+    const paragraphs = await extractChapterParagraphs(item.path);
+    const charCount = paragraphs.join("\n").length;
+    const paragraphCount = paragraphs.length;
+    
+    const textualItem = {
+      title: item.title,
+      path: item.path,
+      paragraphs,
+      charCount,
+      paragraphCount,
+      position,
+    };
+    
+    if (charCount >= MIN_SIGNIFICANT_TEXT_CHARS) {
+      result.push(textualItem);
+      continue;
     }
-
-    if (currentArc && isChapter) {
-      currentArc.items.push(item);
-    } else if (!currentArc && afterLastArc && isChapter) {
-      extras.items.push(item);
-    }
-
-    if (currentArc && isEnd) {
-      if (currentArc.items.length > 0) arcs.push(currentArc);
-      currentArc = null;
-      afterLastArc = true;
+    
+    const metaFromToc = parseChapterMetaFromTocTitle(item.title);
+    const metaFromHeader = parseChapterHeader(paragraphs, item.title);
+    
+    if (metaFromToc || metaFromHeader) {
+      result.push(textualItem);
+    } else {
+      console.log(`Ignorado (pequeno e sem título): ${item.path} | ${charCount} chars | ${item.title || "(sem título)"}`);
     }
   }
-
-  if (currentArc && currentArc.items.length > 0) arcs.push(currentArc);
-  if (extras.items.length > 0) arcs.push(extras);
-
-  return arcs;
+  
+  console.log(`Itens textuais relevantes após filtro: ${result.length}`);
+  return result;
 }
 
-function buildChapterItemsFromToc(items) {
-  const chapters = [];
-  const seenPaths = new Set();
+// ============================================
+// ENRIQUECER ITEM TEXTUAL
+// ============================================
 
-  for (const item of items) {
-    const meta = parseChapterMetaFromTocTitle(item.title);
+async function enrichTextualItem(item, position) {
+  const metaFromToc = parseChapterMetaFromTocTitle(item.title);
+  const metaFromHeader = parseChapterHeader(item.paragraphs, item.title);
 
-    if (!meta || seenPaths.has(item.path)) continue;
+  let meta = metaFromToc || metaFromHeader || makeFallbackMeta(item, position);
 
-    seenPaths.add(item.path);
-    chapters.push({ ...item, meta });
-  }
-
-  return chapters;
-}
-
-function getWorkTitleFromToc(items, fallbackPath) {
-  const firstTitle = items.find((item) => item.title)?.title;
-
-  if (firstTitle && !parseChapterMetaFromTocTitle(firstTitle)) {
-    return firstTitle;
-  }
-
-  return path.basename(fallbackPath, path.extname(fallbackPath));
-}
-
-function formatGroupRange(start, end, total) {
-  const width = Math.max(2, String(total).length);
-  const pad = (value) => String(value).padStart(width, "0");
-
-  return `${pad(start)}-${pad(end)}`;
-}
-
-async function enrichChapterItem(item) {
-  const paragraphs = await extractChapterParagraphs(item.path);
-  const meta = { ...item.meta };
   const group = getChapterGroup(meta.chapterNumber);
   const titleFromBase = TITLE_BASE.chapterTitlesByNumber.get(group);
 
-  if (titleFromBase) {
+  if (titleFromBase && !meta.isFallback) {
     meta.chapterTitle = titleFromBase;
   }
+
+  logVerbose(`Item ${position}: ${meta.isFallback ? '[FALLBACK]' : '[NORMAL]'} ${meta.chapterTitle || meta.chapterNumber} - ${item.path}`);
 
   return {
     title: item.title,
     path: item.path,
-    paragraphs,
+    paragraphs: item.paragraphs,
+    charCount: item.charCount,
+    paragraphCount: item.paragraphCount,
     meta,
+    position,
   };
 }
 
-async function enrichArc(arc) {
-  const chapters = [];
-
-  for (const item of arc.items) {
-    const paragraphs = await extractChapterParagraphs(item.path);
-    const meta = parseChapterHeader(paragraphs, item.title);
-
-    if (!meta) continue;
-
-    if (!arc.arcName && meta.arcName) {
-      arc.arcName = meta.arcName;
-    }
-
-    chapters.push({
-      title: item.title,
-      path: item.path,
-      paragraphs,
-      meta,
-    });
-  }
-
-  const titlesByGroup = new Map();
-
-  for (const chapter of chapters) {
-    const group = getChapterGroup(chapter.meta.chapterNumber);
-    const titleFromBase = TITLE_BASE.chapterTitlesByNumber.get(group);
-
-    if (titleFromBase) {
-      titlesByGroup.set(group, titleFromBase);
-    } else if (chapter.meta.chapterTitle) {
-      titlesByGroup.set(group, chapter.meta.chapterTitle);
-    }
-  }
-
-  for (const chapter of chapters) {
-    const group = getChapterGroup(chapter.meta.chapterNumber);
-
-    if (titlesByGroup.has(group)) {
-      chapter.meta.chapterTitle = titlesByGroup.get(group);
-    }
-  }
-
-  const arcNameFromBase = TITLE_BASE.arcNamesByNumber.get(arc.number);
-
-  arc.chapters = chapters;
-  arc.arcName = arc.isExtras
-    ? "Extras"
-    : ARC_NAME_OVERRIDES[arc.number] ||
-      arcNameFromBase ||
-      arc.arcName ||
-      `Arc ${arc.number}`;
-}
-
-function chapterHeading(meta, fallbackTitle) {
-  if (!meta) return normalizeText(fallbackTitle);
-
-  if (/^prologue$/i.test(meta.chapterNumber)) {
-    return normalizeText(meta.chapterTitle || fallbackTitle || "Prologue");
-  }
-
-  if (meta.chapterTitle) {
-    return normalizeText(`Chapter ${meta.chapterNumber} - ${meta.chapterTitle}`);
-  }
-
-  if (fallbackTitle && /Chapter/i.test(fallbackTitle)) {
-    return normalizeText(fallbackTitle.replace(":", " -"));
-  }
-
-  return normalizeText(`Chapter ${meta.chapterNumber} - Untitled`);
-}
-
-function chunkArray(items, size) {
-  const chunks = [];
-
-  for (let i = 0; i < items.length; i += size) {
-    chunks.push(items.slice(i, i + size));
-  }
-
-  return chunks;
-}
-
-function readDocxParagraphTexts(filePath) {
-  const docxZip = new AdmZip(filePath);
-  const entry = docxZip.getEntry("word/document.xml");
-
-  if (!entry) return [];
-
-  const xml = entry.getData().toString("utf8");
-  const $ = cheerio.load(xml, { xmlMode: true });
-  const paragraphs = [];
-
-  $("w\\:p").each((_, paragraph) => {
-    const parts = [];
-
-    $(paragraph)
-      .find("w\\:t")
-      .each((__, textNode) => {
-        parts.push($(textNode).text());
-      });
-
-    const text = normalizeText(parts.join(""));
-
-    if (text) paragraphs.push(text);
-  });
-
-  return paragraphs;
-}
-
-function createCheck(name, ok, detail) {
-  return {
-    name,
-    status: ok ? "OK" : "FAIL",
-    detail,
-  };
-}
+// ============================================
+// BUILD VALIDATION REPORT
+// ============================================
 
 function buildValidationReport({
   tocItems,
-  chapterItems,
+  spineItems,
+  textualItems,
   allChapters,
   groups,
   generatedFiles,
   workTitle,
+  auditReport,
 }) {
-  const detectedChapterEntries = tocItems.filter((item) =>
-    parseChapterMetaFromTocTitle(item.title)
+  const extractedPaths = new Set(allChapters.map((chapter) => chapter.path));
+
+  const ignoredTextualItems = textualItems.filter(
+    (item) => !extractedPaths.has(item.path) && item.charCount >= MIN_SIGNIFICANT_TEXT_CHARS
   );
-  const duplicateSourcePaths = new Map();
 
-  for (const item of detectedChapterEntries) {
-    duplicateSourcePaths.set(item.path, (duplicateSourcePaths.get(item.path) || 0) + 1);
-  }
+  const fallbackChapters = allChapters.filter((chapter) => chapter.meta.isFallback);
 
-  const duplicateEntries = [...duplicateSourcePaths.entries()]
-    .filter(([, count]) => count > 1)
-    .map(([sourcePath, count]) => ({ sourcePath, count }));
-
-  const chapterSummaries = allChapters.map((chapter) => {
+  const emptyChapters = allChapters.filter((chapter) => {
     const bodyParagraphs = removeDuplicatedHeaders(chapter.paragraphs, chapter.meta);
-
-    return {
-      position: chapter.position,
-      title: chapter.title,
-      sourcePath: chapter.path,
-      heading: chapterHeading(chapter.meta, chapter.title),
-      rawParagraphs: chapter.paragraphs.length,
-      bodyParagraphs: bodyParagraphs.length,
-      outputFile: chapter.outputFile,
-    };
+    return bodyParagraphs.length === 0;
   });
 
-  const emptyChapters = chapterSummaries.filter((chapter) => chapter.bodyParagraphs === 0);
   const expectedPositions = allChapters.map((_, index) => index + 1);
   const generatedPositions = generatedFiles.flatMap((file) =>
     file.chapters.map((chapter) => chapter.position)
   );
+
   const orderMatches =
     expectedPositions.length === generatedPositions.length &&
     expectedPositions.every((position, index) => position === generatedPositions[index]);
@@ -688,9 +267,11 @@ function buildValidationReport({
     const exists = fs.existsSync(file.outputPath);
     const sizeBytes = exists ? fs.statSync(file.outputPath).size : 0;
     const docxParagraphs = exists ? readDocxParagraphTexts(file.outputPath) : [];
+
     const missingHeadings = file.chapters
       .map((chapter) => chapter.heading)
       .filter((heading) => !docxParagraphs.includes(heading));
+
     const paragraphCountOk = docxParagraphs.length >= file.expectedParagraphCount;
 
     return {
@@ -698,6 +279,7 @@ function buildValidationReport({
       outputPath: file.outputPath,
       exists,
       sizeBytes,
+      sizeKB: Number((sizeBytes / 1024).toFixed(1)),
       expectedParagraphCount: file.expectedParagraphCount,
       docxParagraphCount: docxParagraphs.length,
       paragraphCountOk,
@@ -708,22 +290,24 @@ function buildValidationReport({
 
   const checks = [
     createCheck(
-      "Capítulos únicos extraídos",
-      allChapters.length === chapterItems.length,
-      `${allChapters.length}/${chapterItems.length}`
+      "Nenhum bloco textual grande ignorado (filtro)",
+      ignoredTextualItems.length === 0,
+      ignoredTextualItems.length
+        ? ignoredTextualItems.map((item) => `${item.title || "(sem título)"} - ${item.path} - ${item.charCount} caracteres`).join("; ")
+        : "Nenhum bloco textual grande ficou fora do filtro."
     ),
     createCheck(
       "Nenhum capítulo sem conteúdo",
       emptyChapters.length === 0,
       emptyChapters.length
-        ? emptyChapters.map((chapter) => `${chapter.position}: ${chapter.heading}`).join("; ")
+        ? emptyChapters.map((chapter) => `${chapter.position}: ${chapterHeading(chapter.meta, chapter.title)}`).join("; ")
         : "Todos os capítulos têm corpo de texto."
     ),
     createCheck(
       "Ordem dos capítulos",
       orderMatches,
       orderMatches
-        ? "A ordem gerada segue a ordem do índice do EPUB."
+        ? "A ordem gerada segue a ordem textual do EPUB."
         : `Esperado ${expectedPositions.join(", ")}; gerado ${generatedPositions.join(", ")}`
     ),
     createCheck(
@@ -734,26 +318,17 @@ function buildValidationReport({
     createCheck(
       "Arquivos DOCX existentes",
       fileReports.every((file) => file.exists && file.sizeBytes > 0),
-      fileReports
-        .filter((file) => !file.exists || file.sizeBytes === 0)
-        .map((file) => file.fileName)
-        .join("; ") || "Todos os DOCX foram criados com conteúdo."
+      fileReports.filter((file) => !file.exists || file.sizeBytes === 0).map((file) => file.fileName).join("; ") || "Todos os DOCX foram criados com conteúdo."
     ),
     createCheck(
       "Títulos encontrados nos DOCX",
       fileReports.every((file) => file.missingHeadings.length === 0),
-      fileReports
-        .filter((file) => file.missingHeadings.length > 0)
-        .map((file) => `${file.fileName}: ${file.missingHeadings.join("; ")}`)
-        .join(" | ") || "Todos os títulos esperados foram encontrados."
+      fileReports.filter((file) => file.missingHeadings.length > 0).map((file) => `${file.fileName}: ${file.missingHeadings.join("; ")}`).join(" | ") || "Todos os títulos esperados foram encontrados."
     ),
     createCheck(
       "Contagem mínima de parágrafos nos DOCX",
       fileReports.every((file) => file.paragraphCountOk),
-      fileReports
-        .filter((file) => !file.paragraphCountOk)
-        .map((file) => `${file.fileName}: ${file.docxParagraphCount}/${file.expectedParagraphCount}`)
-        .join("; ") || "Todos os DOCX têm a contagem mínima esperada."
+      fileReports.filter((file) => !file.paragraphCountOk).map((file) => `${file.fileName}: ${file.docxParagraphCount}/${file.expectedParagraphCount}`).join("; ") || "Todos os DOCX têm a contagem mínima esperada."
     ),
   ];
 
@@ -764,18 +339,30 @@ function buildValidationReport({
     outputDir,
     logsDir,
     workTitle,
-    chaptersPerDocx: CHAPTERS_PER_DOCX,
+    targetDocxKB: TARGET_DOCX_KB,
+    minSignificantTextChars: MIN_SIGNIFICANT_TEXT_CHARS,
     summary: {
       tocItems: tocItems.length,
-      detectedChapterEntries: detectedChapterEntries.length,
-      duplicateDetectedEntries: duplicateEntries.length,
-      uniqueChapters: allChapters.length,
+      spineItems: spineItems.length,
+      textualItemsFromSpine: textualItems.length,
+      extractedItems: allChapters.length,
+      fallbackChapters: fallbackChapters.length,
       docxFiles: generatedFiles.length,
       emptyChapters: emptyChapters.length,
+      ignoredTextualItems: ignoredTextualItems.length,
+      obligatoryItems: auditReport.summary.obligatoryItems,
+      missingObligatoryItems: auditReport.summary.missingObligatoryItems,
     },
-    duplicateEntries,
     checks,
-    chapters: chapterSummaries,
+    fallbackChapters: fallbackChapters.map((chapter) => ({
+      position: chapter.position,
+      title: chapter.title,
+      sourcePath: chapter.path,
+      heading: chapterHeading(chapter.meta, chapter.title),
+      charCount: chapter.charCount,
+    })),
+    ignoredTextualItems,
+    audit: auditReport,
     files: fileReports,
   };
 }
@@ -786,7 +373,14 @@ function buildValidationSummaryText(report) {
     `EPUB: ${report.epub}`,
     `Saída: ${report.outputDir}`,
     `Obra: ${report.workTitle}`,
-    `Capítulos únicos: ${report.summary.uniqueChapters}`,
+    `Tamanho-alvo por DOCX: ${report.targetDocxKB} KB`,
+    `Itens no TOC: ${report.summary.tocItems}`,
+    `Itens no spine: ${report.summary.spineItems}`,
+    `Itens textuais relevantes do spine: ${report.summary.textualItemsFromSpine}`,
+    `Itens extraídos: ${report.summary.extractedItems}`,
+    `Blocos fallback: ${report.summary.fallbackChapters}`,
+    `Blocos obrigatórios do spine: ${report.summary.obligatoryItems}`,
+    `Blocos obrigatórios ausentes: ${report.summary.missingObligatoryItems}`,
     `DOCX gerados: ${report.summary.docxFiles}`,
     "",
     "Validações:",
@@ -796,16 +390,31 @@ function buildValidationSummaryText(report) {
     lines.push(`- ${check.status}: ${check.name} - ${check.detail}`);
   }
 
+  if (report.fallbackChapters.length) {
+    lines.push("", "Blocos incluídos por fallback:");
+    for (const chapter of report.fallbackChapters) {
+      lines.push(`- ${chapter.position}: ${chapter.heading} | ${chapter.charCount} chars | ${chapter.sourcePath}`);
+    }
+  }
+
+  if (report.ignoredTextualItems.length) {
+    lines.push("", "Blocos textuais ignorados (pequenos e sem título):");
+    for (const item of report.ignoredTextualItems) {
+      lines.push(`- ${item.title || "(sem título)"} | ${item.charCount} chars | ${item.path}`);
+    }
+  }
+
+  if (report.audit.missingObligatoryItems > 0) {
+    lines.push("", "⚠️  BLOCOS OBRIGATÓRIOS AUSENTES DOS DOCX:");
+    for (const missing of report.audit.missingItems) {
+      lines.push(`- ${missing.path} | ${missing.charCount} chars | título TOC: ${missing.title}`);
+    }
+  }
+
   lines.push("", "Arquivos:");
-
   for (const file of report.files) {
-    const chapterRange = file.chapters
-      .map((chapter) => chapter.position)
-      .join(", ");
-
-    lines.push(
-      `- ${file.fileName}: capítulos ${chapterRange}; ${file.docxParagraphCount} parágrafos no DOCX`
-    );
+    const chapterRange = file.chapters.map((chapter) => chapter.position).join(", ");
+    lines.push(`- ${file.fileName}: itens ${chapterRange}; ${file.sizeKB} KB; ${file.docxParagraphCount} parágrafos`);
   }
 
   return `${lines.join("\n")}\n`;
@@ -823,73 +432,12 @@ function writeValidationReports(report) {
   console.log(`Status da validação: ${report.status}`);
 }
 
-async function writeDocxFile({ title, chapters, fileName }) {
-  const children = [
-    new Paragraph({
-      text: cleanForDocx(title),
-      heading: HeadingLevel.TITLE,
-    }),
-  ];
-  const chapterReports = [];
-
-  for (const chapter of chapters) {
-    const heading = chapterHeading(chapter.meta, chapter.title);
-
-    children.push(
-      new Paragraph({
-        text: cleanForDocx(heading),
-        heading: HeadingLevel.HEADING_1,
-        spacing: {
-          after: 380,
-        },
-      })
-    );
-
-    const bodyParagraphs = removeDuplicatedHeaders(chapter.paragraphs, chapter.meta);
-
-    chapterReports.push({
-      position: chapter.position,
-      title: chapter.title,
-      sourcePath: chapter.path,
-      heading,
-      bodyParagraphs: bodyParagraphs.length,
-    });
-
-    for (const text of bodyParagraphs) {
-      const cleanText = cleanForDocx(text);
-      if (!cleanText) continue;
-
-      children.push(
-        new Paragraph({
-          text: cleanText,
-          spacing: { after: 160 },
-        })
-      );
-    }
-  }
-
-  const doc = new Document({
-    sections: [{ children }],
-  });
-
-  const buffer = await Packer.toBuffer(doc);
-  const outputPath = path.join(outputDir, fileName);
-
-  fs.writeFileSync(outputPath, buffer);
-  console.log(`Gerado: ${outputPath}`);
-
-  return {
-    title,
-    fileName,
-    outputPath,
-    expectedParagraphCount: children.length,
-    chapters: chapterReports,
-  };
-}
+// ============================================
+// MAIN
+// ============================================
 
 (async () => {
-  const chapterItems = buildChapterItemsFromToc(tocItems);
-  const allChapters = [];
+  const tocItems = loadTocItems();
   const workTitle = getWorkTitleFromToc(tocItems, inputEpub);
 
   if (!outputDir) {
@@ -905,52 +453,77 @@ async function writeDocxFile({ title, chapters, fileName }) {
   console.log(`Saída: ${outputDir}`);
   console.log(`Logs: ${logsDir}`);
   console.log(`Base de títulos: ${titleBasePath}`);
-  console.log(`Capítulos por DOCX: ${CHAPTERS_PER_DOCX}`);
+  console.log(`Tamanho-alvo por DOCX: ${TARGET_DOCX_KB} KB`);
 
-  console.log(`Capítulos encontrados no índice: ${chapterItems.length}`);
+  const opfPath = loadOpfPath();
+  console.log(`Arquivo OPF encontrado: ${opfPath}`);
+  
+  const spineItems = loadSpineItems(opfPath);
+  const spineItemsWithTitles = mergeTocMetadataIntoSpineItems(spineItems, tocItems);
+  const textualItems = await buildAllTextualItemsFromSpine(spineItemsWithTitles);
 
-  for (const item of chapterItems) {
-    const chapter = await enrichChapterItem(item);
-    chapter.position = allChapters.length + 1;
+  console.log(`Itens no TOC: ${tocItems.length}`);
+  console.log(`Itens no spine: ${spineItems.length}`);
+  console.log(`Itens textuais relevantes extraídos do spine: ${textualItems.length}`);
+
+  const allChapters = [];
+
+  for (const item of textualItems) {
+    if (item.charCount === 0) continue;
+    const chapter = await enrichTextualItem(item, allChapters.length + 1);
     allChapters.push(chapter);
   }
 
   if (!allChapters.length) {
-    console.warn("Nenhum capítulo encontrado para gerar DOCX.");
+    console.warn("Nenhum item textual encontrado para gerar DOCX.");
     return;
   }
 
-  const groups = chunkArray(allChapters, CHAPTERS_PER_DOCX);
+  console.log(`Itens extraídos para DOCX: ${allChapters.length}`);
+
+  const fallbackCount = allChapters.filter((chapter) => chapter.meta.isFallback).length;
+  if (fallbackCount > 0) {
+    console.warn(`Atenção: ${fallbackCount} bloco(s) foram incluídos por fallback, pois não tinham título padrão de capítulo.`);
+  }
+
+  const groups = groupChaptersByTargetSize(allChapters, TARGET_DOCX_BYTES);
   const generatedFiles = [];
 
   for (let i = 0; i < groups.length; i++) {
     const group = groups[i];
-    const groupNumber = String(i + 1).padStart(3, "0");
-    const firstPosition = i * CHAPTERS_PER_DOCX + 1;
-    const lastPosition = firstPosition + group.length - 1;
-    const range = formatGroupRange(firstPosition, lastPosition, allChapters.length);
-    const title = `Chapter Group ${groupNumber}`;
+    const range = formatGroupRangeByPosition(group, allChapters.length);
     const fileName = `${safeFileName(workTitle)}_cap_${range}.docx`;
 
     for (const chapter of group) {
       chapter.outputFile = fileName;
     }
 
-    generatedFiles.push(await writeDocxFile({
-      title,
-      chapters: group,
-      fileName,
-    }));
+    generatedFiles.push(
+      await writeDocxFile({
+        title: `Chapter Group ${String(i + 1).padStart(3, "0")}`,
+        chapters: group,
+        fileName,
+        outputDir,
+      })
+    );
   }
 
-  writeValidationReports(
-    buildValidationReport({
-      tocItems,
-      chapterItems,
-      allChapters,
-      groups,
-      generatedFiles,
-      workTitle,
-    })
-  );
+  const { auditReport } = auditSourceCoverage(spineItems, generatedFiles, workTitle, allChapters);
+  
+  const report = buildValidationReport({
+    tocItems,
+    spineItems,
+    textualItems,
+    allChapters,
+    groups,
+    generatedFiles,
+    workTitle,
+    auditReport,
+  });
+
+  writeValidationReports(report);
+
+  if (report.status !== "OK") {
+    process.exitCode = 1;
+  }
 })();
