@@ -1,235 +1,118 @@
 # Extrair_novel
 
-[![Node.js](https://img.shields.io/badge/Node.js-v16%2B-green?logo=node.js)](https://nodejs.org/)
-[![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](./LICENSE)
-[![GitHub](https://img.shields.io/badge/GitHub-angeline1986-black?logo=github)](https://github.com/angeline1986)
+Projeto para extrair conteúdo de EPUB/DOCX, traduzir textos com apoio do Ollama, revisar traduções e gerar EPUBs finais.
 
-Projeto para extrair texto de arquivos DOCX, organizar traduções e gerar EPUBs consistentes.
+## Funcionalidades
 
-## 🚀 Funcionalidades
+- Extração EPUB -> DOCX por arcos
+- Tradução automática de DOCX com Ollama
+- Revisão/análise de traduções
+- Geração de EPUB final a partir de DOCX
+- Wrappers temporários para compatibilidade com caminhos antigos
 
-- ✅ Extração de texto de arquivos DOCX
-- ✅ Organização estruturada de traduções
-- ✅ Geração automática de EPUBs
-- ✅ Suporte a capas e metadados
-- ✅ CLI simples e intuitiva
-- ✅ **Tradução automática com IA** (Ollama)
-- ✅ **Análise e correção de traduções**
-- ✅ **Extração EPUB → DOCX por arcos**
+## Requisitos
 
-## 📋 Pré-requisitos
+| Requisito | Versão mínima | Observação |
+| --- | ---: | --- |
+| Node.js | 16.0.0 | Runtime JavaScript |
+| npm | 7.0.0 | Gerenciador de pacotes |
+| Ollama | 0.1.0 | Necessário apenas para tradução/revisão com IA |
+| Modelo Ollama | qwen2.5:7b | Modelo padrão dos scripts de tradução |
 
-| Requisito | Versão Mínima | Descrição |
-|-----------|:-------------:|-----------|
-| **Node.js** | 16.0.0 | Runtime JavaScript |
-| **npm** | 7.0.0 | Gerenciador de pacotes |
-| **Ollama** | 0.1.0 | IA para tradução automática (opcional) |
-| **Modelo** | qwen2.5:7b | Modelo de linguagem para tradução (opcional) |
-
-> `Traducao_corrigida/`, `build/`, `build_epub_docx/`, `data/` e `node_modules/` são pastas de artefatos gerados e não devem ser versionadas.
-
-## 📦 Instalação
+## Instalação
 
 ```bash
-# Clone o repositório
-git clone https://github.com/angeline1986/extrair_novel.git
-cd extrair_novel
-
-# Instale as dependências
 npm install
 ```
 
-## 🔧 Uso
-
-### Fluxo principal: gerar EPUB
-
-1. **Arquivos DOCX:** coloque os arquivos corrigidos em `Traducao_corrigida/`
-2. **Capa:** coloque `cover2.jpg` na raiz do projeto (`./cover2.jpg`)
-3. **Execute a geração:**
+## Comandos Principais
 
 ```bash
+npm start
+npm run translate:one -- caminho/arquivo.docx
+npm run translate:folder
+npm run translate:sequential
+npm run extract:epub -- caminho/livro.epub caminho/saida caminho/chapter_titles.txt
 npm run build:epub
+npm run analyze:translation -- analisar
+npm run analyze:translation -- corrigir
+npm test
 ```
 
-### Resultado
+## Workflows
 
-O EPUB final será gerado como: `./Winter_Field_PTBR_corrigido.epub`
+Os scripts executáveis ficam em `workflows/`. Cada workflow concentra seus scripts, entradas, saídas e documentação local.
 
-> O diretório interno temporário `build_epub_docx/` é criado durante o processo e pode ser removido após a geração.
-
-### Fluxo de revisão de tradução
-
-O projeto também inclui um utilitário de análise/correção de tradução em `src/translation/Analisar_traducao_docx.js`.
-
-- Para gerar uma planilha de revisão de gênero e expressões:
-
-```bash
-node src/translation/Analisar_traducao_docx.js analisar
+```txt
+workflows/
+├── epub-to-docx/
+│   ├── input/
+│   ├── output/
+│   ├── logs/
+│   ├── scripts/extractEpubArcsToDocx.js
+│   └── README.md
+├── translate-docx/
+│   ├── input/
+│   ├── output/
+│   ├── logs/
+│   ├── scripts/translateOne.js
+│   ├── scripts/translateFolder.js
+│   ├── scripts/translateSequential.js
+│   └── README.md
+├── review-translation/
+│   ├── input/
+│   ├── output/
+│   ├── reports/
+│   ├── scripts/analyzeTranslation.js
+│   └── README.md
+└── docx-to-epub/
+    ├── assets/
+    ├── input/
+    ├── output/
+    ├── scripts/buildEpubFromDocx.js
+    └── README.md
 ```
 
-- Para gerar versões corrigidas dos DOCX no diretório `Traducao_corrigida/`:
+## Estrutura do Código
 
-```bash
-node src/translation/Analisar_traducao_docx.js corrigir
+`src/` deve conter código reutilizável, integrações e wrappers de compatibilidade. Scripts operacionais novos devem ficar em `workflows/`.
+
+```txt
+src/
+├── cli.js
+├── core/          # regras, prompts, chunking, validação e revisão
+├── io/            # leitura/escrita de DOCX, EPUB e arquivos
+├── services/      # integrações externas, como Ollama
+├── legacy/        # scripts antigos preservados
+├── extract/       # wrappers temporários para caminhos antigos
+├── epub/          # wrappers temporários para caminhos antigos
+└── utils/         # wrappers temporários para caminhos antigos
 ```
 
-#### Diretórios usados por esse utilitário
+## Pastas Locais e Artefatos
 
-- `Traducao/` → arquivos DOCX de tradução originais
-- `Traducao_corrigida/` → saída de DOCX corrigidos (entrada para a geração de EPUB)
+Estas pastas são de trabalho local ou saída gerada e não devem ser versionadas:
 
-> O utilitário cobre revisão automática de gênero e expressões, além de transformar hífens de diálogo em travessões.
-
-### Fluxo de extração EPUB → DOCX
-
-Há também um script de extração que converte capítulos de um EPUB em arquivos DOCX por arco:
-
-```bash
-node src/extract/extract-epub-arcs-to-docx.cjs [caminho/do/arquivo.epub] [caminho/de/saida] [caminho/chapter_titles.txt]
+```txt
+data/
+node_modules/
 ```
 
-- `caminho/do/arquivo.epub` → caminho opcional para o EPUB de origem (padrão: `data/source/wtnl.epub`)
-- `caminho/de/saida` → diretório opcional de saída para os DOCX (padrão: `build/docx/arcs`)
-- `caminho/chapter_titles.txt` → base opcional de títulos de capítulos e arcos (padrão: `data/source/chapter_titles.txt`)
+`build/` e `Traducao_corrigida/` eram pastas antigas de saída e não fazem mais parte da estrutura oficial. Os resultados dos scripts devem ser gerados em `workflows/*/output/`.
 
-Esse script extrai o `toc.ncx` do EPUB, agrupa capítulos por arco e gera arquivos DOCX nomeados por arco.
+## Compatibilidade
 
-### Fluxo de tradução automática
+Os fluxos de tradução e análise devem ser executados pelos comandos `npm run ...` baseados em `workflows/`. Caminhos antigos em `src/translation/` foram removidos para evitar duplicação com `src/core/`.
 
-O projeto inclui um sistema completo de tradução automática usando IA (Ollama):
+## Dependências Principais
 
-- **Traduzir arquivo único:**
-```bash
-node src/translation/translateDocx.js "caminho/para/arquivo.docx"
-```
+- `adm-zip` e `cheerio`: leitura de EPUB
+- `archiver`: geração de EPUB
+- `docx`: criação de arquivos DOCX
+- `mammoth`: leitura de DOCX
+- `xlsx`: relatórios de análise
+- `uuid`: identificadores de EPUB
 
-- **Traduzir diretório completo:**
-```bash
-node src/translation/translateDirectory.js
-```
+## Licença
 
-#### Scripts de tradução disponíveis:
-
-- `src/translation/translateDocx.js` — Tradução de arquivo DOCX único
-- `src/translation/translateDirectory.js` — Tradução em lote de diretório
-- `src/translation/ollamaClient.js` — Cliente para comunicação com Ollama
-- `src/translation/prompts.js` — Prompts de tradução otimizados
-- `src/translation/chunker.js` — Divisão inteligente de texto em chunks
-- `src/translation/nameProtector.js` — Proteção de nomes próprios durante tradução
-- `src/translation/glossary.js` — Glossário de termos técnicos
-
-> **Pré-requisito:** Ollama instalado com modelo `qwen2.5:7b` ou similar.
-
-## 📁 Estrutura do projeto
-
-```
-extrair_novel/
-├── src/                    # Código-fonte principal
-│   ├── cli.js             # Entrada CLI
-│   ├── extract/           # Extração de EPUB e parsing de DOCX
-│   │   ├── docxExtractor.js
-│   │   └── extract-epub-arcs-to-docx.cjs
-│   ├── epub/              # Geração de EPUB
-│   ├── translation/       # Sistema completo de tradução com IA
-│   │   ├── translateDocx.js
-│   │   ├── translateDirectory.js
-│   │   ├── ollamaClient.js
-│   │   ├── prompts.js
-│   │   ├── chunker.js
-│   │   ├── nameProtector.js
-│   │   ├── glossary.js
-│   │   ├── Analisar_traducao_docx.js
-│   │   └── translationHelpers.js
-│   ├── utils/             # Helpers genéricos
-│   └── legacy/            # Scripts antigos preservados
-├── data/                  # Dados de trabalho
-│   ├── corrected/         # Traduções revisadas para gerar EPUB
-│   ├── assets/            # Capas e recursos
-│   ├── source/            # EPUBs e bases de título para extração
-│   ├── input/             # DOCX originais
-│   └── translated/        # Traduções brutas
-├── Traducao_corrigida/    # Saída de traduções corrigidas/automatizadas
-├── build/                 # Arquivos gerados
-│   ├── epub/              # EPUBs finais
-│   ├── docx/              # DOCX gerados pela extração de EPUB
-│   └── temp/              # Temporários
-├── tests/                 # Testes futuros
-├── docs/                  # Documentação adicional
-├── package.json
-├── README.md
-└── .gitignore
-```
-
-## 🛠️ Scripts disponíveis
-
-```bash
-npm start                                   # Executa o CLI principal e mostra ajuda
-npm run build:epub                          # Gera EPUB a partir de Traducao_corrigida/
-```
-
-## 🧠 Scripts manuais úteis
-
-```bash
-# Tradução automática
-node src/translation/translateDocx.js "arquivo.docx"          # Traduz arquivo único
-node src/translation/translateDirectory.js                   # Traduz diretório completo
-
-# Análise e correção de tradução
-node src/translation/Analisar_traducao_docx.js analisar      # Gera planilha de revisão
-node src/translation/Analisar_traducao_docx.js corrigir      # Gera DOCX corrigidos
-
-# Extração EPUB → DOCX
-node src/extract/extract-epub-arcs-to-docx.cjs [epub] [saida] [chapter_titles.txt]
-
-# CLI principal
-node src/cli.js help                                          # Mostra ajuda do CLI
-```
-
-## 📌 Scripts de referência (legado)
-
-O diretório `src/legacy/` contém versões anteriores e utilitários de suporte. Use-os apenas para comparação ou recuperação de lógica antiga.
-
-- `src/legacy/DocxToEpub.js` — conversão antiga DOCX → EPUB
-- `src/legacy/Extrair_novel.js` — primeira versão de extração/processamento
-- `src/legacy/Extrair_novel2.js` — variante de extração adicional
-- `src/legacy/Extrair_novel3.js` — outra variante de extração
-- `src/legacy/Gera_Epub.js` — geração antiga de EPUB
-- `src/legacy/Gera_Epub2.js` — segunda versão de geração de EPUB
-- `src/legacy/Winterfield_extrair_docx.js` — extração específica para Winter Field
-- `src/legacy/winterfield_volumes_epub.js` — geração de EPUBs de volumes Winter Field
-
-## �📚 Dependências
-
-### Principais
-- `archiver` — Criação de arquivos EPUB (ZIP estruturado)
-- `mammoth` — Extração de texto de DOCX
-- `docx` — Manipulação avançada de documentos Word
-- `uuid` — Identificadores únicos para metadados
-
-### Para tradução automática
-- Sistema Ollama (externo) — IA para tradução
-- Modelos: `qwen2.5:7b` ou similares
-
-### Legadas
-- `puppeteer` — Scripts de scraping (não usado no fluxo principal)
-- `xlsx` — Utilitários de planilha
-
-## 🤝 Contribuição
-
-1. Fork o projeto
-2. Crie uma branch para sua feature (`git checkout -b feature/nova-feature`)
-3. Commit suas mudanças (`git commit -am 'Adiciona nova feature'`)
-4. Push para a branch (`git push origin feature/nova-feature`)
-5. Abra um Pull Request
-
-## 📄 Licença
-
-Este projeto está sob a licença ISC.
-
-## 👤 Autor
-
-**Aline Souza** - [angeline1986](https://github.com/angeline1986)
-
----
-
-⭐ Se este projeto te ajudou, considere dar uma estrela!
+ISC

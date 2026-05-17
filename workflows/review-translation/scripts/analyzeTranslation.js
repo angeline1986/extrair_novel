@@ -13,15 +13,16 @@ import {
 
 // =====================================================
 // MODOS:
-// node Analisar_traducao_docx.js analisar
-// node Analisar_traducao_docx.js corrigir
+// node workflows/review-translation/scripts/analyzeTranslation.js analisar
+// node workflows/review-translation/scripts/analyzeTranslation.js corrigir
 // =====================================================
 
-const MODE = process.argv[2] || "analisar";
-
-const INPUT_DIR = path.join(process.cwd(), "Traducao");
-const OUTPUT_XLSX = "revisao_traducao_genero_expressoes.xlsx";
-const OUTPUT_FIXED_DIR = path.join(process.cwd(), "Traducao_corrigida");
+const INPUT_DIR = path.join(process.cwd(), "workflows/review-translation/input");
+const OUTPUT_XLSX = path.join(
+  process.cwd(),
+  "workflows/review-translation/reports/revisao_traducao_genero_expressoes.xlsx"
+);
+const OUTPUT_FIXED_DIR = path.join(process.cwd(), "workflows/review-translation/output");
 
 // =====================================================
 // HELPERS
@@ -423,6 +424,8 @@ async function readDocxText(filePath) {
 // =====================================================
 
 function gerarPlanilha(rows) {
+  ensureDir(path.dirname(OUTPUT_XLSX));
+
   const worksheet = XLSX.utils.json_to_sheet(
     rows.length
       ? rows
@@ -547,11 +550,13 @@ async function gerarDocxCorrigido(fileName, fullText) {
 // MAIN
 // =====================================================
 
-async function main() {
+export async function main(argv = process.argv.slice(2)) {
+  const MODE = argv[0] || "analisar";
+
   if (!["analisar", "corrigir"].includes(MODE)) {
     console.error("❌ Modo inválido. Use:");
-    console.error("node Analisar_traducao_docx.js analisar");
-    console.error("node Analisar_traducao_docx.js corrigir");
+    console.error("node workflows/review-translation/scripts/analyzeTranslation.js analisar");
+    console.error("node workflows/review-translation/scripts/analyzeTranslation.js corrigir");
     process.exit(1);
   }
 
@@ -599,7 +604,9 @@ async function main() {
   }
 }
 
-main().catch(err => {
-  console.error("❌ Erro fatal:", err);
-  process.exit(1);
-});
+if (process.argv[1]?.endsWith("analyzeTranslation.js")) {
+  main().catch(err => {
+    console.error("❌ Erro fatal:", err);
+    process.exit(1);
+  });
+}

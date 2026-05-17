@@ -1,6 +1,6 @@
 # Translate DOCX
 
-Fluxo para tradução de arquivos DOCX usando os scripts existentes.
+Fluxo para tradução de arquivos DOCX.
 
 ## Uso
 
@@ -11,7 +11,7 @@ Fluxo para tradução de arquivos DOCX usando os scripts existentes.
 ## Pastas
 
 - `input/` — coloque arquivos DOCX originais aqui
-- `output/` — arquivos traduzidos de saída
+- `output/` — todos os DOCX traduzidos são gerados aqui
 - `logs/` — logs de execução
 
-> Esta pasta usa wrappers para o código existente em `src/translation/`.
+Os scripts executáveis vivem em `scripts/`. A pasta antiga `src/translation/` foi removida para evitar duplicação com `src/core/`.

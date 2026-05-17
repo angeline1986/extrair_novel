@@ -6,15 +6,14 @@
 ```
 workflows/
 ├── translate-docx/      (tradução DOCX)
-├── extract-epub/        (extração EPUB→DOCX)
-├── build-epub/          (geração EPUB final)
-└── analyze-translation/ (análise e correção)
+├── epub-to-docx/        (extração EPUB→DOCX)
+├── docx-to-epub/          (geração EPUB final)
+└── review-translation/ (análise e correção)
 
 src/
 ├── core/               (módulos reutilizáveis: chunker, glossary, etc.)
 ├── io/                 (leitura/escrita: docxReader, docxWriter, etc.)
 ├── services/           (integrações: ollamaClient)
-├── translation/        (workflow-specific + helpers)
 └── legacy/             (scripts antigos preservados)
 ```
 
@@ -53,11 +52,9 @@ src/
 
 | Localização Antiga | Novo Caminho | Tipo |
 |-------------------|--------------|------|
-| `src/translation/*.js` | `src/core/*.js` | Re-export |
-| `src/translation/ollamaClient.js` | `src/services/ollamaClient.js` | Re-export |
 | `src/extract/docxExtractor.js` | `src/io/docxReader.js` | Re-export |
 
-**Benefício**: Código antigo que importa de `src/translation/` continua funcionando.
+`src/translation/` foi removida para evitar duplicação com `src/core/`. Os fluxos de tradução agora devem ser executados por `workflows/translate-docx/scripts/` ou pelos comandos `npm run translate:*`.
 
 ---
 
@@ -94,14 +91,14 @@ npm run build:epub          # Ainda funciona (agora aponta para novo local)
 | Perda de código legado | 🟢 BAIXA | Preservar em `src/legacy/` |
 | Quebra em batch scripts | 🟡 MÉDIA | Documentar novos paths |
 
-**Conclusão**: Nenhum breaking change significativo. Compatibilidade mantida via wrappers.
+**Conclusão**: A estrutura privilegia caminhos únicos para execução e módulos reutilizáveis. Wrappers restantes devem ser temporários e pontuais.
 
 ---
 
 ## ✅ Testes Recomendados
 
 1. **Após cada fase**: Rodar `npm run [command]` no novo path
-2. **Compatibilidade retroativa**: Testar imports de `src/translation/` via wrapper
+2. **Compatibilidade retroativa**: Testar apenas wrappers temporários restantes
 3. **Workflows**: Executar cada workflow com dados de teste
 4. **Package.json**: Verificar que todos os scripts npm funcionam
 
@@ -123,9 +120,9 @@ src/
 ```
 workflows/
 ├── translate-docx/ (tudo sobre tradução aqui)
-├── extract-epub/   (tudo sobre extração aqui)
-├── build-epub/     (tudo sobre geração aqui)
-└── analyze-translation/ (tudo sobre análise aqui)
+├── epub-to-docx/   (tudo sobre extração aqui)
+├── docx-to-epub/     (tudo sobre geração aqui)
+└── review-translation/ (tudo sobre análise aqui)
 
 src/
 ├── core/ (lógica reutilizável)

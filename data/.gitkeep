@@ -1,7 +1,0 @@
-# Este diretório contém dados de trabalho (DOCX, imagens, etc.)
-# Os arquivos são ignorados pelo .gitignore para manter privacidade e reduzir tamanho do repo
-# Estrutura esperada:
-# - input/     → DOCX originais
-# - translated/ → Traduções brutas
-# - corrected/ → Traduções revisadas (use este para gerar EPUB)
-# - assets/    → Capas e recursos visuais

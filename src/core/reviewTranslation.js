@@ -1,4 +1,4 @@
-import { translateWithOllama, cleanModelOutput } from "./ollamaClient.js";
+import { translateWithOllama, cleanModelOutput } from "../services/ollamaClient.js";
 import { chunkText } from "./chunker.js";
 import { glossary } from "./glossary.js";
 import {

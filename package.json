@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "extrair_novel",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Extração de DOCX e geração de EPUBs organizados com suporte a traduções.",
   "main": "src/cli.js",
   "repository": {
@@ -10,8 +10,13 @@
   },
   "scripts": {
     "start": "node src/cli.js",
-    "build:epub": "node src/cli.js build:epub",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "translate:one": "node workflows/translate-docx/scripts/translateOne.js",
+    "translate:folder": "node workflows/translate-docx/scripts/translateFolder.js",
+    "translate:sequential": "node workflows/translate-docx/scripts/translateSequential.js",
+    "extract:epub": "node workflows/epub-to-docx/scripts/extractEpubArcsToDocx.js",
+    "build:epub": "node workflows/docx-to-epub/scripts/buildEpubFromDocx.js",
+    "analyze:translation": "node workflows/review-translation/scripts/analyzeTranslation.js",
+    "test": "echo \"No tests configured\""
   },
   "keywords": [
     "docx",
@@ -34,7 +39,7 @@
     "xlsx": "^0.18.5"
   },
   "engines": {
-    "node": ">=16.0.0",
+    "node": ">=18.0.0",
     "npm": ">=7.0.0"
   }
 }

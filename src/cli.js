@@ -6,7 +6,7 @@ const command = args[0] || "help";
 
 function usage() {
   console.log("Uso:");
-  console.log("  node src/cli.js build:epub   # Gera EPUB a partir de data/corrected");
+  console.log("  node src/cli.js build:epub   # Gera EPUB a partir de workflows/docx-to-epub/input");
   console.log("  node src/cli.js help         # Mostra esta ajuda");
 }
 

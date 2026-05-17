@@ -4,9 +4,9 @@ const AdmZip = require("adm-zip");
 const cheerio = require("cheerio");
 const { Document, Packer, Paragraph, HeadingLevel } = require("docx");
 
-const inputEpub = process.argv[2] || path.resolve("data/source/wtnl.epub");
-const outputDir = process.argv[3] || path.resolve("build/docx/arcs");
-const titleBasePath = process.argv[4] || path.resolve("data/source/chapter_titles.txt");
+const inputEpub = process.argv[2] || path.resolve("workflows/epub-to-docx/input/wtnl.epub");
+const outputDir = process.argv[3] || path.resolve("workflows/epub-to-docx/output/arcs");
+const titleBasePath = process.argv[4] || path.resolve("workflows/epub-to-docx/input/chapter_titles.txt");
 
 fs.mkdirSync(outputDir, { recursive: true });
 

@@ -1,9 +1,68 @@
-import { execFile } from 'node:child_process';
-import path from 'node:path';
+import fs from "fs/promises";
+import path from "path";
 
-const script = path.resolve(new URL('../../../../src/services/translateDirectory.js', import.meta.url).pathname);
-const args = process.argv.slice(2);
+import { translateDocx } from "./translateOne.js";
 
-const child = execFile(process.execPath, [script, ...args], { stdio: 'inherit' });
+const INPUT_DIR = path.resolve("workflows/translate-docx/input");
+const OUTPUT_DIR = path.resolve("workflows/translate-docx/output");
 
-child.on('exit', code => process.exit(code));
+export async function main(argv = process.argv.slice(2)) {
+  await fs.mkdir(OUTPUT_DIR, { recursive: true });
+
+  const files = await fs.readdir(INPUT_DIR);
+
+  const docxFiles = files
+    .filter((file) => file.toLowerCase().endsWith(".docx"))
+    .sort((a, b) => a.localeCompare(b, "pt-BR", { numeric: true }));
+
+  console.log(`📚 Total de arquivos: ${docxFiles.length}`);
+
+  let successCount = 0;
+  let errorCount = 0;
+
+  for (const file of docxFiles) {
+    const inputPath = path.join(INPUT_DIR, file);
+
+    const outputPath = path.join(
+      OUTPUT_DIR,
+      file.replace(".docx", ".pt-BR.docx")
+    );
+
+    console.log("\n==============================");
+    console.log(`🚀 Traduzindo: ${file}`);
+    console.log("==============================\n");
+
+    try {
+      await translateDocx(inputPath, {
+        outputPath,
+        model: "qwen2.5:7b",
+        onlyFirstChapter: false,
+        runReview: false,
+        runPolish: true,
+        abortOnInvalidTranslation: false,
+        translationMaxChars: 2600,
+        reviewMaxChars: 2600,
+        polishMaxChars: 2600,
+        translationNumPredict: 3072,
+        reviewNumPredict: 3072,
+        polishNumPredict: 3072,
+      });
+
+      successCount += 1;
+
+      console.log(`✅ Finalizado: ${file}`);
+    } catch (error) {
+      errorCount += 1;
+
+      console.error(`❌ Erro em ${file}`);
+      console.error(error);
+    }
+  }
+
+  console.log("\n🎉 Tradução em lote concluída!");
+  console.log(`✅ Sucessos: ${successCount}`);
+  console.log(`❌ Erros: ${errorCount}`);
+}
+if (process.argv[1]?.endsWith("translateFolder.js")) {
+  await main();
+}

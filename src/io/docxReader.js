@@ -1,6 +1,6 @@
 import mammoth from "mammoth";
 import path from "path";
-import { cleanText } from "../utils/fileUtils.js";
+import { cleanText } from "./fileUtils.js";
 
 export function slugNumber(text, fallback = 999) {
   const match = String(text).match(/(\d+)/);

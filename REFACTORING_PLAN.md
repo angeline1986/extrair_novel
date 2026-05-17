@@ -8,6 +8,8 @@ Reorganizar o projeto em uma estrutura clara e coerente, separando:
 - **src/services/** = integrações externas
 - **src/legacy/** = scripts antigos preservados
 
+> Nota de atualização: `src/translation/` foi removida após a migração para evitar duplicação com `src/core/`. As referências a `src/translation/` neste plano documentam caminhos antigos/origem da refatoração, não a estrutura final desejada.
+
 ---
 
 ## 1. NOVA ESTRUTURA DE DIRETÓRIOS
@@ -26,7 +28,7 @@ extrair_novel/
 │   │   ├── logs/                         # Logs de execução
 │   │   └── README.md
 │   │
-│   ├── extract-epub/
+│   ├── epub-to-docx/
 │   │   ├── scripts/
 │   │   │   ├── extractEpubToDocx.js      # Extrai EPUB simples em DOCX
 │   │   │   └── extractEpubArcsToDocx.js  # Extrai EPUB em DOCXs por arco
@@ -35,7 +37,7 @@ extrair_novel/
 │   │   ├── logs/
 │   │   └── README.md
 │   │
-│   ├── build-epub/
+│   ├── docx-to-epub/
 │   │   ├── scripts/
 │   │   │   └── buildEpubFromDocx.js      # Gera EPUB final
 │   │   ├── input/                        # .docx para composição
@@ -43,7 +45,7 @@ extrair_novel/
 │   │   ├── assets/                       # Capas e recursos
 │   │   └── README.md
 │   │
-│   └── analyze-translation/
+│   └── review-translation/
 │       ├── scripts/
 │       │   └── analyzeTranslation.js     # Análise e correção
 │       ├── input/                        # Arquivos para análise
@@ -89,8 +91,6 @@ extrair_novel/
 │   ├── translated/                 # Traduções brutas (cache)
 │   └── corrected/                  # Traduções revisadas
 │
-├── docs/                           # Documentação
-├── tests/                          # Testes
 ├── .gitignore
 ├── package.json
 ├── README.md
@@ -141,9 +141,9 @@ extrair_novel/
 | `src/translation/translateDocx.js` | `workflows/translate-docx/scripts/translateOne.js` | Refatorar imports |
 | `src/translation/translateDirectory.js` | `workflows/translate-docx/scripts/translateFolder.js` | Renomear + refatorar |
 | `src/translation/translateArcsSequential.js` | `workflows/translate-docx/scripts/translateSequential.js` | Refatorar |
-| `src/translation/Analisar_traducao_docx.js` | `workflows/analyze-translation/scripts/analyzeTranslation.js` | Renomear + refatorar |
-| `src/extract/extract-epub-arcs-to-docx.cjs` | `workflows/extract-epub/scripts/extractEpubArcsToDocx.js` | Converter CJS→ESM, refatorar |
-| `src/epub/epubGenerator.js` | `workflows/build-epub/scripts/buildEpubFromDocx.js` | Refatorar imports |
+| `src/translation/Analisar_traducao_docx.js` | `workflows/review-translation/scripts/analyzeTranslation.js` | Renomear + refatorar |
+| `src/extract/extract-epub-arcs-to-docx.cjs` | `workflows/epub-to-docx/scripts/extractEpubArcsToDocx.js` | Converter CJS→ESM, refatorar |
+| `src/epub/epubGenerator.js` | `workflows/docx-to-epub/scripts/buildEpubFromDocx.js` | Refatorar imports |
 
 ### 2.6 Scripts legados para `src/legacy/` (já lá)
 
@@ -211,11 +211,11 @@ export * from '../../services/ollamaClient.js';
     "translate:folder": "node workflows/translate-docx/scripts/translateFolder.js",
     "translate:sequential": "node workflows/translate-docx/scripts/translateSequential.js",
     
-    "extract:epub": "node workflows/extract-epub/scripts/extractEpubArcsToDocx.js",
+    "extract:epub": "node workflows/epub-to-docx/scripts/extractEpubArcsToDocx.js",
     
-    "build:epub": "node workflows/build-epub/scripts/buildEpubFromDocx.js",
+    "build:epub": "node workflows/docx-to-epub/scripts/buildEpubFromDocx.js",
     
-    "analyze:translation": "node workflows/analyze-translation/scripts/analyzeTranslation.js",
+    "analyze:translation": "node workflows/review-translation/scripts/analyzeTranslation.js",
     
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -316,9 +316,9 @@ export * from '../../services/ollamaClient.js';
   - [ ] Ajustar imports (agora aponta para `src/core/`, `src/services/`, etc.)
 - [ ] Copiar `src/translation/translateDirectory.js` → `workflows/translate-docx/scripts/translateFolder.js`
 - [ ] Copiar `src/translation/translateArcsSequential.js` → `workflows/translate-docx/scripts/translateSequential.js`
-- [ ] Copiar `src/translation/Analisar_traducao_docx.js` → `workflows/analyze-translation/scripts/analyzeTranslation.js`
-- [ ] Converter `src/extract/extract-epub-arcs-to-docx.cjs` → `workflows/extract-epub/scripts/extractEpubArcsToDocx.js`
-- [ ] Copiar `src/epub/epubGenerator.js` → `workflows/build-epub/scripts/buildEpubFromDocx.js`
+- [ ] Copiar `src/translation/Analisar_traducao_docx.js` → `workflows/review-translation/scripts/analyzeTranslation.js`
+- [ ] Converter `src/extract/extract-epub-arcs-to-docx.cjs` → `workflows/epub-to-docx/scripts/extractEpubArcsToDocx.js`
+- [ ] Copiar `src/epub/epubGenerator.js` → `workflows/docx-to-epub/scripts/buildEpubFromDocx.js`
 - [ ] Commit: "refactor: move executable scripts to workflows/"
 
 ### Fase 6: Criar wrappers
@@ -333,9 +333,9 @@ export * from '../../services/ollamaClient.js';
 
 ### Fase 8: Criar READMEs de workflows
 - [ ] `workflows/translate-docx/README.md`
-- [ ] `workflows/extract-epub/README.md`
-- [ ] `workflows/build-epub/README.md`
-- [ ] `workflows/analyze-translation/README.md`
+- [ ] `workflows/epub-to-docx/README.md`
+- [ ] `workflows/docx-to-epub/README.md`
+- [ ] `workflows/review-translation/README.md`
 - [ ] Commit: "docs: add workflow README files"
 
 ### Fase 9: Criar diretórios input/output/logs
@@ -373,7 +373,7 @@ npm run translate:one workflows/translate-docx/input/test.docx
 npm run translate:folder
 
 # Testar extração
-npm run extract:epub data/source/wtnl.epub workflows/extract-epub/output/
+npm run extract:epub data/source/wtnl.epub workflows/epub-to-docx/output/
 
 # Testar construção de EPUB
 npm run build:epub
