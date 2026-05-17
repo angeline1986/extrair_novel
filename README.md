@@ -32,7 +32,7 @@ npm start
 npm run translate:one -- caminho/arquivo.docx
 npm run translate:folder
 npm run translate:sequential
-npm run extract:epub -- caminho/livro.epub caminho/saida caminho/chapter_titles.txt
+npm run extract:epub -- caminho/livro.epub caminho/saida caminho/chapter_titles.txt 4
 npm run build:epub
 npm run analyze:translation -- analisar
 npm run analyze:translation -- corrigir
@@ -49,7 +49,7 @@ workflows/
 │   ├── input/
 │   ├── output/
 │   ├── logs/
-│   ├── scripts/extractEpubArcsToDocx.js
+│   ├── scripts/extractEpubInChapterGroups.cjs
 │   └── README.md
 ├── translate-docx/
 │   ├── input/

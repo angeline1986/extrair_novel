@@ -13,7 +13,8 @@
     "translate:one": "node workflows/translate-docx/scripts/translateOne.js",
     "translate:folder": "node workflows/translate-docx/scripts/translateFolder.js",
     "translate:sequential": "node workflows/translate-docx/scripts/translateSequential.js",
-    "extract:epub": "node workflows/epub-to-docx/scripts/extractEpubArcsToDocx.js",
+    "extract:epub": "node workflows/epub-to-docx/scripts/extractEpubInChapterGroups.cjs",
+    "extract:epub:groups": "node workflows/epub-to-docx/scripts/extractEpubInChapterGroups.cjs",
     "build:epub": "node workflows/docx-to-epub/scripts/buildEpubFromDocx.js",
     "analyze:translation": "node workflows/review-translation/scripts/analyzeTranslation.js",
     "test": "echo \"No tests configured\""

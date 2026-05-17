@@ -4,7 +4,8 @@ const AdmZip = require("adm-zip");
 const cheerio = require("cheerio");
 const { Document, Packer, Paragraph, HeadingLevel } = require("docx");
 
-const inputEpub = process.argv[2] || path.resolve("workflows/epub-to-docx/input/wtnl.epub");
+const inputDir = path.resolve("workflows/epub-to-docx/input");
+const inputEpub = process.argv[2] || findSingleEpub(inputDir);
 const outputDir = process.argv[3] || path.resolve("workflows/epub-to-docx/output/arcs");
 const titleBasePath = process.argv[4] || path.resolve("workflows/epub-to-docx/input/chapter_titles.txt");
 
@@ -21,7 +22,34 @@ const MAX_CHAPTERS_PER_DOCX_BY_ARC = {
   10: 35,
 };
 
+if (!fs.existsSync(inputEpub)) {
+  throw new Error(`EPUB não encontrado: ${inputEpub}`);
+}
+
 const zip = new AdmZip(inputEpub);
+
+function findSingleEpub(dir) {
+  if (!fs.existsSync(dir)) {
+    throw new Error(`Pasta de entrada não encontrada: ${dir}`);
+  }
+
+  const epubFiles = fs
+    .readdirSync(dir)
+    .filter((file) => file.toLowerCase().endsWith(".epub"))
+    .sort((a, b) => a.localeCompare(b, "pt-BR", { numeric: true }));
+
+  if (epubFiles.length === 0) {
+    throw new Error(`Nenhum arquivo .epub encontrado em: ${dir}`);
+  }
+
+  if (epubFiles.length > 1) {
+    throw new Error(
+      `Mais de um arquivo .epub encontrado em ${dir}. Informe o caminho do EPUB explicitamente.`
+    );
+  }
+
+  return path.join(dir, epubFiles[0]);
+}
 
 function cleanForDocx(text) {
   return String(text || "")
