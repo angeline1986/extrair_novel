@@ -432,6 +432,7 @@ commit 11: Test all workflows and fix issues
 - [ ] READMEs de workflow criados
 - [ ] Teste manual de cada comando `npm run translate:*`, etc.
 - [ ] Teste de compatibilidade retroativa (scripts antigos)
+- [ ] Verificar geração de EPUB com smoke test em `src/epub/epubGenerator.js`
 - [ ] Verificar que `npm run build:epub` ainda funciona
 - [ ] Verificar que `npm start` ainda funciona
 - [ ] Nenhum breaking change não-intencional

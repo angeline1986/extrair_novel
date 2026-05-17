@@ -1,8 +1,20 @@
 import fs from "fs";
 import path from "path";
-import mammoth from "mammoth";
 import archiver from "archiver";
 import { v4 as uuidv4 } from "uuid";
+import {
+  ensureDir,
+  cleanDir,
+  writeFile,
+  escapeHtml,
+  cleanText,
+} from "../io/fileUtils.js";
+import {
+  readDocxText,
+  parseVolumeFromDocx,
+  sortDocxFiles,
+  slugNumber,
+} from "../io/docxReader.js";
 
 // =====================================================
 // Gera EPUB único a partir dos DOCX da pasta Traducao_corrigida/
@@ -27,104 +39,11 @@ const META_INF = path.join(BUILD_DIR, "META-INF");
 const OEBPS = path.join(BUILD_DIR, "OEBPS");
 const IMAGES = path.join(OEBPS, "images");
 
-// =====================================================
-// HELPERS
-// =====================================================
-
-function ensureDir(dir) {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-}
-
-function cleanDir(dir) {
-  if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
-  ensureDir(dir);
-}
-
-function writeFile(file, content) {
-  fs.writeFileSync(file, content, "utf8");
-}
-
-function esc(text = "") {
-  return String(text)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function cleanText(text = "") {
-  return String(text)
-    .replace(/\u00a0/g, " ")
-    .replace(/[ \t]+/g, " ")
-    .trim();
-}
-
-function slugNumber(text, fallback = 999) {
-  const m = String(text).match(/(\d+)/);
-  return m ? Number(m[1]) : fallback;
-}
-
-function sortDocxFiles(files) {
-  return files.sort((a, b) => {
-    const na = slugNumber(a, 999);
-    const nb = slugNumber(b, 999);
-    return na - nb || a.localeCompare(b);
-  });
-}
-
-async function readDocxText(filePath) {
-  const result = await mammoth.extractRawText({ path: filePath });
-  return result.value || "";
-}
+// helpers moved to src/io (fileUtils, docxReader)
 
 // =====================================================
 // PARSE DOCX -> VOLUME / CAPÍTULOS
 // =====================================================
-
-function parseVolumeFromDocx(fileName, fullText) {
-  const lines = fullText
-    .split(/\r?\n/)
-    .map(cleanText)
-    .filter(Boolean);
-
-  let volumeTitle = null;
-  const chapters = [];
-  let currentChapter = null;
-
-  for (const line of lines) {
-    if (/^Volume\s+\d+/i.test(line) || /^Extras\s+Volume\s+\d+/i.test(line)) {
-      volumeTitle = line;
-      continue;
-    }
-
-    if (/^Cap[ií]tulo\s+\d+/i.test(line)) {
-      if (currentChapter) chapters.push(currentChapter);
-
-      currentChapter = {
-        title: line,
-        paragraphs: [],
-      };
-
-      continue;
-    }
-
-    if (currentChapter) {
-      currentChapter.paragraphs.push(line);
-    }
-  }
-
-  if (currentChapter) chapters.push(currentChapter);
-
-  if (!volumeTitle) {
-    const byFile = fileName.match(/volume[_\s-]*(\d+)/i);
-    volumeTitle = byFile ? `Volume ${byFile[1]}` : path.basename(fileName, ".docx");
-  }
-
-  return {
-    title: volumeTitle,
-    chapters,
-  };
-}
 
 // =====================================================
 // EPUB FIXOS
@@ -230,12 +149,12 @@ function gerarTitlePage() {
     `<?xml version="1.0" encoding="UTF-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
-<title>${esc(BOOK_TITLE)}</title>
+<title>${escapeHtml(BOOK_TITLE)}</title>
 <link href="stylesheet.css" rel="stylesheet" type="text/css"/>
 </head>
 <body class="title-page">
-<h1>${esc(BOOK_TITLE)}</h1>
-<h3>${esc(BOOK_AUTHOR)}</h3>
+<h1>${escapeHtml(BOOK_TITLE)}</h1>
+<h3>${escapeHtml(BOOK_AUTHOR)}</h3>
 </body>
 </html>`
   );
@@ -253,11 +172,11 @@ function gerarPaginaVolume(volume, volumeIndex) {
     `<?xml version="1.0" encoding="UTF-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
-<title>${esc(volume.title)}</title>
+<title>${escapeHtml(volume.title)}</title>
 <link href="stylesheet.css" rel="stylesheet" type="text/css"/>
 </head>
 <body class="volume-page">
-<h1>${esc(volume.title)}</h1>
+<h1>${escapeHtml(volume.title)}</h1>
 </body>
 </html>`
   );
@@ -269,7 +188,7 @@ function gerarPaginaCapitulo(chapter, globalIndex) {
   const fileName = `chapter_${String(globalIndex).padStart(4, "0")}.xhtml`;
 
   const paragraphsHtml = chapter.paragraphs
-    .map(p => `<p>${esc(p)}</p>`)
+    .map(p => `<p>${escapeHtml(p)}</p>`)
     .join("\n");
 
   writeFile(
@@ -277,11 +196,11 @@ function gerarPaginaCapitulo(chapter, globalIndex) {
     `<?xml version="1.0" encoding="UTF-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
-<title>${esc(chapter.title)}</title>
+<title>${escapeHtml(chapter.title)}</title>
 <link href="stylesheet.css" rel="stylesheet" type="text/css"/>
 </head>
 <body>
-<h2 class="chapter-title">${esc(chapter.title)}</h2>
+<h2 class="chapter-title">${escapeHtml(chapter.title)}</h2>
 ${paragraphsHtml}
 </body>
 </html>`
@@ -299,10 +218,10 @@ function gerarNav(volumes) {
     .map(
       volume => `
 <li>
-  <a href="${volume.file}">${esc(volume.title)}</a>
+  <a href="${volume.file}">${escapeHtml(volume.title)}</a>
   <ol>
     ${volume.chapters
-      .map(ch => `<li><a href="${ch.file}">${esc(ch.title)}</a></li>`)
+      .map(ch => `<li><a href="${ch.file}">${escapeHtml(ch.title)}</a></li>`)
       .join("\n")}
   </ol>
 </li>`
@@ -342,7 +261,7 @@ function gerarTocNcx(volumes) {
 
           return `
 <navPoint id="navPoint-v${vIndex + 1}-c${cIndex + 1}" playOrder="${chapterOrder}">
-  <navLabel><text>${esc(ch.title)}</text></navLabel>
+  <navLabel><text>${escapeHtml(ch.title)}</text></navLabel>
   <content src="${ch.file}"/>
 </navPoint>`;
         })
@@ -350,7 +269,7 @@ function gerarTocNcx(volumes) {
 
       return `
 <navPoint id="navPoint-v${vIndex + 1}" playOrder="${volumeOrder}">
-  <navLabel><text>${esc(volume.title)}</text></navLabel>
+  <navLabel><text>${escapeHtml(volume.title)}</text></navLabel>
   <content src="${volume.file}"/>
   ${chapterPoints}
 </navPoint>`;
@@ -362,12 +281,12 @@ function gerarTocNcx(volumes) {
     `<?xml version="1.0" encoding="UTF-8"?>
 <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
 <head>
-<meta name="dtb:uid" content="${esc(BOOK_ID)}"/>
+<meta name="dtb:uid" content="${escapeHtml(BOOK_ID)}"/>
 <meta name="dtb:depth" content="2"/>
 <meta name="dtb:totalPageCount" content="0"/>
 <meta name="dtb:maxPageNumber" content="0"/>
 </head>
-<docTitle><text>${esc(BOOK_TITLE)}</text></docTitle>
+<docTitle><text>${escapeHtml(BOOK_TITLE)}</text></docTitle>
 <navMap>
 ${navPoints}
 </navMap>
@@ -412,10 +331,10 @@ function gerarContentOpf(volumes, hasCover) {
     `<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="BookId">
 <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
-<dc:title>${esc(BOOK_TITLE)}</dc:title>
-<dc:creator>${esc(BOOK_AUTHOR)}</dc:creator>
-<dc:language>${esc(BOOK_LANGUAGE)}</dc:language>
-<dc:identifier id="BookId">${esc(BOOK_ID)}</dc:identifier>
+<dc:title>${escapeHtml(BOOK_TITLE)}</dc:title>
+<dc:creator>${escapeHtml(BOOK_AUTHOR)}</dc:creator>
+<dc:language>${escapeHtml(BOOK_LANGUAGE)}</dc:language>
+<dc:identifier id="BookId">${escapeHtml(BOOK_ID)}</dc:identifier>
 <meta property="dcterms:modified">${new Date().toISOString().replace(/\.\d{3}Z$/, "Z")}</meta>
 </metadata>
 <manifest>
