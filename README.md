@@ -34,8 +34,8 @@ npm run translate:folder
 npm run translate:sequential
 npm run extract:epub -- caminho/livro.epub caminho/saida caminho/chapter_titles.txt 4
 npm run build:epub
-npm run analyze:translation -- analisar
-npm run analyze:translation -- corrigir
+npm run analyze:translation -- analisar --project=nome_do_projeto
+npm run analyze:translation -- corrigir --project=nome_do_projeto
 npm test
 ```
 

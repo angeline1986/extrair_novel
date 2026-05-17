@@ -1,0 +1,151 @@
+#!/usr/bin/env node
+// src/index.js - Orquestrador principal
+
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Configuração
+import config from './config.js';
+import { log, naturalCompare, extractChapterRange } from './utils.js';
+import { readAllDocxFromDir } from './docxReader.js';
+import { alignChapters } from './aligner.js';
+import { runStructuralChecks } from './checks/structural.js';
+import { detectGoogleTranslateIssues } from './checks/gtPatterns.js';
+import { initCache, saveCache, reviewSuspiciousItems } from './ollamaReviewer.js';
+import { generateReports } from './reportWriter.js';
+
+// Configurar diretórios
+const sourceDir = path.resolve(__dirname, config.files.sourceDir);
+const translatedDir = path.resolve(__dirname, config.files.translatedDir);
+const outputDir = path.resolve(__dirname, config.files.outputDir);
+const logsDir = path.resolve(__dirname, config.files.logsDir);
+
+// Criar diretórios se não existirem
+[outputDir, logsDir].forEach(dir => {
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+});
+
+// Inicializar cache do Ollama
+initCache();
+
+async function main() {
+  const verbose = process.argv.includes('--verbose');
+  log('=== INICIANDO AUDITORIA DE TRADUÇÕES ===');
+  log(`Originais: ${sourceDir}`);
+  log(`Traduções: ${translatedDir}`);
+  log(`Saída: ${outputDir}`);
+  
+  // 1. Ler todos os DOCX
+  log('Lendo arquivos originais...');
+  const sourceDocs = readAllDocxFromDir(sourceDir);
+  log(`Encontrados ${sourceDocs.length} arquivos originais`);
+  
+  log('Lendo arquivos traduzidos...');
+  const translatedDocs = readAllDocxFromDir(translatedDir);
+  log(`Encontrados ${translatedDocs.length} arquivos traduzidos`);
+  
+  if (sourceDocs.length === 0) {
+    log('Nenhum arquivo original encontrado!', 'ERROR');
+    process.exit(1);
+  }
+  
+  // 2. Alinhar arquivos
+  log('Alinhando documentos...');
+  const alignedDocs = alignChapters(sourceDocs, translatedDocs);
+  
+  // 3. Executar verificações
+  log('Executando verificações estruturais...');
+  const allIssues = [];
+  const allWarnings = [];
+  const suspiciousItems = [];
+  
+  for (const doc of alignedDocs) {
+    if (doc.alignment === 'missing') {
+      allIssues.push({
+        type: 'missing_file',
+        severity: 'FAIL',
+        filename: doc.source.filename,
+      });
+      continue;
+    }
+    
+    // Verificações estruturais
+    const structural = runStructuralChecks(doc.source, doc.translation, doc.chapters);
+    allIssues.push(...structural.issues);
+    allWarnings.push(...structural.warnings);
+    
+    // Verificações específicas do Google Tradutor
+    const gtIssues = detectGoogleTranslateIssues(doc.translation.rawText, doc.source.rawText);
+    allIssues.push(...gtIssues.issues);
+    allWarnings.push(...gtIssues.warnings);
+    
+    // Coletar itens suspeitos para revisão com Ollama
+    for (const chapter of doc.chapters) {
+      if (chapter.matchType === 'matched' && chapter.confidence < 0.6) {
+        // Encontrar o texto real do capítulo
+        const sourceChapter = doc.source.paragraphs.slice(
+          chapter.sourceIndex * 10, // Aproximação
+          (chapter.sourceIndex + 1) * 10
+        ).join('\n\n');
+        
+        const translationChapter = doc.translation.paragraphs.slice(
+          chapter.translationIndex * 10,
+          (chapter.translationIndex + 1) * 10
+        ).join('\n\n');
+        
+        suspiciousItems.push({
+          type: 'low_confidence_chapter',
+          sourceTitle: chapter.sourceTitle,
+          translationTitle: chapter.translationTitle,
+          sourceText: sourceChapter,
+          translationText: translationChapter,
+          confidence: chapter.confidence,
+        });
+      }
+    }
+  }
+  
+  // 4. Revisar itens suspeitos com Ollama (apenas se houver)
+  let ollamaResults = [];
+  if (suspiciousItems.length > 0 && config.ollama.model) {
+    log(`Revisando ${suspiciousItems.length} itens suspeitos com Ollama...`);
+    ollamaResults = await reviewSuspiciousItems(suspiciousItems);
+    saveCache();
+  } else {
+    log('Nenhum item suspeito para revisão com Ollama');
+  }
+  
+  // 5. Gerar relatórios
+  log('Gerando relatórios...');
+  const report = generateReports({
+    sourceDocs,
+    translatedDocs,
+    alignedDocs,
+    allIssues,
+    allWarnings,
+    ollamaResults,
+    config,
+  });
+  
+  // 6. Status final
+  const hasFail = allIssues.some(i => i.severity === 'FAIL');
+  const hasWarn = allIssues.some(i => i.severity === 'WARN') || allWarnings.length > 0;
+  
+  log('=== AUDITORIA CONCLUÍDA ===');
+  log(`Status: ${hasFail ? 'FAIL' : hasWarn ? 'WARN' : 'OK'}`);
+  log(`Issues: ${allIssues.length} | Warnings: ${allWarnings.length}`);
+  log(`Relatório: ${outputDir}/audit-report.json`);
+  log(`Resumo: ${logsDir}/audit-summary.txt`);
+  
+  process.exit(hasFail ? 1 : 0);
+}
+
+// Executar
+main().catch(err => {
+  log(`Erro fatal: ${err.message}`, 'ERROR');
+  console.error(err);
+  process.exit(1);
+});

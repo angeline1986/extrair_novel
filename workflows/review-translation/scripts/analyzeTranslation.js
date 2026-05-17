@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 import mammoth from "mammoth";
 import * as XLSX from "xlsx";
 import {
@@ -13,16 +14,45 @@ import {
 
 // =====================================================
 // MODOS:
-// node workflows/review-translation/scripts/analyzeTranslation.js analisar
-// node workflows/review-translation/scripts/analyzeTranslation.js corrigir
+// node workflows/review-translation/scripts/analyzeTranslation.js analisar --project=nome_da_obra
+// node workflows/review-translation/scripts/analyzeTranslation.js corrigir --project=nome_da_obra
 // =====================================================
 
-const INPUT_DIR = path.join(process.cwd(), "workflows/review-translation/input");
-const OUTPUT_XLSX = path.join(
-  process.cwd(),
-  "workflows/review-translation/reports/revisao_traducao_genero_expressoes.xlsx"
-);
-const OUTPUT_FIXED_DIR = path.join(process.cwd(), "workflows/review-translation/output");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const WORKFLOW_DIR = path.resolve(__dirname, "..");
+const PROJECTS_DIR = path.join(WORKFLOW_DIR, "projects");
+const INPUT_DIR = path.join(WORKFLOW_DIR, "input");
+const REPORTS_DIR = path.join(WORKFLOW_DIR, "reports");
+const OUTPUT_FIXED_DIR = path.join(WORKFLOW_DIR, "output");
+
+const FEMININE_PRONOUNS = ["ela", "dela", "nela", "consigo mesma"];
+const MASCULINE_PRONOUNS = ["ele", "dele", "nele", "consigo mesmo"];
+const GENDER_ADJECTIVE_PAIRS = [
+  ["cansado", "cansada"],
+  ["preocupado", "preocupada"],
+  ["surpreso", "surpresa"],
+  ["sozinho", "sozinha"],
+  ["exausto", "exausta"],
+  ["nervoso", "nervosa"],
+  ["envergonhado", "envergonhada"],
+  ["horrorizado", "horrorizada"],
+  ["perplexo", "perplexa"],
+  ["assustado", "assustada"],
+  ["desajeitado", "desajeitada"],
+  ["calado", "calada"],
+];
+
+const GLOBAL_AUTO_CORRECTIONS = [
+  [/^-\s*/g, "—"],
+  [/\/think/gi, ""],
+  [/<\/?think>/gi, ""],
+  [/<\/?thinking>/gi, ""],
+  [/<\/?reasoning>/gi, ""],
+  [/\bpárpados\b/gi, "pálpebras"],
+  [/\bprisionões\b/gi, "prisioneiros"],
+  [/\bdistresse\b/gi, "angústia"],
+];
 
 // =====================================================
 // HELPERS
@@ -42,6 +72,83 @@ function excerpt(text, max = 260) {
 
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function wordRegex(value, flags = "iu") {
+  return new RegExp(`\\b${escapeRegExp(value)}\\b`, flags);
+}
+
+function parseArgs(argv) {
+  const mode = argv.find((arg) => !arg.startsWith("--")) || "analisar";
+  const projectArg = argv.find((arg) => arg.startsWith("--project="));
+
+  return {
+    mode,
+    projectKey: projectArg?.split("=").slice(1).join("=").trim() || "",
+  };
+}
+
+function normalizeProjectConfig(config, projectKey) {
+  return {
+    projectName: cleanText(config.projectName) || projectKey,
+    characters: Array.isArray(config.characters) ? config.characters : [],
+    customGlossary:
+      config.customGlossary && typeof config.customGlossary === "object"
+        ? config.customGlossary
+        : {},
+    expressionRules: Array.isArray(config.expressionRules) ? config.expressionRules : [],
+  };
+}
+
+function loadProjectConfig(projectKey) {
+  if (!projectKey) {
+    throw new Error(
+      "Projeto não informado. Use --project=nome_do_arquivo_sem_json."
+    );
+  }
+
+  const projectPath = path.join(PROJECTS_DIR, `${projectKey}.json`);
+
+  if (!fs.existsSync(projectPath)) {
+    throw new Error(`Arquivo de projeto não encontrado: ${projectPath}`);
+  }
+
+  const rawConfig = JSON.parse(fs.readFileSync(projectPath, "utf8"));
+
+  return {
+    key: projectKey,
+    path: projectPath,
+    ...normalizeProjectConfig(rawConfig, projectKey),
+  };
+}
+
+function parseRuleRegex(regexValue) {
+  if (regexValue instanceof RegExp) return regexValue;
+
+  const raw = String(regexValue || "");
+  const literalMatch = raw.match(/^\/(.+)\/([a-z]*)$/i);
+
+  if (literalMatch) {
+    const [, pattern, flags] = literalMatch;
+    const normalizedFlags = flags.includes("i") ? flags : `${flags}i`;
+    return new RegExp(pattern, normalizedFlags);
+  }
+
+  return new RegExp(raw, "iu");
+}
+
+function normalizeExpressionRule(rule) {
+  if (!rule?.regex || !rule.problem || !rule.suggestion) return null;
+
+  return {
+    regex: parseRuleRegex(rule.regex),
+    problem: rule.problem,
+    suggestion: rule.suggestion,
+  };
 }
 
 function getVolumeName(fileName, fullText) {
@@ -104,76 +211,89 @@ function addIssue(rows, volume, chapter, problem, suggestion, trecho, tipo = "Re
 // ANÁLISE DE GÊNERO
 // =====================================================
 
-function analyzeGender(rows, volume, chapterTitle, paragraphs) {
-  let lastMentionWasRensley = false;
+function getOppositeGenderTerms(gender) {
+  if (gender === "masculino") {
+    return {
+      pronouns: FEMININE_PRONOUNS,
+      adjectives: GENDER_ADJECTIVE_PAIRS.map(([, feminine]) => feminine),
+      expectedPronouns: MASCULINE_PRONOUNS.join("/"),
+      expectedAdjectives: "masculino",
+    };
+  }
+
+  if (gender === "feminino") {
+    return {
+      pronouns: MASCULINE_PRONOUNS,
+      adjectives: GENDER_ADJECTIVE_PAIRS.map(([masculine]) => masculine),
+      expectedPronouns: FEMININE_PRONOUNS.join("/"),
+      expectedAdjectives: "feminino",
+    };
+  }
+
+  return null;
+}
+
+function analyzeGender(rows, volume, chapterTitle, paragraphs, projectConfig) {
+  const lastMentionByCharacter = new Map();
+  const characters = projectConfig.characters.filter(
+    (character) => character.name && ["masculino", "feminino"].includes(character.gender)
+  );
 
   for (const p of paragraphs) {
-    const hasRensley = /\bRensley\b/i.test(p);
+    for (const character of characters) {
+      const characterRegex = wordRegex(character.name);
+      const hasCharacter = characterRegex.test(p);
+      const terms = getOppositeGenderTerms(character.gender);
 
-    if (hasRensley && /\b(ela|dela|nela|consigo mesma)\b/i.test(p)) {
-      addIssue(
-        rows,
-        volume,
-        chapterTitle,
-        "Possível troca de gênero envolvendo Rensley",
-        "Se o sujeito for Rensley, revisar para masculino: ele/dele/nele/consigo mesmo.",
-        p,
-        "Gênero"
+      if (!terms) continue;
+
+      const pronounRegex = new RegExp(
+        `\\b(${terms.pronouns.map(escapeRegExp).join("|")})\\b`,
+        "iu"
       );
-    }
-
-    if (
-      hasRensley &&
-      /\b(cansada|preocupada|surpresa|sozinha|exausta|nervosa|envergonhada|horrorizada|perplexa|assustada|desajeitada|calada)\b/i.test(p)
-    ) {
-      addIssue(
-        rows,
-        volume,
-        chapterTitle,
-        "Adjetivo feminino possivelmente aplicado a Rensley",
-        "Se o adjetivo se refere a Rensley, trocar para masculino: cansado, preocupado, surpreso, sozinho etc.",
-        p,
-        "Gênero"
+      const adjectiveRegex = new RegExp(
+        `\\b(${terms.adjectives.map(escapeRegExp).join("|")})\\b`,
+        "iu"
       );
-    }
 
-    if (lastMentionWasRensley && /^(Ela|Dela|Nela)\b/.test(p)) {
-      addIssue(
-        rows,
-        volume,
-        chapterTitle,
-        "Parágrafo começa com pronome feminino após menção a Rensley",
-        "Verificar se o sujeito ainda é Rensley. Se for, trocar para ele/dele/nele.",
-        p,
-        "Gênero"
-      );
-    }
+      if (hasCharacter && pronounRegex.test(p)) {
+        addIssue(
+          rows,
+          volume,
+          chapterTitle,
+          `Possível troca de gênero envolvendo ${character.name}`,
+          `Se o sujeito for ${character.name}, revisar para: ${terms.expectedPronouns}.`,
+          p,
+          "Gênero"
+        );
+      }
 
-    if (/Rensley/i.test(p) && /\bPrincesa\b/i.test(p)) {
-      addIssue(
-        rows,
-        volume,
-        chapterTitle,
-        "Uso de 'Princesa' associado a Rensley",
-        "Pode estar correto pelo disfarce, mas revisar se atrapalha a leitura.",
-        p,
-        "Gênero / contexto"
-      );
-    }
+      if (hasCharacter && adjectiveRegex.test(p)) {
+        addIssue(
+          rows,
+          volume,
+          chapterTitle,
+          `Adjetivo possivelmente incompatível com ${character.name}`,
+          `Se o adjetivo se refere a ${character.name}, revisar para o ${terms.expectedAdjectives}.`,
+          p,
+          "Gênero"
+        );
+      }
 
-    if (/Rensley/i.test(p) && /\bnoiva\b/i.test(p)) {
-      addIssue(
-        rows,
-        volume,
-        chapterTitle,
-        "Uso de 'noiva' associado a Rensley",
-        "Pode estar correto pelo disfarce, mas revisar se no contexto interno seria melhor 'noivo falso'.",
-        p,
-        "Gênero / contexto"
-      );
-    }
+      if (lastMentionByCharacter.get(character.name) && pronounRegex.test(p)) {
+        addIssue(
+          rows,
+          volume,
+          chapterTitle,
+          `Pronome possivelmente incompatível após menção a ${character.name}`,
+          `Verificar se o sujeito ainda é ${character.name}. Se for, revisar para: ${terms.expectedPronouns}.`,
+          p,
+          "Gênero"
+        );
+      }
 
-    lastMentionWasRensley = hasRensley;
+      lastMentionByCharacter.set(character.name, hasCharacter);
+    }
   }
 }
 
@@ -181,7 +301,7 @@ function analyzeGender(rows, volume, chapterTitle, paragraphs) {
 // ANÁLISE DE EXPRESSÕES RUINS
 // =====================================================
 
-const expressionRules = [
+const GLOBAL_EXPRESSION_RULES = [
   {
     regex: /\bcompanheiro de copo\b/i,
     problem: "Expressão literal pouco natural",
@@ -233,11 +353,6 @@ const expressionRules = [
     suggestion: "Trocar por 'Você quer dizer outro tipo de cuidado?' ou 'Existe outro tipo de serviço?'.",
   },
   {
-    regex: /\bsócio do Grão-Duque\b/i,
-    problem: "Título/expressão provavelmente incorreta",
-    suggestion: "Verificar se o sentido correto seria 'consorte', 'parceiro', 'acompanhante' ou 'cônjuge'.",
-  },
-  {
     regex: /\b-Me siga\b/,
     problem: "Pontuação de diálogo inconsistente",
     suggestion: "Trocar por '—Siga-me.' ou '—Me siga.', mantendo padrão com travessão.",
@@ -283,25 +398,22 @@ const expressionRules = [
     suggestion: "Trocar por 'que compostura'.",
   },
   {
-    regex: /\bEscola Secundária Decai\b/i,
-    problem: "Nome próprio traduzido",
-    suggestion: "Manter como 'Decai Middle School'.",
-  },
-  {
-    regex: /\b789\.326qwk\b/i,
-    problem: "Código alterado indevidamente",
-    suggestion: "Trocar por '789326qwk'.",
-  },
-  {
     regex: /\/think|<\/?think>|<\/?thinking>|<\/?reasoning>/i,
     problem: "Vazamento de raciocínio do modelo",
     suggestion: "Remover tag de raciocínio.",
   },
 ];
 
-function analyzeExpressions(rows, volume, chapterTitle, paragraphs) {
+function analyzeExpressions(rows, volume, chapterTitle, paragraphs, projectConfig) {
+  const rules = [
+    ...GLOBAL_EXPRESSION_RULES,
+    ...projectConfig.expressionRules.map(normalizeExpressionRule).filter(Boolean),
+  ];
+
   for (const p of paragraphs) {
-    for (const rule of expressionRules) {
+    for (const rule of rules) {
+      rule.regex.lastIndex = 0;
+
       if (rule.regex.test(p)) {
         addIssue(
           rows,
@@ -321,91 +433,74 @@ function analyzeExpressions(rows, volume, chapterTitle, paragraphs) {
 // CORREÇÕES AUTOMÁTICAS
 // =====================================================
 
-function corrigirTexto(texto) {
-  let t = cleanText(texto);
-
-  // Pontuação de diálogo
-  t = t.replace(/^-\s*/g, "—");
-
-  // Expressões ruins
-  t = t.replace(/\bcompanheiro de copo\b/gi, "companheiro de bebida");
-  t = t.replace(/\bte ajudarei no banheiro\b/gi, "vou ajudar no banho");
-  t = t.replace(/\bajudarei no banheiro\b/gi, "ajudarei no banho");
-  t = t.replace(/\bengula essas batatas\b/gi, "coma essas batatas também");
-  t = t.replace(/\bXingamento\b/gi, "Droga");
-  t = t.replace(/\bEstou lhe dizendo, é seguro\b/gi, "Estou dizendo, é verdade");
-  t = t.replace(/\bcavalheiro de baixa patente\b/gi, "cavaleiro de baixa patente");
-  t = t.replace(/\bcuidados no leito\b/gi, "cuidados na cama");
-  t = t.replace(
-    /\bExiste outro tipo de atendimento\b/gi,
-    "Você quer dizer outro tipo de cuidado?"
+function applyGlobalCorrections(text) {
+  return GLOBAL_AUTO_CORRECTIONS.reduce(
+    (current, [regex, replacement]) => current.replace(regex, replacement),
+    text
   );
-  t = t.replace(/\bsócio do Grão-Duque\b/gi, "consorte do Grão-Duque");
+}
 
-  // CALL -> LIGAR (telefone) errado em fantasia/histórico
-  // Regras específicas primeiro
-  t = t.replace(/\bo duque ligou para\b/gi, "o duque mandou chamar");
-  t = t.replace(/\ba princesa ligou para\b/gi, "a princesa chamou");
+function applyProjectGlossary(text, glossary) {
+  let current = text;
 
-  // Pronomes comuns
-  t = t.replace(/\bligou para ela\b/gi, "a chamou");
-  t = t.replace(/\bligou para ele\b/gi, "o chamou");
-
-  t = t.replace(/\bestava ligando para ela\b/gi, "estava chamando ela");
-  t = t.replace(/\bestava ligando para ele\b/gi, "estava chamando ele");
-
-  // Genéricos
-  t = t.replace(/\bligou para\b/gi, "mandou chamar");
-  t = t.replace(/\bligar para\b/gi, "mandar chamar");
-
-  t = t.replace(/\bme ligue\b/gi, "me chame");
-  t = t.replace(/\bligue para mim\b/gi, "mande me chamar");
-
-  // Correções de gênero só quando o parágrafo cita Rensley.
-  if (/\bRensley\b/i.test(t)) {
-    t = t
-      .replace(/\bela\b/g, "ele")
-      .replace(/\bEla\b/g, "Ele")
-      .replace(/\bdela\b/g, "dele")
-      .replace(/\bDela\b/g, "Dele")
-      .replace(/\bnela\b/g, "nele")
-      .replace(/\bNela\b/g, "Nele")
-      .replace(/\bconsigo mesma\b/gi, "consigo mesmo")
-      .replace(/\bcansada\b/g, "cansado")
-      .replace(/\bpreocupada\b/g, "preocupado")
-      .replace(/\bsurpresa\b/g, "surpreso")
-      .replace(/\bsozinha\b/g, "sozinho")
-      .replace(/\bexausta\b/g, "exausto")
-      .replace(/\bnervosa\b/g, "nervoso")
-      .replace(/\benvergonhada\b/g, "envergonhado")
-      .replace(/\bhorrorizada\b/g, "horrorizado")
-      .replace(/\bperplexa\b/g, "perplexo")
-      .replace(/\bassustada\b/g, "assustado")
-      .replace(/\bdesajeitada\b/g, "desajeitado")
-      .replace(/\bcalada\b/g, "calado");
+  for (const [wrongTerm, correctTerm] of Object.entries(glossary)) {
+    if (!wrongTerm) continue;
+    current = current.replace(wordRegex(wrongTerm, "giu"), correctTerm);
   }
 
-  // Correções específicas do projeto atual
-  t = t.replace(/\/think/gi, "");
-  t = t.replace(/<\/?think>/gi, "");
-  t = t.replace(/<\/?thinking>/gi, "");
-  t = t.replace(/<\/?reasoning>/gi, "");
+  return current;
+}
 
-  t = t.replace(/\b789\.326qwk\b/g, "789326qwk");
-  t = t.replace(/\bEscola Secundária Decai\b/g, "Decai Middle School");
+function applyDynamicGenderCorrections(text, projectConfig) {
+  let current = text;
 
-  t = t.replace(/\bluz de spot\b/gi, "holofote");
-  t = t.replace(/\bprisionões\b/gi, "prisioneiros");
-  t = t.replace(/\bserei seu servidor\b/gi, "vou servi-lo");
-  t = t.replace(/\bdistresse\b/gi, "angústia");
-  t = t.replace(/\bpárpados\b/gi, "pálpebras");
-  t = t.replace(/\bque compositor\b/gi, "que compostura");
-  t = t.replace(/\bcesta de cimento\b/gi, "tambor de cimento");
-  t = t.replace(/\bmaior ordem\b/gi, "maior golpe");
-  t = t.replace(/\bambiente infestado\b/gi, "ambiente opressivo");
-  t = t.replace(/\besquinas dos olhos\b/gi, "cantos dos olhos");
-  t = t.replace(/\besquinas da boca\b/gi, "cantos da boca");
-  t = t.replace(/\bpequeno sombra\b/gi, "pequena sombra");
+  for (const character of projectConfig.characters) {
+    if (!character.name || !["masculino", "feminino"].includes(character.gender)) {
+      continue;
+    }
+
+    if (!wordRegex(character.name).test(current)) continue;
+
+    if (character.gender === "masculino") {
+      current = current
+        .replace(/\bela\b/g, "ele")
+        .replace(/\bEla\b/g, "Ele")
+        .replace(/\bdela\b/g, "dele")
+        .replace(/\bDela\b/g, "Dele")
+        .replace(/\bnela\b/g, "nele")
+        .replace(/\bNela\b/g, "Nele")
+        .replace(/\bconsigo mesma\b/gi, "consigo mesmo");
+
+      for (const [masculine, feminine] of GENDER_ADJECTIVE_PAIRS) {
+        current = current.replace(wordRegex(feminine, "giu"), masculine);
+      }
+    }
+
+    if (character.gender === "feminino") {
+      current = current
+        .replace(/\bele\b/g, "ela")
+        .replace(/\bEle\b/g, "Ela")
+        .replace(/\bdele\b/g, "dela")
+        .replace(/\bDele\b/g, "Dela")
+        .replace(/\bnele\b/g, "nela")
+        .replace(/\bNele\b/g, "Nela")
+        .replace(/\bconsigo mesmo\b/gi, "consigo mesma");
+
+      for (const [masculine, feminine] of GENDER_ADJECTIVE_PAIRS) {
+        current = current.replace(wordRegex(masculine, "giu"), feminine);
+      }
+    }
+  }
+
+  return current;
+}
+
+function corrigirTexto(texto, projectConfig) {
+  let t = cleanText(texto);
+
+  t = applyGlobalCorrections(t);
+  t = applyProjectGlossary(t, projectConfig.customGlossary);
+  t = applyDynamicGenderCorrections(t, projectConfig);
 
   return t;
 }
@@ -423,8 +518,13 @@ async function readDocxText(filePath) {
 // GERA PLANILHA
 // =====================================================
 
-function gerarPlanilha(rows) {
-  ensureDir(path.dirname(OUTPUT_XLSX));
+function gerarPlanilha(rows, projectConfig) {
+  ensureDir(REPORTS_DIR);
+
+  const outputXlsx = path.join(
+    REPORTS_DIR,
+    `${projectConfig.key}_revisao_traducao_genero_expressoes.xlsx`
+  );
 
   const worksheet = XLSX.utils.json_to_sheet(
     rows.length
@@ -452,9 +552,9 @@ function gerarPlanilha(rows) {
 
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "Revisao");
-  XLSX.writeFile(workbook, OUTPUT_XLSX);
+  XLSX.writeFile(workbook, outputXlsx);
 
-  console.log(`\n✅ Planilha gerada: ${path.resolve(OUTPUT_XLSX)}`);
+  console.log(`\n✅ Planilha gerada: ${path.resolve(outputXlsx)}`);
   console.log(`🔍 Total de apontamentos: ${rows.length}`);
 }
 
@@ -509,7 +609,7 @@ function criarParagrafoTexto(text) {
   });
 }
 
-async function gerarDocxCorrigido(fileName, fullText) {
+async function gerarDocxCorrigido(fileName, fullText, projectConfig) {
   ensureDir(OUTPUT_FIXED_DIR);
 
   const lines = fullText
@@ -520,7 +620,7 @@ async function gerarDocxCorrigido(fileName, fullText) {
   const children = [];
 
   for (const line of lines) {
-    const corrected = corrigirTexto(line);
+    const corrected = corrigirTexto(line, projectConfig);
 
     if (/^Volume\s+\d+/i.test(corrected)) {
       children.push(criarParagrafoTitulo(corrected));
@@ -539,7 +639,7 @@ async function gerarDocxCorrigido(fileName, fullText) {
 
   const outputPath = path.join(
     OUTPUT_FIXED_DIR,
-    fileName.replace(/\.docx$/i, "_corrigido.docx")
+    fileName.replace(/\.docx$/i, `_${projectConfig.key}_corrigido.docx`)
   );
 
   fs.writeFileSync(outputPath, buffer);
@@ -551,12 +651,22 @@ async function gerarDocxCorrigido(fileName, fullText) {
 // =====================================================
 
 export async function main(argv = process.argv.slice(2)) {
-  const MODE = argv[0] || "analisar";
+  const { mode: MODE, projectKey } = parseArgs(argv);
 
   if (!["analisar", "corrigir"].includes(MODE)) {
     console.error("❌ Modo inválido. Use:");
-    console.error("node workflows/review-translation/scripts/analyzeTranslation.js analisar");
-    console.error("node workflows/review-translation/scripts/analyzeTranslation.js corrigir");
+    console.error("node workflows/review-translation/scripts/analyzeTranslation.js analisar --project=nome_da_obra");
+    console.error("node workflows/review-translation/scripts/analyzeTranslation.js corrigir --project=nome_da_obra");
+    process.exit(1);
+  }
+
+  let projectConfig;
+
+  try {
+    projectConfig = loadProjectConfig(projectKey);
+  } catch (err) {
+    console.error(`❌ ${err.message}`);
+    console.error(`Pasta de projetos: ${PROJECTS_DIR}`);
     process.exit(1);
   }
 
@@ -576,6 +686,9 @@ export async function main(argv = process.argv.slice(2)) {
 
   const rows = [];
 
+  console.log(`📚 Projeto: ${projectConfig.projectName}`);
+  console.log(`⚙️ Configuração: ${projectConfig.path}`);
+
   for (const file of files) {
     const filePath = path.join(INPUT_DIR, file);
     console.log(`📄 Lendo: ${file}`);
@@ -583,7 +696,7 @@ export async function main(argv = process.argv.slice(2)) {
     const fullText = await readDocxText(filePath);
 
     if (MODE === "corrigir") {
-      await gerarDocxCorrigido(file, fullText);
+      await gerarDocxCorrigido(file, fullText, projectConfig);
       continue;
     }
 
@@ -592,13 +705,13 @@ export async function main(argv = process.argv.slice(2)) {
 
     for (const chapter of chapters) {
       console.log(`  🔎 Analisando ${chapter.title}`);
-      analyzeGender(rows, volume, chapter.title, chapter.paragraphs);
-      analyzeExpressions(rows, volume, chapter.title, chapter.paragraphs);
+      analyzeGender(rows, volume, chapter.title, chapter.paragraphs, projectConfig);
+      analyzeExpressions(rows, volume, chapter.title, chapter.paragraphs, projectConfig);
     }
   }
 
   if (MODE === "analisar") {
-    gerarPlanilha(rows);
+    gerarPlanilha(rows, projectConfig);
   } else {
     console.log(`\n✅ Arquivos corrigidos gerados em: ${path.resolve(OUTPUT_FIXED_DIR)}`);
   }

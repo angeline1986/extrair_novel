@@ -1,0 +1,23 @@
+{
+  "projectName": "Nome da Obra",
+  "characters": [
+    {
+      "name": "Nome Masculino",
+      "gender": "masculino"
+    },
+    {
+      "name": "Nome Feminino",
+      "gender": "feminino"
+    }
+  ],
+  "customGlossary": {
+    "Termo Errado": "Termo Correto"
+  },
+  "expressionRules": [
+    {
+      "regex": "\\bexpressao literal\\b",
+      "problem": "Expressão literal pouco natural",
+      "suggestion": "Reformular para soar natural em PT-BR."
+    }
+  ]
+}
