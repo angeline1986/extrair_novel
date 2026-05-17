@@ -106,7 +106,7 @@ function showLastReport() {
   console.log(content);
 }
 
-async function cleanOldReports() {
+ async function cleanOldReports() {
   const logsDir = path.join(projectRoot, 'workflows/audit-translation-docx/logs');
   
   if (!fs.existsSync(logsDir)) {
@@ -116,11 +116,9 @@ async function cleanOldReports() {
   
   const files = fs.readdirSync(logsDir);
   
+  // Filtrar todos os arquivos de relatório
   const reportFiles = files.filter(f => {
-    return f.match(/\.(json|csv|txt)$/) && 
-           (f.includes('audit-') || f.includes('issues-') || 
-            f.includes('problematic-') || f.includes('correcoes_') ||
-            f.includes('audit-summary'));
+    return f.match(/\.(json|csv|txt)$/);
   });
   
   if (reportFiles.length === 0) {
@@ -132,15 +130,19 @@ async function cleanOldReports() {
   log(`📊 Encontrados ${reportFiles.length} relatórios na pasta logs/`, 'cyan');
   console.log();
   
-  for (const file of reportFiles.slice(0, 10)) {
+  // Mostrar todos os arquivos
+  for (const file of reportFiles) {
     const stats = fs.statSync(path.join(logsDir, file));
     const size = (stats.size / 1024).toFixed(1);
     console.log(`   📄 ${file} (${size} KB)`);
   }
-  if (reportFiles.length > 10) {
-    console.log(`   ... e mais ${reportFiles.length - 10} arquivos`);
-  }
   
+  console.log();
+  log('❓ O que deseja fazer?', 'yellow');
+  console.log();
+  log('  1. 🗑️  Limpar TODOS os relatórios', 'red');
+  log('  2. 📌 Manter apenas os 5 mais recentes', 'cyan');
+  log('  3. ❌ Cancelar', 'white');
   console.log();
   
   const rl = readline.createInterface({
@@ -148,23 +150,62 @@ async function cleanOldReports() {
     output: process.stdout
   });
   
-  const answer = await new Promise((resolve) => {
-    rl.question('Deseja limpar relatórios antigos (manter apenas os 5 mais recentes)? (s/N): ', (resp) => {
+  const option = await new Promise((resolve) => {
+    rl.question('👉 Escolha uma opção (1/2/3): ', (resp) => {
       rl.close();
-      resolve(resp.toLowerCase());
+      resolve(resp.trim());
     });
   });
   
-  if (answer !== 's' && answer !== 'sim' && answer !== 'y') {
+  if (option === '3') {
     log('✨ Operação cancelada.', 'yellow');
     return;
   }
   
-  const sortedFiles = [...reportFiles].sort().reverse();
-  const toDelete = sortedFiles.slice(5);
+  let toDelete = [];
   
-  if (toDelete.length === 0) {
-    log('ℹ️ Nenhum relatório antigo para remover.', 'yellow');
+  if (option === '1') {
+    // Limpar TODOS
+    toDelete = reportFiles;
+    log(`\n⚠️ ATENÇÃO: Você está prestes a remover TODOS os ${toDelete.length} relatórios!`, 'red');
+  } else if (option === '2') {
+    // Manter apenas os 5 mais recentes
+    const sortedFiles = [...reportFiles].sort((a, b) => {
+      const statA = fs.statSync(path.join(logsDir, a));
+      const statB = fs.statSync(path.join(logsDir, b));
+      return statB.mtimeMs - statA.mtimeMs;
+    });
+    toDelete = sortedFiles.slice(5);
+    
+    if (toDelete.length === 0) {
+      log(`\n✅ Nenhum relatório para remover. Já mantém apenas os 5 mais recentes.`, 'green');
+      return;
+    }
+    
+    console.log();
+    log(`🗑️ Os seguintes ${toDelete.length} arquivo(s) antigos serão removidos:`, 'yellow');
+    for (const file of toDelete) {
+      console.log(`   - ${file}`);
+    }
+  } else {
+    log('\n❌ Opção inválida. Operação cancelada.', 'red');
+    return;
+  }
+  
+  console.log();
+  const confirm = await new Promise((resolve) => {
+    const rl2 = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
+    rl2.question('Tem certeza? (S/N): ', (resp) => {
+      rl2.close();
+      resolve(resp.toLowerCase());
+    });
+  });
+  
+  if (confirm !== 's' && confirm !== 'sim' && confirm !== 'y') {
+    log('✨ Operação cancelada.', 'yellow');
     return;
   }
   
@@ -176,7 +217,11 @@ async function cleanOldReports() {
     console.log(`  🗑️ Removido: ${file}`);
   }
   
-  log(`\n✅ ${deleted} arquivo(s) removido(s). Mantidos os 5 mais recentes.`, 'green');
+  if (option === '1') {
+    log(`\n✅ ${deleted} relatório(s) removido(s). A pasta logs/ está vazia.`, 'green');
+  } else {
+    log(`\n✅ ${deleted} arquivo(s) removido(s). Mantidos os 5 relatórios mais recentes.`, 'green');
+  }
 }
 
 async function askUser(question) {
@@ -210,7 +255,7 @@ async function runFullWorkflow() {
     return false;
   }
   
-  const fix = await askUser('\n🔧 Deseja corrigir problemas de gênero? (s/N): ');
+  const fix = await askUser('\n🔧 Deseja corrigir problemas de gênero? (S/N): ');
   if (fix !== 's' && fix !== 'sim' && fix !== 'y') {
     log('✨ Workflow concluído (sem correções).', 'green');
     return true;
@@ -223,7 +268,7 @@ async function runFullWorkflow() {
   log('\n🔧 PASSO 2: Corrigindo problemas de gênero...', 'cyan');
   runCommand(fixCmd, 'Correção de gênero');
   
-  const reaudit = await askUser('\n🔄 Deseja re-auditar após as correções? (s/N): ');
+  const reaudit = await askUser('\n🔄 Deseja re-auditar após as correções? (S/N): ');
   if (reaudit === 's' || reaudit === 'sim' || reaudit === 'y') {
     log('\n📋 PASSO 3: Re-auditando...', 'cyan');
     runCommand(auditCmd, 'Re-auditoria');

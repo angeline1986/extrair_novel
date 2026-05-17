@@ -1,9 +1,18 @@
 // src/chapterParser.js
+// Parse de capítulos e títulos
+
 import { normalizeText } from './utils.js';
 
 export function parseChapterMeta(title, options = {}) {
   const text = normalizeText(title);
   const isTolerant = options.tolerant || true;
+  
+  // IGNORAR: Chapter Group, Group, etc. (não são capítulos reais)
+  if (/^chapter\s+group\s+\d+/i.test(text) || 
+      /^group\s+\d+/i.test(text) ||
+      /^chapter group/i.test(text)) {
+    return null;
+  }
   
   // Prologue (inglês)
   if (/^prologue$/i.test(text)) {
@@ -83,84 +92,7 @@ export function parseChapterMeta(title, options = {}) {
     };
   }
   
-  // Interlude / Extra / Fallback
-  if (/^interlude|^extra|^bloco sem título|^chapter group/i.test(text)) {
-    // Chapter Group é ignorado (não é um capítulo real)
-    if (/^chapter group/i.test(text)) {
-      return null; // Ignorar títulos de grupo
-    }
-    
-    return {
-      type: 'interlude',
-      number: null,
-      title: text,
-      originalTitle: title,
-      isFallback: true,
-      confidence: 0.7,
-    };
-  }
-  
   return null;
-}
-
-export function detectChaptersFromParagraphs(paragraphs, options = {}) {
-  const chapters = [];
-  let currentChapter = null;
-  
-  for (let i = 0; i < paragraphs.length; i++) {
-    const para = paragraphs[i];
-    const meta = parseChapterMeta(para, options);
-    
-    // Ignorar "Chapter Group" (não criar capítulo para ele)
-    if (meta === null && /^chapter group/i.test(para)) {
-      continue;
-    }
-    
-    if (meta) {
-      // Salvar capítulo anterior
-      if (currentChapter && currentChapter.paragraphs.length > 0) {
-        chapters.push(currentChapter);
-      }
-      
-      // Iniciar novo capítulo
-      currentChapter = {
-        title: meta.title || para,
-        meta,
-        originalTitle: meta.originalTitle || para,
-        paragraphs: [],
-        startIndex: i,
-      };
-    } else if (currentChapter) {
-      currentChapter.paragraphs.push(para);
-    } else {
-      // Primeiro parágrafo sem título - criar capítulo fallback
-      currentChapter = {
-        title: null,
-        meta: { type: 'fallback', isFallback: true, confidence: 0.5 },
-        originalTitle: null,
-        paragraphs: [para],
-        startIndex: i,
-      };
-    }
-  }
-  
-  // Adicionar último capítulo
-  if (currentChapter && currentChapter.paragraphs.length > 0) {
-    chapters.push(currentChapter);
-  }
-  
-  // Se não encontrou nenhum capítulo, tratar como um único bloco
-  if (chapters.length === 0 && paragraphs.length > 0) {
-    chapters.push({
-      title: null,
-      meta: { type: 'fallback', isFallback: true, confidence: 0.5 },
-      originalTitle: null,
-      paragraphs: [...paragraphs],
-      startIndex: 0,
-    });
-  }
-  
-  return chapters;
 }
 
 function titleCase(str) {
@@ -179,6 +111,62 @@ function titleCase(str) {
       return word.charAt(0).toUpperCase() + word.slice(1);
     })
     .join(' ');
+}
+
+export function detectChaptersFromParagraphs(paragraphs, options = {}) {
+  const chapters = [];
+  let currentChapter = null;
+  
+  for (let i = 0; i < paragraphs.length; i++) {
+    const para = paragraphs[i];
+    
+    // Pular títulos de grupo completamente
+    if (/^chapter\s+group\s+\d+/i.test(para) || 
+        /^group\s+\d+/i.test(para)) {
+      continue;
+    }
+    
+    const meta = parseChapterMeta(para, options);
+    
+    if (meta) {
+      if (currentChapter && currentChapter.paragraphs.length > 0) {
+        chapters.push(currentChapter);
+      }
+      currentChapter = {
+        title: meta.title || para,
+        meta,
+        originalTitle: meta.originalTitle || para,
+        paragraphs: [],
+        startIndex: i,
+      };
+    } else if (currentChapter) {
+      currentChapter.paragraphs.push(para);
+    } else {
+      currentChapter = {
+        title: null,
+        meta: { type: 'fallback', isFallback: true, confidence: 0.5 },
+        originalTitle: null,
+        paragraphs: [para],
+        startIndex: i,
+      };
+    }
+  }
+  
+  if (currentChapter && currentChapter.paragraphs.length > 0) {
+    chapters.push(currentChapter);
+  }
+  
+  if (chapters.length === 0 && paragraphs.length > 0) {
+    chapters.push({
+      title: null,
+      meta: { type: 'fallback', isFallback: true, confidence: 0.5 },
+      originalTitle: null,
+      paragraphs: [...paragraphs],
+      startIndex: 0,
+    });
+  }
+  
+  return chapters;
 }
 
 export function getChapterGroup(chapterNumber) {

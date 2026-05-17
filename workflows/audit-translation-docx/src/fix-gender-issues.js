@@ -18,7 +18,7 @@ const logDir = path.join(projectRoot, 'logs');
 if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
 
-// Correções de gênero (usando funções em vez de $1 para evitar caracteres literais)
+// Correções de gênero (apenas gênero, sem mexer em pontuação)
 const corrections = [
   {
     pattern: /\bo\s+(diferente|mesma|melhor|pior|primeira|última|próxima)\b/gi,
@@ -62,33 +62,17 @@ const corrections = [
   }
 ];
 
-// Correções adicionais de pontuação e formatação
+// NENHUMA correção de pontuação - apenas espaços extras
 const additionalFixes = [
   { 
-    pattern: /\s+([.,!?;:])/g, 
-    replace: '$1', 
-    description: 'espaço antes de pontuação' 
-  },
-  // Comentado: dois pontos consecutivos são um recurso estilístico válido em novels
-  // { 
-  //   pattern: /([.,!?;:])\s*([.,!?;:])/g, 
-  //   replace: '$1$2', 
-  //   description: 'pontuação duplicada' 
-  // },
-  { 
-    pattern: /[ ]{2,}/g, 
-    replace: ' ', 
-    description: 'múltiplos espaços' 
+    pattern: /[ ]{3,}/g,  // Apenas 3+ espaços consecutivos (não mexe em 2 espaços)
+    replace: '  ', 
+    description: 'múltiplos espaços (mais de 2)'
   },
   { 
-    pattern: /\n{3,}/g, 
-    replace: '\n\n', 
-    description: 'quebra de linha excessiva' 
-  },
-  {
-    pattern: /\.\.+/g,
-    replace: '...',
-    description: 'múltiplos pontos'
+    pattern: /\n{4,}/g,  // Apenas 4+ quebras de linha
+    replace: '\n\n\n', 
+    description: 'quebra de linha excessiva (mais de 3)'
   }
 ];
 
@@ -105,7 +89,6 @@ function applyCorrections(text, verbose = false, correctionsLog = []) {
   let corrected = text;
   let totalChanges = 0;
 
-  // Aplicar correções de gênero
   for (const correction of corrections) {
     let count = 0;
     const newText = corrected.replace(correction.pattern, (match, ...args) => {
@@ -115,7 +98,6 @@ function applyCorrections(text, verbose = false, correctionsLog = []) {
         ? correction.replace(match, word) 
         : correction.replace;
       
-      // Registrar para CSV (apenas primeiras 100 ocorrências para não sobrecarregar)
       if (correctionsLog && correctionsLog.length < 10000) {
         correctionsLog.push({
           before: match.substring(0, 200),
@@ -137,7 +119,6 @@ function applyCorrections(text, verbose = false, correctionsLog = []) {
     }
   }
 
-  // Aplicar correções adicionais
   for (const fix of additionalFixes) {
     let count = 0;
     const newText = corrected.replace(fix.pattern, (match) => {
@@ -161,7 +142,8 @@ function applyCorrections(text, verbose = false, correctionsLog = []) {
       }
     }
   }
-
+  
+  // Não corrigir pontuação, reticências, aspas ou $1
   return { corrected, totalChanges };
 }
 
@@ -199,12 +181,10 @@ function processDocxFile(inputPath, outputPath, verbose = false) {
     return false;
   }
   
-  // Salvar XML modificado
   const updatedXml = $.xml();
   zip.updateFile('word/document.xml', Buffer.from(updatedXml, 'utf8'));
   zip.writeZip(outputPath);
   
-  // Salvar CSV de correções
   if (correctionsLog.length > 0) {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
     const csvPath = path.join(logDir, `correcoes_${timestamp}.csv`);
@@ -225,7 +205,6 @@ function processDocxFile(inputPath, outputPath, verbose = false) {
 function processAllDocxFiles(verbose = false) {
   if (!fs.existsSync(inputDir)) {
     console.error(`❌ Pasta de entrada não encontrada: ${inputDir}`);
-    console.log(`   Certifique-se de que os arquivos DOCX estão em: ${inputDir}`);
     return;
   }
   
@@ -243,15 +222,13 @@ function processAllDocxFiles(verbose = false) {
   console.log(`\n${'='.repeat(60)}`);
   
   let processed = 0;
-  let totalChangesAll = 0;
   
   for (const file of files) {
     const inputPath = path.join(inputDir, file);
     const outputPath = path.join(outputDir, file.replace('.docx', '_fixed.docx'));
     
     try {
-      const result = processDocxFile(inputPath, outputPath, verbose);
-      if (result) processed++;
+      if (processDocxFile(inputPath, outputPath, verbose)) processed++;
     } catch (err) {
       console.error(`  ❌ Erro em ${file}: ${err.message}`);
     }
@@ -260,7 +237,6 @@ function processAllDocxFiles(verbose = false) {
   console.log(`\n${'='.repeat(60)}`);
   console.log(`\n📊 RESUMO:`);
   console.log(`   Arquivos processados: ${processed}/${files.length}`);
-  console.log(`   Arquivos corrigidos: ${processed}`);
   console.log(`   Saída: ${outputDir}`);
   console.log(`   Logs de correções: ${logDir}/correcoes_*.csv`);
   
@@ -272,7 +248,6 @@ function processAllDocxFiles(verbose = false) {
   }
 }
 
-// Modo verbose via linha de comando
 const verbose = process.argv.includes('--verbose') || process.argv.includes('-v');
 
 console.log(`
@@ -282,7 +257,7 @@ console.log(`
 ║  Corrige problemas comuns de gênero em traduções do         ║
 ║  Google Tradutor (ex: "o diferente" → "a diferente")        ║
 ║                                                              ║
-║  Gera CSV com todas as correções para revisão manual.       ║
+║  ATENÇÃO: NÃO corrige pontuação, reticências ou aspas       ║
 ╚══════════════════════════════════════════════════════════════╝
 `);
 
