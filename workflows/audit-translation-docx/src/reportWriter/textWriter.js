@@ -188,6 +188,78 @@ function buildVersionHistoryLines() {
   return lines;
 }
 
+function buildEntityConsistencyLines(entityConsistency) {
+  if (!entityConsistency) return [];
+
+  const lines = [
+    '-'.repeat(40),
+    'CONSISTÊNCIA DE ENTIDADES',
+    '-'.repeat(40),
+    `Status: ${entityConsistency.status}`,
+    `Aliases detectados: ${entityConsistency.aliasesFound || 0}`,
+    `Ocorrências de aliases: ${entityConsistency.totalAliasOccurrences || 0}`,
+    '',
+  ];
+
+  if (!entityConsistency.issues?.length) {
+    lines.push('Nenhum alias suspeito encontrado para entidades protegidas.');
+    lines.push('');
+    return lines;
+  }
+
+  const grouped = new Map();
+
+  for (const issue of entityConsistency.issues) {
+    if (!grouped.has(issue.canonical)) {
+      grouped.set(issue.canonical, []);
+    }
+    grouped.get(issue.canonical).push(issue);
+  }
+
+  lines.push('Aliases detectados:');
+  for (const [canonical, issues] of grouped) {
+    const aliases = issues.map((issue) => issue.found).join(', ');
+    const occurrences = issues.reduce((sum, issue) => sum + issue.occurrences, 0);
+    lines.push(`- ${canonical} apareceu como: ${aliases}`);
+    lines.push(`  Ocorrências: ${occurrences}`);
+  }
+
+  lines.push('');
+  lines.push('Sugestão:');
+  lines.push('Rodar normalização de entidades antes da próxima auditoria.');
+  lines.push('');
+
+  return lines;
+}
+
+function buildWorkingSourceLines(versionWorkflow) {
+  if (!versionWorkflow) return [];
+
+  const flow = versionWorkflow.flow?.length
+    ? versionWorkflow.flow.join(' → ')
+    : 'translatedGoogle';
+
+  return [
+    'WORKING SOURCE',
+    '--------------',
+    'Origem auditada:',
+    `- ${versionWorkflow.workingInput || 'desconhecida'}`,
+    '',
+    'Versão atual:',
+    `- ${versionWorkflow.currentVersion ? `v${versionWorkflow.currentVersion}` : 'nenhuma'}`,
+    '',
+    'Próxima versão:',
+    `- v${versionWorkflow.nextVersion || 1}`,
+    '',
+    'Origem inicial:',
+    `- ${versionWorkflow.origin || 'input/translatedGoogle'}`,
+    '',
+    'Fluxo:',
+    flow,
+    '',
+  ];
+}
+
 export function writeTextSummary(report, summaryPath, sourceDocs, translatedDocs) {
   const lines = [
     "=".repeat(80),
@@ -215,10 +287,13 @@ export function writeTextSummary(report, summaryPath, sourceDocs, translatedDocs
     "",
   ];
 
+  lines.push(...buildWorkingSourceLines(report.versionWorkflow));
   lines.push(...buildVersionHistoryLines());
 
   const previewLines = writeParagraphPreview(sourceDocs, translatedDocs);
   lines.push(...previewLines);
+
+  lines.push(...buildEntityConsistencyLines(report.entityConsistency));
 
   lines.push(
     "-".repeat(40),

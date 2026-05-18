@@ -31,6 +31,7 @@ export function getWarningDescription(warning) {
     weird_spacing: "Espaçamento estranho antes de pontuação",
     auto_translate_mark: "Marca de tradução automática detectada",
     low_confidence_chapter: "Alinhamento do capítulo com baixa confiança",
+    ENTITY_ALIAS_FOUND: "Alias ou nome corrompido detectado para entidade protegida",
   };
   return descriptions[warning.type] || warning.type;
 }
@@ -38,6 +39,13 @@ export function getWarningDescription(warning) {
 // Determinar status consolidado
 export function determineConsolidatedStatus(stats) {
   if (stats.failIssues > 0 || stats.ollamaFails > 0) return "FAIL";
-  if (stats.warnIssues > 0 || stats.ollamaWarnings > 0 || stats.totalWarnings > 0) return "WARN";
+  if (
+    stats.warnIssues > 0 ||
+    stats.ollamaWarnings > 0 ||
+    stats.totalWarnings > 0 ||
+    stats.entityWarnings > 0
+  ) {
+    return "WARN";
+  }
   return "OK";
 }

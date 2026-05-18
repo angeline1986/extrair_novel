@@ -1,0 +1,53 @@
+{
+  "Han Jun-woo": {
+    "type": "character",
+    "protected": true,
+    "aliases": [
+      "Junwoo Han",
+      "Han Junwoo",
+      "Han Jun-wu",
+      "Joon-woo Han"
+    ]
+  },
+  "Go Yo-han": {
+    "type": "character",
+    "protected": true,
+    "aliases": [
+      "Silence",
+      "Silent",
+      "Serenity",
+      "Serene",
+      "Sileum",
+      "Gohan",
+      "Go-jeong",
+      "Go-eum",
+      "Ko-eum",
+      "Ko Yo-han",
+      "Ko Yo-yeon",
+      "Go-Reum",
+      "Go-Hyun"
+    ]
+  },
+  "Kang Jun": {
+    "type": "character",
+    "protected": true,
+    "aliases": [
+      "Kangjun",
+      "Kang-jun",
+      "Jun Kang",
+      "Juna",
+      "Junho"
+    ]
+  },
+  "Han Tae-san": {
+    "type": "character",
+    "protected": true,
+    "aliases": [
+      "Hantaesan",
+      "Han Taesan",
+      "Monte Hantae",
+      "Montanha Hantae",
+      "Hantae-san"
+    ]
+  }
+}

@@ -48,6 +48,7 @@ workflows/audit-translation-docx/
 │
 ├── src/                     # Código fonte (módulos)
 │   ├── audit.js             # Auditoria principal
+│   ├── entities/            # Glossário e consistência de nomes/personagens
 │   ├── fix-gender/          # Correção de gênero
 │   ├── menu/                # Menu interativo
 │   ├── reportWriter/        # Geração de relatórios
@@ -125,6 +126,28 @@ ATENÇÃO: NÃO corrige pontuação, reticências ou aspas (preserva estilo orig
 
 
 --------------------------------------------------------------------------------
+CONSISTÊNCIA DE ENTIDADES
+--------------------------------------------------------------------------------
+
+O workflow usa input/source/ como referência canônica e src/entities/entityGlossary.json
+como glossário editável de personagens protegidos.
+
+Durante a auditoria:
+- detecta aliases suspeitos na tradução PT;
+- inclui entityConsistency no audit-report-*.json;
+- adiciona seção "CONSISTÊNCIA DE ENTIDADES" no audit-summary-*.txt;
+- gera logs/entity-consistency-*.json quando encontra aliases.
+
+Durante a correção:
+- normaliza aliases antes do fix-gender em output/normalized/step{N}_*/;
+- roda o fix-gender somente sobre a cópia já normalizada;
+- salva a cópia final em output/fixed/step{N}_*/;
+- versiona o resultado em input-fixed/v{N}/;
+- nunca altera input/source/ nem input/translatedGoogle/ diretamente;
+- registra substituições em logs/entity-normalization-*.json.
+
+
+--------------------------------------------------------------------------------
 RELATÓRIOS GERADOS
 --------------------------------------------------------------------------------
 
@@ -132,6 +155,8 @@ Arquivo                              | Conteúdo
 -------------------------------------|-----------------------------------------
 logs/audit-report-*.json             | Relatório completo em JSON
 logs/audit-summary-*.txt             | Resumo legível com preview dos parágrafos
+logs/entity-consistency-*.json       | Aliases e inconsistências de nomes detectadas
+logs/entity-normalization-*.json     | Substituições de nomes aplicadas na correção
 logs/issues-*.csv                    | Issues e warnings em CSV
 logs/correcoes_*.csv                 | Antes/depois das correções de gênero
 logs/problematic-chapters-*.txt      | Detalhes de capítulos problemáticos

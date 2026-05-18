@@ -6,14 +6,17 @@ import path from 'path';
 import { log } from '../display.js';
 import { runCommand } from '../commands.js';
 import { getLogsDir } from './stepUtils.js';
+import { getWorkingInput } from '../../version/versionWorkflow.js';
 
 export async function step1Audit(isVerbose) {
+  const resetWorkingCopy = process.argv.includes('--reset-working-copy');
+  const workingInput = getWorkingInput({ resetWorkingCopy });
   const auditCmd = isVerbose 
-    ? 'npm run audit:translation:verbose'
-    : 'npm run audit:translation';
+    ? `npm run audit:translation:verbose${resetWorkingCopy ? ' -- --reset-working-copy' : ''}`
+    : `npm run audit:translation${resetWorkingCopy ? ' -- --reset-working-copy' : ''}`;
   
-  log('\n📋 [PASSO 1] Auditando tradução original...', 'cyan');
-  console.log('   📁 Origem: input/translatedGoogle/');
+  log('\n📋 [PASSO 1] Auditando working source...', 'cyan');
+  console.log(`   📁 Origem: ${workingInput.relativePath}`);
   console.log('   📁 Destino dos relatórios: logs/');
   
   const auditStartTime = new Date();

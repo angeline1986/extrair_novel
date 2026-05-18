@@ -20,11 +20,14 @@ export function generateReports({
   allIssues,
   allWarnings,
   ollamaResults = [],
+  entityResults = [],
+  versionWorkflow = null,
   config,
 }) {
   const timestamp = formatTimestamp();
   const logsDir = config.files.logsDir;
   const outputDir = config.files.outputDir;
+  const entityConsistency = buildEntityConsistency(entityResults);
 
   const stats = {
     timestamp,
@@ -39,6 +42,7 @@ export function generateReports({
     ollamaReviews: ollamaResults.length,
     ollamaFails: ollamaResults.filter((r) => r.review?.status === "fail").length,
     ollamaWarnings: ollamaResults.filter((r) => r.review?.status === "warning").length,
+    entityWarnings: entityConsistency.issues.length,
   };
 
   const consolidatedStatus = determineConsolidatedStatus(stats);
@@ -50,6 +54,8 @@ export function generateReports({
     issues: allIssues.map(serializeIssue),
     warnings: allWarnings.map(serializeWarning),
     ollamaResults: ollamaResults.map(serializeOllamaResult),
+    entityConsistency,
+    versionWorkflow,
     files: alignedDocs.map((doc) => serializeFile(doc)),
     config: {
       thresholds: config.thresholds,
@@ -67,6 +73,22 @@ export function generateReports({
     const csvPath = path.join(logsDir, `issues-${timestamp}.csv`);
     writeIssuesCsv(allIssues, allWarnings, csvPath, config.report.csvDelimiter);
     console.log(`📊 CSV: ${csvPath}`);
+  }
+
+  if (entityConsistency.issues.length > 0) {
+    const entityPath = path.join(logsDir, `entity-consistency-${timestamp}.json`);
+    fs.writeFileSync(entityPath, JSON.stringify({
+      timestamp,
+      status: entityConsistency.status,
+      aliasesFound: entityConsistency.aliasesFound,
+      totalAliasOccurrences: entityConsistency.totalAliasOccurrences,
+      files: entityConsistency.files,
+      issues: entityConsistency.issues.map((issue) => ({
+        ...issue,
+        action: "suggest_replace",
+      })),
+    }, null, 2), "utf8");
+    console.log(`🏷️  Entidades: ${entityPath}`);
   }
 
   // Resumo em texto
@@ -116,4 +138,38 @@ export function generateReports({
   }
 
   return report;
+}
+
+function buildEntityConsistency(entityResults) {
+  const issues = entityResults.flatMap((result) =>
+    result.entityIssues.map((issue) => ({
+      file: result.file,
+      sourceFile: result.sourceFile,
+      translatedFile: result.translatedFile,
+      type: issue.type,
+      severity: issue.severity,
+      canonical: issue.canonical,
+      found: issue.found,
+      occurrences: issue.occurrences,
+      suggestion: issue.suggestion,
+    }))
+  );
+
+  return {
+    status: issues.length > 0 ? "WARN" : "OK",
+    aliasesFound: issues.length,
+    totalAliasOccurrences: issues.reduce((sum, issue) => sum + issue.occurrences, 0),
+    issues,
+    files: entityResults.map((result) => ({
+      file: result.file,
+      sourceFile: result.sourceFile,
+      translatedFile: result.translatedFile,
+      status: result.status,
+      sourceEntityCandidates: result.sourceEntityCandidates,
+      canonicalPresence: result.canonicalPresence,
+      aliasesFound: result.summary.aliasesFound,
+      totalAliasOccurrences: result.summary.totalAliasOccurrences,
+      issues: result.entityIssues,
+    })),
+  };
 }

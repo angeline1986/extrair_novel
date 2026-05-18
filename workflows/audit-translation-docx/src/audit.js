@@ -16,10 +16,15 @@ import { runStructuralChecks } from './checks/structural.js';
 import { detectGoogleTranslateIssues } from './checks/gtPatterns.js';
 import { initCache, saveCache, reviewSuspiciousItems } from './ollamaReviewer.js';
 import { generateReports } from './reportWriter/reportGenerator.js';
+import {
+  auditEntities,
+  extractEntitiesFromSource,
+  loadEntityGlossary,
+} from './entities/index.js';
+import { getVersionWorkflowInfo, getWorkingInput } from './version/versionWorkflow.js';
 
 // Configurar diretórios
 const sourceDir = path.resolve(__dirname, config.files.sourceDir);
-const translatedDir = path.resolve(__dirname, config.files.translatedDir);
 const outputDir = path.resolve(__dirname, config.files.outputDir);
 const logsDir = path.resolve(__dirname, config.files.logsDir);
 
@@ -33,9 +38,23 @@ initCache();
 
 async function main() {
   const verbose = process.argv.includes('--verbose');
+  const resetWorkingCopy = process.argv.includes('--reset-working-copy');
+  const workingInputArg = process.argv.find((arg) => arg.startsWith('--working-input='));
+  const workingInput = workingInputArg
+    ? {
+        path: path.resolve(workingInputArg.split('=').slice(1).join('=')),
+        relativePath: workingInputArg.split('=').slice(1).join('='),
+        source: 'explicit',
+        reason: 'explicit working input requested',
+      }
+    : getWorkingInput({ resetWorkingCopy });
+  const translatedDir = workingInput.path;
+  const versionWorkflow = getVersionWorkflowInfo({ resetWorkingCopy });
+
   log('=== INICIANDO AUDITORIA DE TRADUÇÕES ===');
   log(`Originais: ${sourceDir}`);
   log(`Traduções: ${translatedDir}`);
+  log(`Working source: ${workingInput.relativePath}`);
   log(`Saída: ${outputDir}`);
   
   // 1. Ler todos os DOCX
@@ -61,6 +80,8 @@ async function main() {
   const allIssues = [];
   const allWarnings = [];
   const suspiciousItems = [];
+  const entityGlossary = loadEntityGlossary();
+  const entityResults = [];
   
   for (const doc of alignedDocs) {
     if (doc.alignment === 'missing') {
@@ -81,6 +102,32 @@ async function main() {
     const gtIssues = detectGoogleTranslateIssues(doc.translation.rawText, doc.source.rawText);
     allIssues.push(...gtIssues.issues);
     allWarnings.push(...gtIssues.warnings);
+
+    // Consistência de nomes/personagens com glossário canônico.
+    const entityAudit = auditEntities(doc.translation.rawText, entityGlossary);
+    const sourceEntityCandidates = extractEntitiesFromSource(doc.source.filePath).slice(0, 30);
+
+    entityResults.push({
+      file: doc.translation.filename,
+      sourceFile: doc.source.filePath,
+      translatedFile: doc.translation.filePath,
+      sourceEntityCandidates,
+      ...entityAudit,
+    });
+
+    for (const issue of entityAudit.entityIssues) {
+      allWarnings.push({
+        type: issue.type,
+        severity: issue.severity,
+        description: `${issue.canonical} apareceu como ${issue.found}`,
+        details: {
+          canonical: issue.canonical,
+          found: issue.found,
+          suggestion: issue.suggestion,
+        },
+        occurrences: issue.occurrences,
+      });
+    }
     
     // Coletar itens suspeitos para revisão com Ollama
     for (const chapter of doc.chapters) {
@@ -127,6 +174,12 @@ async function main() {
     allIssues,
     allWarnings,
     ollamaResults,
+    entityResults,
+    versionWorkflow: {
+      ...versionWorkflow,
+      workingInput: workingInput.relativePath,
+      workingInputReason: workingInput.reason,
+    },
     config,
   });
   
