@@ -38,7 +38,3 @@ export function getLogsDir() {
 export function getInputFixedDir() {
   return path.join(projectRoot, 'workflows/audit-translation-docx/input-fixed');
 }
-
-export function getAuditadaDir() {
-  return path.join(projectRoot, 'workflows/audit-translation-docx/output', 'auditada');
-}

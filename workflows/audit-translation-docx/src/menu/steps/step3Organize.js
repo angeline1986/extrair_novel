@@ -1,5 +1,5 @@
 // src/menu/steps/step3Organize.js
-// PASSO 3: Organizar versões corrigidas e salvar em output/auditada/
+// PASSO 3: Organizar versões corrigidas em input-fixed/
 
 import fs from 'fs';
 import path from 'path';
@@ -7,8 +7,7 @@ import { log } from '../display.js';
 import { 
   logFileCreation, 
   ensureDirectory,
-  getInputFixedDir,
-  getAuditadaDir
+  getInputFixedDir
 } from './stepUtils.js';
 import { logWorkflowEvent } from '../../observability/workflowLog.js';
 
@@ -18,11 +17,9 @@ export async function step3Organize() {
   log('\n📋 [PASSO 3] Organizando versões corrigidas...', 'cyan');
   
   const inputFixedDir = getInputFixedDir();
-  const auditadaDir = getAuditadaDir();
   const outputBackupDir = path.join(projectRoot, 'workflows/audit-translation-docx/output', 'fixed');
   
   ensureDirectory(inputFixedDir);
-  ensureDirectory(auditadaDir);
   
   // Verificar versões existentes
   const existingVersions = [];
@@ -104,18 +101,7 @@ export async function step3Organize() {
           });
           logFileCreation(versionDest, `✅ Versão v${stepNum} criada`);
           
-          // 2. Salvar em output/auditada/ (versão final auditada)
-          const auditadaDest = path.join(auditadaDir, originalName);
-          fs.copyFileSync(src, auditadaDest);
-          organizedFiles.push({
-            step: stepNum,
-            source: src,
-            destination: auditadaDest,
-            type: 'versão final auditada'
-          });
-          console.log(`     📁 Versão final auditada: ${auditadaDest}`);
-          
-          // 3. Atualizar current/ (última versão)
+          // 2. Atualizar current/ (última versão)
           const currentDir = path.join(inputFixedDir, 'current');
           ensureDirectory(currentDir);
           const currentDest = path.join(currentDir, originalName);
@@ -164,7 +150,7 @@ export async function step3Organize() {
       }
       
       console.log(`\n   ⚠️  O original em input/translatedGoogle/ NÃO foi modificado.`);
-      console.log(`   📁 Versão final auditada disponível em: ${auditadaDir}/`);
+      console.log(`   📁 Última versão corrigida disponível em: ${path.join(inputFixedDir, 'current')}/`);
     }
   } else {
     log('⚠️ Pasta output/fixed/ não encontrada.', 'yellow');

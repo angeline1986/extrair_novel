@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import { logWorkflowEvent } from '../observability/workflowLog.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const projectRoot = path.resolve(__dirname, '../..');
+const projectRoot = process.env.AUDIT_TRANSLATION_WORKFLOW_ROOT || path.resolve(__dirname, '../..');
 const inputFixedDir = path.join(projectRoot, 'input-fixed');
 const currentDir = path.join(inputFixedDir, 'current');
 const originalTranslatedDir = path.join(projectRoot, 'input', 'translatedGoogle');

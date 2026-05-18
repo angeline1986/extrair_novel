@@ -13,8 +13,8 @@ PRINCÍPIOS FUNDAMENTAIS
 
 1. O arquivo original em input/translatedGoogle/ NUNCA é modificado
 2. Todas as correções são salvas em input-fixed/v{N}/ (versões)
-3. Backups são mantidos em output/fixed/step{N}_*/
-4. O usuário decide quando restaurar uma versão corrigida
+3. A última versão corrigida fica em input-fixed/current/
+4. Arquivos intermediários ficam em output/ e podem ser usados para auditoria/debug
 
 
 --------------------------------------------------------------------------------
@@ -25,20 +25,19 @@ workflows/audit-translation-docx/
 ├── input/
 │   ├── source/              # Arquivos originais (inglês) - NUNCA modificado
 │   ├── translatedGoogle/    # Tradução do Google - NUNCA modificado (somente leitura)
-│   ├── backup/              # Backups automáticos de versões
-│   └── translated-fixed/    # Última versão corrigida (opcional)
 │
 ├── input-fixed/             # VERSÕES CORRIGIDAS (resultado final)
-│   ├── v1/                  # Step 1 - primeira correção
-│   ├── v2/                  # Step 2 - segunda correção
-│   ├── v3/                  # Step 3 - terceira correção
-│   └── current/             # Link para a última versão
+│   ├── current/             # Última versão corrigida oficial
+│   ├── manifest.json        # Controle local das versões (ignorado pelo Git)
+│   ├── v1/                  # Primeira versão corrigida
+│   ├── v2/                  # Segunda versão corrigida
+│   └── v3/                  # Terceira versão corrigida
 │
 ├── output/
-│   └── fixed/               # Backups brutos (timestamp + step)
-│       ├── step1_2026-05-18_10-30-00/
-│       ├── step2_2026-05-18_10-35-00/
-│       └── step3_2026-05-18_10-40-00/
+│   ├── normalized/          # Cópias temporárias com nomes/personagens normalizados
+│   │   └── step1_18-05-2026_12-21-14/
+│   └── fixed/               # Resultado bruto da correção antes de versionar
+│       └── step1_18-05-2026_12-21-14/
 │
 ├── logs/                    # Relatórios de auditoria e correções
 │   ├── audit-report-*.json
@@ -57,6 +56,32 @@ workflows/audit-translation-docx/
 │
 ├── .current-step            # Arquivo com o step atual (1, 2, 3...)
 └── package.json             # Scripts npm
+
+
+--------------------------------------------------------------------------------
+O QUE CADA ARQUIVO GERADO REPRESENTA
+--------------------------------------------------------------------------------
+
+input-fixed/current/
+  Última versão corrigida oficial. A próxima execução continua daqui.
+
+input-fixed/v1/, v2/, v3/...
+  Histórico das versões corrigidas. Cada execução cria uma nova versão.
+
+input-fixed/manifest.json
+  Controle local do versionamento. Guarda versão atual, origem e histórico.
+  É ignorado pelo Git junto com o conteúdo de input-fixed/.
+
+output/normalized/step{N}_*/
+  Cópia intermediária criada antes do fix-gender.
+  Aqui aliases de nomes/personagens já foram normalizados.
+
+output/fixed/step{N}_*/
+  Resultado bruto da correção daquele step.
+  A partir dele o sistema publica input-fixed/v{N}/ e input-fixed/current/.
+
+logs/
+  Relatórios de auditoria, normalização, correções e eventos do workflow.
 
 
 --------------------------------------------------------------------------------
@@ -95,16 +120,22 @@ WORKFLOW COMPLETO (RECOMENDADO)
 
 O workflow completo (opção 5 no menu) executa:
 
-1. Auditoria do original (input/translatedGoogle/)
-2. Correção de problemas de gênero
-3. Organização das versões em input-fixed/v{N}/
-4. Backups em output/fixed/step{N}_*/
+1. Auditoria da working source atual
+2. Normalização de entidades em output/normalized/step{N}_*/
+3. Correção de problemas de gênero em output/fixed/step{N}_*/
+4. Publicação da versão em input-fixed/v{N}/
+5. Atualização de input-fixed/current/
+6. Re-auditoria da versão atual, se solicitado
 
 IMPORTANTE: O arquivo original em input/translatedGoogle/ NUNCA é modificado!
 
-Para auditar uma versão corrigida:
-  npm run version:goto -- 1      (restaura v1 para input/translatedGoogle/)
-  npm run audit:translation      (audita a versão restaurada)
+Regra de evolução:
+  1ª execução: input/translatedGoogle → input-fixed/v1 → input-fixed/current
+  2ª execução: input-fixed/current    → input-fixed/v2 → input-fixed/current
+  3ª execução: input-fixed/current    → input-fixed/v3 → input-fixed/current
+
+Para voltar manualmente ao original Google:
+  npm run audit:translation -- --reset-working-copy
 
 
 --------------------------------------------------------------------------------
@@ -143,6 +174,7 @@ Durante a correção:
 - roda o fix-gender somente sobre a cópia já normalizada;
 - salva a cópia final em output/fixed/step{N}_*/;
 - versiona o resultado em input-fixed/v{N}/;
+- atualiza a última versão oficial em input-fixed/current/;
 - nunca altera input/source/ nem input/translatedGoogle/ diretamente;
 - registra substituições em logs/entity-normalization-*.json.
 
@@ -200,11 +232,9 @@ EXEMPLO PRÁTICO
 3. Escolher opção 5 (workflow completo)
 4. Aguardar auditoria e correção
 5. Versão corrigida salva em input-fixed/v1/
-6. Para auditar a correção:
-   npm run version:goto -- 1
-   npm run audit:translation
-7. Se satisfeito, avançar: npm run version:next
-8. Repetir até resultado desejado
+6. Última versão corrigida disponível em input-fixed/current/
+7. Na próxima execução, o workflow usa input-fixed/current/ como origem
+8. Repetir até resultado desejado: v1 → v2 → v3...
 
 
 --------------------------------------------------------------------------------

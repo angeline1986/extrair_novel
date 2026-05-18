@@ -63,7 +63,6 @@ export default {
     translatedDir: path.join(projectRoot, "input", "translatedGoogle"),
     inputFixedDir: path.join(projectRoot, "input-fixed"),
     outputDir: path.join(projectRoot, "output"),           // ← mantido para compatibilidade
-    auditadaDir: path.join(projectRoot, "output", "auditada"),
     logsDir: path.join(projectRoot, "logs"),
   },
   

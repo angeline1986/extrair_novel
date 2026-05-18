@@ -1,7 +1,6 @@
 // src/menu/steps/stepOrchestrator.js
 // Orquestrador do workflow completo
 
-import path from 'path';
 import { log } from '../display.js';
 import { askUser } from '../utils.js';
 import { step1Audit } from './step1Audit.js';
@@ -10,8 +9,6 @@ import { step3Organize } from './step3Organize.js';
 import { step4Reaudit } from './step4Reaudit.js';
 import { logWorkflowEvent } from '../../observability/workflowLog.js';
 import { getCurrentStep } from '../../version/versionCore.js';
-
-const projectRoot = '/Users/alinesouza/Documents/TI/Projetos/Extrair_novel';
 
 export async function runFullWorkflow() {
   const workflowStartTime = new Date();
@@ -65,14 +62,12 @@ export async function runFullWorkflow() {
   log('\n📝 RESUMO DOS ARQUIVOS:', 'cyan');
   console.log(`   📁 Original preservado: input/translatedGoogle/ (NÃO MODIFICADO)`, 'green');
   console.log(`   📁 Versões corrigidas: input-fixed/v1/, v2/, v3/...`, 'cyan');
-  console.log(`   📁 Versão final auditada: output/auditada/`, 'cyan');
   console.log(`   📁 Última versão: input-fixed/current/`, 'cyan');
   console.log(`   📁 Relatórios: logs/`, 'cyan');
   
   // Mostrar caminho do arquivo final
-  const auditadaDir = path.join(projectRoot, 'workflows/audit-translation-docx/output', 'auditada');
-  console.log(`\n   🎯 ARQUIVO FINAL AUDITADO:`);
-  console.log(`      📄 ${auditadaDir}/Eighteens_Bed_cap_01-06.docx`);
+  console.log(`\n   🎯 ARQUIVO FINAL CORRIGIDO:`);
+  console.log(`      📁 workflows/audit-translation-docx/input-fixed/current/`);
   
   return true;
 }

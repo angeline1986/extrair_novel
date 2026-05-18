@@ -23,12 +23,10 @@ const projectRoot = path.resolve(__dirname, '../..');
 const originalInputDir = path.join(projectRoot, 'input', 'translatedGoogle');  // APENAS LEITURA
 const logsDir = path.join(projectRoot, 'logs');
 const inputFixedDir = path.join(projectRoot, 'input-fixed');
-const auditadaDir = path.join(projectRoot, 'output', 'auditada');
 
 // Criar diretórios necessários
 if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
 if (!fs.existsSync(inputFixedDir)) fs.mkdirSync(inputFixedDir, { recursive: true });
-if (!fs.existsSync(auditadaDir)) fs.mkdirSync(auditadaDir, { recursive: true });
 
 function getTargetStep() {
   const stepArg = process.argv.find(arg => arg.startsWith('--step='));
@@ -131,7 +129,7 @@ export async function main() {
 ║  Google Tradutor (ex: "o diferente" → "a diferente")        ║
 ║                                                              ║
 ║  ATENÇÃO: O original em input/translatedGoogle/ NÃO é modificado
-║  As correções vão para input-fixed/v{N}/ e output/auditada/
+║  As correções vão para input-fixed/v{N}/ e input-fixed/current/
 ║                                                              ║
 ║  Step: ${targetStep}                                          ║
 ║  Versão: ${timestamp}                                          ║
@@ -156,7 +154,7 @@ export async function main() {
   console.log(`📁 Pré-processamento de entidades: ${normalizedDir}`);
   console.log(`📁 Backup: ${outputBackupDir}`);
   console.log(`📁 Versão versionada: ${inputFixedDir}/v${targetStep}/`);
-  console.log(`📁 Versão final auditada: ${auditadaDir}/`);
+  console.log(`📁 Última versão corrigida: ${inputFixedDir}/current/`);
   console.log(`📁 Logs: ${logsDir}`);
   console.log(`\n${'='.repeat(60)}`);
   
@@ -270,13 +268,6 @@ export async function main() {
 
         console.log(`  📁 Versão v${targetStep} criada: ${published.versionDest}`);
         console.log(`  📁 Última versão atualizada: ${published.currentDest}`);
-        
-        // 2. Salvar versão final auditada em output/auditada/
-        const auditadaDest = path.join(auditadaDir, file);
-        fs.copyFileSync(outputPath, auditadaDest);
-        console.log(`  📁 Versão final auditada: ${auditadaDest}`);
-
-        
       } else {
         if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
         console.log(`  ℹ️ Nenhuma correção necessária para ${file}`);
@@ -338,12 +329,12 @@ export async function main() {
   console.log(`   Pré-normalização: ${normalizedDir}`);
   console.log(`   Backup: ${outputBackupDir}`);
   console.log(`   Versão versionada: ${inputFixedDir}/v${targetStep}/`);
-  console.log(`   Versão final auditada: ${auditadaDir}/`);
+  console.log(`   Última versão corrigida: ${inputFixedDir}/current/`);
   console.log(`   Logs: ${logsDir}/correcoes_*.csv`);
   
   if (hasChanges) {
     console.log(`\n✨ PRÓXIMOS PASSOS:`);
-    console.log(`   1. Verificar a versão final em: ${auditadaDir}/`);
+    console.log(`   1. Verificar a versão final em: ${inputFixedDir}/current/`);
     console.log(`   2. Avançar para próximo step: npm run version:next`);
     console.log(`   3. Ver status das versões: npm run version:status`);
   }
