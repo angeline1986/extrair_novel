@@ -38,6 +38,156 @@ function writeParagraphPreview(sourceDocs, translatedDocs) {
   return lines;
 }
 
+function readWorkflowEvents(workflowEventsFile) {
+  if (!fs.existsSync(workflowEventsFile)) return [];
+
+  return fs.readFileSync(workflowEventsFile, 'utf8')
+    .split('\n')
+    .filter((line) => line.trim())
+    .map((line) => {
+      try {
+        return JSON.parse(line);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
+}
+
+function getCurrentRunEvents(events) {
+  const lastRunIndex = events.map((event) => event.event).lastIndexOf('WORKFLOW_STARTED');
+
+  if (lastRunIndex < 0) return events;
+
+  return events.slice(lastRunIndex);
+}
+
+function getVersionFromDestination(destination = '') {
+  const normalized = destination.replaceAll('\\', '/');
+  const match = normalized.match(/\/input-fixed\/v(\d+)\//);
+
+  return match ? `v${match[1]}` : null;
+}
+
+function buildVersionHistoryLines() {
+  const workflowEventsFile = path.join(projectRoot, 'logs', 'workflow-events.jsonl');
+  const events = readWorkflowEvents(workflowEventsFile);
+
+  if (!events.length) return [];
+
+  const runEvents = getCurrentRunEvents(events);
+  const lastRun = runEvents.find((event) => event.event === 'WORKFLOW_STARTED');
+  const rawVersionWriteEvents = runEvents
+    .filter((event) => event.event === 'FILE_WRITE')
+    .map((event) => ({
+      ...event,
+      version: getVersionFromDestination(event.destination),
+    }))
+    .filter((event) => event.version);
+  const versionWriteEventsByDestination = new Map();
+
+  for (const event of rawVersionWriteEvents) {
+    const existing = versionWriteEventsByDestination.get(event.destination);
+
+    if (!existing || (event.source && !existing.source) || event.overwrite) {
+      versionWriteEventsByDestination.set(event.destination, event);
+    }
+  }
+
+  const versionWriteEvents = [...versionWriteEventsByDestination.values()];
+  const versionDecisionEvents = runEvents.filter((event) => event.event === 'VERSION_DECISION');
+
+  if (!versionWriteEvents.length && !lastRun && !versionDecisionEvents.length) return [];
+
+  const lines = [
+    '',
+    '='.repeat(80),
+    'HISTÓRICO / VERSIONAMENTO',
+    '='.repeat(80),
+    '',
+  ];
+
+  if (lastRun) {
+    lines.push(`Step atual: ${lastRun.currentStep || '?'}`);
+    lines.push(`Modo: ${lastRun.mode || 'normal'}`);
+    lines.push('');
+  }
+
+  const versionsFound = [];
+  for (let i = 1; i <= 10; i++) {
+    const vPath = path.join(projectRoot, 'input-fixed', `v${i}`);
+    if (fs.existsSync(vPath)) versionsFound.push(`v${i}`);
+  }
+
+  const versionsWritten = new Map();
+  const overwrittenVersions = new Set();
+
+  for (const event of versionWriteEvents) {
+    if (!versionsWritten.has(event.version)) {
+      versionsWritten.set(event.version, []);
+    }
+
+    versionsWritten.get(event.version).push({
+      file: event.file || path.basename(event.destination),
+      action: event.action || 'write',
+      overwrite: Boolean(event.overwrite),
+      source: event.source || '',
+      destination: event.destination,
+    });
+
+    if (event.overwrite) {
+      overwrittenVersions.add(event.version);
+    }
+  }
+
+  const versionsCreated = [...versionsWritten.keys()].sort((a, b) =>
+    Number(a.slice(1)) - Number(b.slice(1))
+  );
+  const overwritten = [...overwrittenVersions].sort((a, b) =>
+    Number(a.slice(1)) - Number(b.slice(1))
+  );
+
+  lines.push(`Versões encontradas: ${versionsFound.length > 0 ? versionsFound.join(', ') : 'nenhuma'}`);
+  lines.push(`Versões criadas nesta execução: ${versionsCreated.length > 0 ? versionsCreated.join(', ') : 'nenhuma'}`);
+  lines.push(`Versões sobrescritas nesta execução: ${overwritten.length > 0 ? overwritten.join(', ') : 'nenhuma'}`);
+
+  if (versionDecisionEvents.length > 0) {
+    lines.push('');
+    lines.push('Decisões de versão:');
+    for (const event of versionDecisionEvents) {
+      const targetVersion = event.details?.targetVersion || `v${event.step}`;
+      const reason = event.details?.reason || 'sem motivo registrado';
+      lines.push(`  - ${event.file || 'arquivo desconhecido'} -> ${targetVersion} (${reason})`);
+    }
+  }
+
+  if (versionWriteEvents.length > 0) {
+    lines.push('');
+    lines.push('Arquivos versionados nesta execução:');
+    for (const event of versionWriteEvents) {
+      const status = event.overwrite ? 'sobrescrito' : 'criado';
+      lines.push(`  - ${event.version}: ${event.file || path.basename(event.destination)} (${status})`);
+      if (event.source) lines.push(`    Origem: ${event.source}`);
+      lines.push(`    Destino: ${event.destination}`);
+    }
+  }
+
+  const gapEvents = runEvents.filter((event) => event.event === 'VERSION_MISSING_GAP');
+  if (gapEvents.length > 0) {
+    lines.push('');
+    lines.push('⚠️ GAP DETECTADO:');
+    for (const gap of gapEvents) {
+      lines.push(`   ${gap.details?.explanation || 'versões ausentes detectadas'}`);
+      if (gap.details?.missingVersions) {
+        lines.push(`   Versões ausentes: ${gap.details.missingVersions.join(', ')}`);
+      }
+    }
+  }
+
+  lines.push('');
+  return lines;
+}
+
 export function writeTextSummary(report, summaryPath, sourceDocs, translatedDocs) {
   const lines = [
     "=".repeat(80),
@@ -65,55 +215,7 @@ export function writeTextSummary(report, summaryPath, sourceDocs, translatedDocs
     "",
   ];
 
-  const workflowEventsFile = path.join(projectRoot, 'logs', 'workflow-events.jsonl');
-  if (fs.existsSync(workflowEventsFile)) {
-    const events = fs.readFileSync(workflowEventsFile, 'utf8')
-      .split('\n')
-      .filter((l) => l.trim())
-      .map((l) => JSON.parse(l));
-
-    const versionEvents = events.filter((e) => e.event === 'VERSION_CREATED' || e.event === 'VERSION_MISSING_GAP');
-    const lastRun = events.filter((e) => e.event === 'WORKFLOW_STARTED').slice(-1)[0];
-
-    if (versionEvents.length > 0 || lastRun) {
-      lines.push('');
-      lines.push('='.repeat(80));
-      lines.push('HISTÓRICO / VERSIONAMENTO');
-      lines.push('='.repeat(80));
-      lines.push('');
-
-      if (lastRun) {
-        lines.push(`Step atual: ${lastRun.currentStep || '?'}`);
-        lines.push(`Modo: ${lastRun.mode || 'normal'}`);
-        lines.push('');
-      }
-
-      const versionsFound = [];
-      for (let i = 1; i <= 10; i++) {
-        const vPath = path.join(projectRoot, 'workflows/audit-translation-docx/input-fixed', `v${i}`);
-        if (fs.existsSync(vPath)) versionsFound.push(`v${i}`);
-      }
-
-      const versionsCreated = versionEvents.filter((e) => e.event === 'VERSION_CREATED').map((e) => `v${e.step}`);
-      const missingGaps = versionEvents.filter((e) => e.event === 'VERSION_MISSING_GAP');
-
-      lines.push(`Versões encontradas: ${versionsFound.length > 0 ? versionsFound.join(', ') : 'nenhuma'}`);
-      lines.push(`Versões criadas nesta execução: ${versionsCreated.length > 0 ? versionsCreated.join(', ') : 'nenhuma'}`);
-
-      if (missingGaps.length > 0) {
-        lines.push('');
-        lines.push('⚠️ GAP DETECTADO:');
-        for (const gap of missingGaps) {
-          lines.push(`   ${gap.details?.explanation || 'versões ausentes detectadas'}`);
-          if (gap.details?.missingVersions) {
-            lines.push(`   Versões ausentes: ${gap.details.missingVersions.join(', ')}`);
-          }
-        }
-      }
-
-      lines.push('');
-    }
-  }
+  lines.push(...buildVersionHistoryLines());
 
   const previewLines = writeParagraphPreview(sourceDocs, translatedDocs);
   lines.push(...previewLines);
