@@ -70,6 +70,7 @@ export default {
   files: {
     sourceDir: path.join(projectRoot, "input", "source"),
     translatedDir: path.join(projectRoot, "input", "translated"),
+    translatedFixedDir: path.join(projectRoot, "input", "translated-fixed"), 
     outputDir: path.join(projectRoot, "output"),
     logsDir: path.join(projectRoot, "logs"),
   },

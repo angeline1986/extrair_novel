@@ -15,7 +15,7 @@ import { alignChapters } from './aligner.js';
 import { runStructuralChecks } from './checks/structural.js';
 import { detectGoogleTranslateIssues } from './checks/gtPatterns.js';
 import { initCache, saveCache, reviewSuspiciousItems } from './ollamaReviewer.js';
-import { generateReports } from './reportWriter.js';
+import { generateReports } from './reportWriter/reportGenerator.js';
 
 // Configurar diretórios
 const sourceDir = path.resolve(__dirname, config.files.sourceDir);

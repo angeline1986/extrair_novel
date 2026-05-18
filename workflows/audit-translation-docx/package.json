@@ -1,9 +1,0 @@
-{
-  "name": "audit-translation-docx",
-  "version": "1.0.0",
-  "type": "module",
-  "scripts": {
-    "audit": "node src/index.js",
-    "audit:verbose": "node src/index.js --verbose"
-  }
-}

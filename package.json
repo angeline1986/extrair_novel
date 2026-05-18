@@ -2,26 +2,34 @@
   "type": "module",
   "name": "extrair_novel",
   "version": "2.0.0",
-  "description": "Extração de DOCX e geração de EPUBs organizados com suporte a traduções.",
+  "description": "Extração de DOCX e geração de EPUBs organizados com suporte a traduções e auditoria.",
   "main": "src/cli.js",
   "repository": {
     "type": "git",
     "url": "https://github.com/angeline1986/extrair_novel.git"
   },
-   "scripts": {
+  "scripts": {
     "start": "node src/cli.js",
+    
     "translate:one": "node workflows/translate-docx/scripts/translateOne.js",
     "translate:folder": "node workflows/translate-docx/scripts/translateFolder.js",
     "translate:sequential": "node workflows/translate-docx/scripts/translateSequential.js",
+    
     "extract:epub": "node workflows/epub-to-docx/scripts/extractEpubInChapterGroups.cjs",
     "extract:epub:groups": "node workflows/epub-to-docx/scripts/extractEpubInChapterGroups.cjs",
+    
     "build:epub": "node workflows/docx-to-epub/scripts/buildEpubFromDocx.js",
+    
     "analyze:translation": "node workflows/review-translation/scripts/analyzeTranslation.js",
-    "audit:translation": "node workflows/audit-translation-docx/src/index.js",
-    "audit:translation:verbose": "node workflows/audit-translation-docx/src/index.js --verbose",
+    
+    "audit:translation": "node workflows/audit-translation-docx/src/audit.js",
+    "audit:translation:verbose": "node workflows/audit-translation-docx/src/audit.js --verbose",
+    
     "fix:gender": "node workflows/audit-translation-docx/src/fix-gender-issues.js",
     "fix:gender:verbose": "node workflows/audit-translation-docx/src/fix-gender-issues.js --verbose",
+    
     "audit:menu": "node workflows/audit-translation-docx/src/menu.js",
+    
     "test": "echo \"No tests configured\""
   },
   "keywords": [
@@ -30,7 +38,8 @@
     "converter",
     "traducao",
     "ebook",
-    "cli"
+    "cli",
+    "auditoria"
   ],
   "author": "Aline Souza <angeline.fm@gmail.com> (https://github.com/angeline1986)",
   "license": "ISC",

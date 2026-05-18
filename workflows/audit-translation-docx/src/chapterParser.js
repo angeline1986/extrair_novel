@@ -7,10 +7,12 @@ export function parseChapterMeta(title, options = {}) {
   const text = normalizeText(title);
   const isTolerant = options.tolerant || true;
   
-  // IGNORAR: Chapter Group, Group, etc. (não são capítulos reais)
-  if (/^chapter\s+group\s+\d+/i.test(text) || 
-      /^group\s+\d+/i.test(text) ||
-      /^chapter group/i.test(text)) {
+  // IGNORAR: Chapter Group, Group, Grupo do Capítulo (português)
+  if (/chapter\s+group\s+\d*/i.test(text) || 
+      /group\s+\d*/i.test(text) ||
+      /^chapter\s*$/i.test(text) ||
+      /^capítulo\s*$/i.test(text) ||
+      /grupo\s+do\s+cap[ií]tulo\s+\d*/i.test(text)) {
     return null;
   }
   
@@ -119,10 +121,11 @@ export function detectChaptersFromParagraphs(paragraphs, options = {}) {
   
   for (let i = 0; i < paragraphs.length; i++) {
     const para = paragraphs[i];
+    const trimmedPara = para.trim();
     
-    // Pular títulos de grupo completamente
-    if (/^chapter\s+group\s+\d+/i.test(para) || 
-        /^group\s+\d+/i.test(para)) {
+    // Ignorar parágrafos que são títulos de grupo (inglês ou português)
+    if (trimmedPara.length < 40 && 
+        (/chapter\s+group|group\s+\d+|grupo\s+do\s+cap[ií]tulo/i.test(trimmedPara))) {
       continue;
     }
     
@@ -141,7 +144,7 @@ export function detectChaptersFromParagraphs(paragraphs, options = {}) {
       };
     } else if (currentChapter) {
       currentChapter.paragraphs.push(para);
-    } else {
+    } else if (trimmedPara.length > 20) {
       currentChapter = {
         title: null,
         meta: { type: 'fallback', isFallback: true, confidence: 0.5 },
@@ -153,17 +156,23 @@ export function detectChaptersFromParagraphs(paragraphs, options = {}) {
   }
   
   if (currentChapter && currentChapter.paragraphs.length > 0) {
-    chapters.push(currentChapter);
+    const hasContent = currentChapter.paragraphs.some(p => p.trim().length > 20);
+    if (hasContent) {
+      chapters.push(currentChapter);
+    }
   }
   
   if (chapters.length === 0 && paragraphs.length > 0) {
-    chapters.push({
-      title: null,
-      meta: { type: 'fallback', isFallback: true, confidence: 0.5 },
-      originalTitle: null,
-      paragraphs: [...paragraphs],
-      startIndex: 0,
-    });
+    const meaningfulParagraphs = paragraphs.filter(p => p.trim().length > 20);
+    if (meaningfulParagraphs.length > 0) {
+      chapters.push({
+        title: null,
+        meta: { type: 'fallback', isFallback: true, confidence: 0.5 },
+        originalTitle: null,
+        paragraphs: meaningfulParagraphs,
+        startIndex: 0,
+      });
+    }
   }
   
   return chapters;
