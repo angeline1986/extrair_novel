@@ -1,53 +1,20 @@
 ```txt
 ================================================================================
-AUDITORIA DE TRADUÇÕES DOCX
+AUDITORIA DE TRADUÇÕES DOCX - WORKFLOW COMPLETO
 ================================================================================
 
-Fluxo para validar traduções de DOCX (Google Tradutor), comparando arquivos
-originais em inglês com suas versões traduzidas para português.
+Sistema para auditar e corrigir traduções automáticas (Google Tradutor) de
+documentos DOCX, com versionamento incremental e preservação dos originais.
 
 
 --------------------------------------------------------------------------------
-CARACTERÍSTICAS
+PRINCÍPIOS FUNDAMENTAIS
 --------------------------------------------------------------------------------
 
-- Compara original (inglês) com tradução (português)
-- Detecta capítulos ausentes, truncamentos e perda de conteúdo
-- Identifica padrões comuns do Google Tradutor
-- Verifica consistência estrutural e de formatação
-- Usa IA (Ollama) apenas para casos suspeitos (econômico)
-- Validação tolerante (evita falsos positivos)
-- Cache do Ollama para evitar reprocessamento
-- Gera relatórios em JSON, CSV e TXT
-
-
---------------------------------------------------------------------------------
-REQUISITOS
---------------------------------------------------------------------------------
-
-- Node.js >= 18.0.0
-- Ollama instalado e rodando (com modelo qwen2.5:7b ou similar)
-
-Para iniciar o Ollama:
-  ollama serve
-
-
---------------------------------------------------------------------------------
-USO
---------------------------------------------------------------------------------
-
-Comando principal (via npm da raiz):
-
-  npm run audit:translation
-
-Comando com logs detalhados:
-
-  npm run audit:translation:verbose
-
-Execução direta:
-
-  node workflows/audit-translation-docx/src/index.js
-  node workflows/audit-translation-docx/src/index.js --verbose
+1. O arquivo original em input/translatedGoogle/ NUNCA é modificado
+2. Todas as correções são salvas em input-fixed/v{N}/ (versões)
+3. Backups são mantidos em output/fixed/step{N}_*/
+4. O usuário decide quando restaurar uma versão corrigida
 
 
 --------------------------------------------------------------------------------
@@ -56,221 +23,200 @@ ESTRUTURA DE PASTAS
 
 workflows/audit-translation-docx/
 ├── input/
-│   ├── source/           # Colocar DOCX originais (inglês) aqui
-│   └── translated/       # Colocar DOCX traduzidos (português) aqui
-├── output/               # Relatórios gerados (JSON, CSV, TXT)
-├── logs/                 # Logs e cache do Ollama
-└── src/                  # Código fonte
-    ├── index.js          # Orquestrador principal
-    ├── config.js         # Configurações (limiares, padrões)
-    ├── utils.js          # Utilitários (similaridade, hash)
-    ├── docxReader.js     # Leitura de arquivos DOCX
-    ├── chapterParser.js  # Parse de capítulos e títulos
-    ├── aligner.js        # Alinhamento original ↔ tradução
-    ├── ollamaReviewer.js # Revisão com IA (apenas suspeitos)
-    ├── reportWriter.js   # Geração de relatórios
-    └── checks/
-        ├── structural.js     # Capítulos faltando, tamanho, parágrafos
-        ├── content.js        # Truncamento, inglês residual
-        ├── consistency.js    # Repetições, formatação, nomes
-        └── gtPatterns.js     # Padrões específicos do Google Tradutor
+│   ├── source/              # Arquivos originais (inglês) - NUNCA modificado
+│   ├── translatedGoogle/    # Tradução do Google - NUNCA modificado (somente leitura)
+│   ├── backup/              # Backups automáticos de versões
+│   └── translated-fixed/    # Última versão corrigida (opcional)
+│
+├── input-fixed/             # VERSÕES CORRIGIDAS (resultado final)
+│   ├── v1/                  # Step 1 - primeira correção
+│   ├── v2/                  # Step 2 - segunda correção
+│   ├── v3/                  # Step 3 - terceira correção
+│   └── current/             # Link para a última versão
+│
+├── output/
+│   └── fixed/               # Backups brutos (timestamp + step)
+│       ├── step1_2026-05-18_10-30-00/
+│       ├── step2_2026-05-18_10-35-00/
+│       └── step3_2026-05-18_10-40-00/
+│
+├── logs/                    # Relatórios de auditoria e correções
+│   ├── audit-report-*.json
+│   ├── audit-summary-*.txt
+│   ├── issues-*.csv
+│   └── correcoes_*.csv
+│
+├── src/                     # Código fonte (módulos)
+│   ├── audit.js             # Auditoria principal
+│   ├── fix-gender/          # Correção de gênero
+│   ├── menu/                # Menu interativo
+│   ├── reportWriter/        # Geração de relatórios
+│   ├── version/             # Versionamento incremental
+│   └── checks/              # Validações específicas
+│
+├── .current-step            # Arquivo com o step atual (1, 2, 3...)
+└── package.json             # Scripts npm
 
 
 --------------------------------------------------------------------------------
-PARÂMETROS DE VALIDAÇÃO (TOLERANTES)
+COMANDOS PRINCIPAIS
 --------------------------------------------------------------------------------
 
-| Parâmetro                    | Valor | Descrição                              |
-|------------------------------|-------|----------------------------------------|
-| Tamanho mínimo da tradução   | 65%   | Aceita traduções até 35% menores       |
-| Tamanho máximo da tradução   | 135%  | Aceita expansão natural                |
-| Parágrafos mínimos           | 70%   | Aceita perda de até 30% dos parágrafos |
-| Inglês residual máximo       | 8%    | Acima disso gera alerta                |
-| Repetição máxima             | 5%    | Acima disso gera alerta                |
+Comando                              | Descrição
+-------------------------------------|-----------------------------------------
+npm run audit:menu                   | Menu interativo (recomendado)
+npm run audit:translation            | Auditoria normal
+npm run audit:translation:verbose    | Auditoria com detalhes
+npm run fix:gender                   | Corrige problemas de gênero (modo normal)
+npm run fix:gender:verbose           | Corrige problemas de gênero (detalhado)
+
+
+--------------------------------------------------------------------------------
+GERENCIAMENTO DE VERSÕES
+--------------------------------------------------------------------------------
+
+Comando                              | Descrição
+-------------------------------------|-----------------------------------------
+npm run version:status               | Mostrar status das versões
+npm run version:current              | Mostrar step atual
+npm run version:list                 | Listar todas as versões disponíveis
+npm run version:next                 | Avançar para próximo step
+npm run version:prev                 | Voltar para step anterior
+npm run version:goto -- 3            | Ir para step específico
+npm run version:diff -- 1 2          | Comparar duas versões
+npm run version:clean                | Limpar versões antigas (mantém 5)
+npm run version:create               | Criar versão manual
+
+
+--------------------------------------------------------------------------------
+WORKFLOW COMPLETO (RECOMENDADO)
+--------------------------------------------------------------------------------
+
+O workflow completo (opção 5 no menu) executa:
+
+1. Auditoria do original (input/translatedGoogle/)
+2. Correção de problemas de gênero
+3. Organização das versões em input-fixed/v{N}/
+4. Backups em output/fixed/step{N}_*/
+
+IMPORTANTE: O arquivo original em input/translatedGoogle/ NUNCA é modificado!
+
+Para auditar uma versão corrigida:
+  npm run version:goto -- 1      (restaura v1 para input/translatedGoogle/)
+  npm run audit:translation      (audita a versão restaurada)
+
+
+--------------------------------------------------------------------------------
+CORREÇÕES AUTOMÁTICAS DE GÊNERO
+--------------------------------------------------------------------------------
+
+O corretor identifica e corrige:
+
+| Problema                              | Exemplo              | Correção          |
+|---------------------------------------|----------------------|-------------------|
+| advérbio feminino com artigo masculino | "o diferente"        | "a diferente"     |
+| substantivo masculino com artigo fem. | "a computador"       | "o computador"    |
+| adjetivo feminino com artigo masculino| "o pequena"          | "a pequena"       |
+| substantivo feminino com artigo masc. | "o mesa"             | "a mesa"          |
+| "o mesma"                             | "o mesma"            | "a mesma"         |
+| "a mesmo"                             | "a mesmo"            | "o mesmo"         |
+
+ATENÇÃO: NÃO corrige pontuação, reticências ou aspas (preserva estilo original)
 
 
 --------------------------------------------------------------------------------
 RELATÓRIOS GERADOS
 --------------------------------------------------------------------------------
 
-Após cada execução, os seguintes arquivos são criados:
-
-| Arquivo                                    | Descrição                                    |
-|--------------------------------------------|----------------------------------------------|
-| output/audit-report-YYYY-MM-DD_HH-MM.json  | Relatório completo em JSON                   |
-| output/issues-YYYY-MM-DD_HH-MM.csv         | Issues e warnings em CSV                     |
-| output/problematic-chapters-...txt         | Detalhes manuais de capítulos problemáticos  |
-| logs/audit-summary-YYYY-MM-DD_HH-MM.txt    | Resumo legível em TXT                        |
-
-
---------------------------------------------------------------------------------
-TIPOS DE ISSUES DETECTADAS
---------------------------------------------------------------------------------
-
-FAIL (crítico - requer atenção):
-  - Capítulo ausente na tradução
-  - Tradução vazia ou muito curta (<40% do original)
-  - Inglês residual excessivo (>15%)
-  - Perda de sentido grave (detectado por IA)
-
-WARN (atenção - pode ser aceitável):
-  - Tradução significativamente menor (40%-65%)
-  - Parágrafos muito reduzidos
-  - Palavras em inglês mantidas (5%-15%)
-  - Possível truncamento no final do texto
-  - Repetição excessiva (>5%)
-  - Problemas de pontuação/formação
-
-INFO (informativo - apenas registro):
-  - Capítulos extras na tradução
-  - Nomes próprios alterados
-  - Pequenas repetições detectadas
-  - Variações menores de formato
+Arquivo                              | Conteúdo
+-------------------------------------|-----------------------------------------
+logs/audit-report-*.json             | Relatório completo em JSON
+logs/audit-summary-*.txt             | Resumo legível com preview dos parágrafos
+logs/issues-*.csv                    | Issues e warnings em CSV
+logs/correcoes_*.csv                 | Antes/depois das correções de gênero
+logs/problematic-chapters-*.txt      | Detalhes de capítulos problemáticos
 
 
 --------------------------------------------------------------------------------
-PADRÕES ESPECÍFICOS DO GOOGLE TRADUTOR
+MENU INTERATIVO
 --------------------------------------------------------------------------------
 
-O script detecta automaticamente problemas comuns em traduções do Google Tradutor:
+Ao executar npm run audit:menu, as opções disponíveis são:
 
-- Problemas de gênero (ex: "o diferente" vs "a diferente")
-- Frases quebradas (pontuação incorreta)
-- Nomes próprios em minúsculas
-- Espaços antes de pontuação
-- Marcas como [Traduzido automaticamente]
-- Palavras em inglês mantidas
-- Cognatos falsos (gaze → gauze, bars → bares/ambiguo)
+  ┌───────────── AUDITORIA ─────────────┐
+  1. 🔍 Auditoria normal
+  2. 🔍📋 Auditoria com detalhes (verbose)
 
+  ┌───────────── CORREÇÃO ──────────────┐
+  3. 🔧 Corrigir problemas de gênero
+  4. 🔧📋 Corrigir problemas de gênero (verbose)
 
---------------------------------------------------------------------------------
-FLUXO DE EXECUÇÃO
---------------------------------------------------------------------------------
+  ┌───────────── WORKFLOW ──────────────┐
+  5. 🚀 Workflow completo
 
-1. Leitura dos arquivos
-   └── Lê todos os DOCX da pasta source/ e translated/
+  ┌───────────── VERSIONAMENTO ─────────┐
+  6. 📊 Ver último relatório
+  7. 🗑️  Limpar relatórios antigos
+  8. 📂 Gerenciar versões (status)
+  9. ➡️  Avançar para próximo step
+  10. ⬅️ Voltar para step anterior
+  11. 🔄 Restaurar versão específica
 
-2. Pareamento
-   └── Alinha arquivos originais com suas traduções por ordem/nome
-
-3. Extração de capítulos
-   └── Divide cada documento em capítulos (reconhece Chapter X, Prologue, etc.)
-
-4. Alinhamento estrutural
-   └── Compara posição, títulos e tamanho para parear capítulos
-
-5. Validações determinísticas
-   ├── Estrutural: capítulos faltando, tamanho, parágrafos
-   ├── Conteúdo: truncamento, inglês residual
-   ├── Consistência: repetições, formatação, nomes
-   └── Google Tradutor: padrões específicos
-
-6. Revisão com IA (apenas suspeitos)
-   └── Envia apenas capítulos com baixa confiança para o Ollama
-
-7. Geração de relatórios
-   └── Cria JSON, CSV e TXT com todos os resultados
+  ┌───────────── SISTEMA ───────────────┐
+  12. ❌ Sair
 
 
 --------------------------------------------------------------------------------
-EXEMPLOS DE RESULTADOS
+EXEMPLO PRÁTICO
 --------------------------------------------------------------------------------
 
-Status OK (tudo certo):
-  - Todos os capítulos do original estão presentes
-  - Tamanhos compatíveis (entre 65% e 135%)
-  - Sem inglês residual excessivo
-  - IA confirmou qualidade da tradução
-
-Status WARN (atenção recomendada):
-  - Alguns capítulos ausentes ou extras
-  - Tradução um pouco menor que o original
-  - Pequenas repetições detectadas
-  - IA apontou possíveis problemas menores
-
-Status FAIL (revisão necessária):
-  - Capítulos inteiros faltando
-  - Tradução muito menor (<40% do original)
-  - Inglês residual excessivo (>15%)
-  - IA detectou perda grave de sentido
-
-
---------------------------------------------------------------------------------
-COMO INTERPRETAR OS RELATÓRIOS
---------------------------------------------------------------------------------
-
-1. Verifique o audit-summary.txt primeiro
-   └── Mostra status consolidado e principais problemas
-
-2. Analise os capítulos problemáticos
-   └── Arquivo problematic-chapters-...txt lista detalhes
-
-3. Para cada issue FAIL:
-   └── Verificar manualmente a tradução do capítulo indicado
-
-4. Para issues WARN:
-   └── Decidir se aceita ou precisa de ajuste manual
-
-5. Para issues INFO:
-   └── Apenas registro - geralmente não requer ação
-
-
---------------------------------------------------------------------------------
-COMANDOS ÚTEIS
---------------------------------------------------------------------------------
-
-# Verificar dependências
-cd /Users/alinesouza/Documents/TI/Projetos/Extrair_novel
-npm list adm-zip cheerio docx
-
-# Testar se dependências são encontradas
-cd workflows/audit-translation-docx
-node -e "import('adm-zip').then(() => console.log('OK'))"
-
-# Verificar se Ollama está rodando
-curl http://localhost:11434/api/tags
-
-# Listar modelos disponíveis
-ollama list
-
-
---------------------------------------------------------------------------------
-DEPENDÊNCIAS (já instaladas na raiz do projeto)
---------------------------------------------------------------------------------
-
-- adm-zip   → Leitura de arquivos DOCX (via ZIP interno)
-- cheerio   → Parse do XML do DOCX
-- docx      → Geração de DOCX (não usado diretamente no audit)
-
-Nenhuma instalação adicional é necessária. O audit utiliza as dependências
-já existentes no node_modules da raiz do projeto.
+1. Colocar tradução original em input/translatedGoogle/
+2. Executar npm run audit:menu
+3. Escolher opção 5 (workflow completo)
+4. Aguardar auditoria e correção
+5. Versão corrigida salva em input-fixed/v1/
+6. Para auditar a correção:
+   npm run version:goto -- 1
+   npm run audit:translation
+7. Se satisfeito, avançar: npm run version:next
+8. Repetir até resultado desejado
 
 
 --------------------------------------------------------------------------------
 SOLUÇÃO DE PROBLEMAS
 --------------------------------------------------------------------------------
 
-Problema: "could not connect to Ollama instance"
-Solução: Execute 'ollama serve' em um terminal separado
+Problema                                    | Solução
+--------------------------------------------|-----------------------------------------
+Arquivo original sendo modificado           | Verificar se workflow.js está atualizado
+Versões idênticas (sem diferenças)          | Arquivo já está corrigido; usar backup antigo
+"Module not found: versionManager.js"       | Criar arquivo de compatibilidade
+Ollama não conecta                          | Executar 'ollama serve' em outro terminal
+CSV de correções não gerado                 | Nenhuma correção necessária no arquivo
 
-Problema: Modelo qwen2.5:7b não encontrado
-Solução: Execute 'ollama pull qwen2.5:7b'
 
-Problema: Arquivos não são pareados corretamente
-Solução: Verifique se os nomes dos arquivos seguem o padrão:
-         NomeObra_cap_XX-YY.docx (ex: Eighteens_Bed_cap_01-06.docx)
+--------------------------------------------------------------------------------
+DEPENDÊNCIAS
+--------------------------------------------------------------------------------
 
-Problema: Muitos falsos positivos
-Solução: Ajuste os thresholds no arquivo src/config.js (aumente minSizeRatio,
-         maxEnglishWordsRatio, etc.) para tornar mais tolerante
+Todas as dependências estão centralizadas na raiz do projeto:
+
+- adm-zip      → Leitura de DOCX (via ZIP interno)
+- cheerio      → Parse do XML do DOCX
+- docx         → Geração de DOCX
+- (Ollama)     → IA para revisão (opcional)
+
+Nenhuma instalação adicional é necessária na pasta do workflow.
 
 
 --------------------------------------------------------------------------------
 CÓDIGOS DE SAÍDA
 --------------------------------------------------------------------------------
 
-Código 0 → Execução bem-sucedida, nenhum issue FAIL detectado
-Código 1 → Pelo menos um issue FAIL foi detectado (revisão necessária)
+Código | Significado
+-------|-----------------------------------------
+0      | Execução bem-sucedida (ou WARN apenas)
+1      | Issue(s) FAIL detectada(s) - revisão necessária
 
 
 ================================================================================

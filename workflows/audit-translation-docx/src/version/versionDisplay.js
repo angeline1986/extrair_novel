@@ -16,7 +16,7 @@ try {
 } catch (err) {
   config = {
     files: {
-      translatedDir: path.join(projectRoot, 'input', 'translated'),
+      translatedDir: path.join(projectRoot, 'input', 'translatedGoogle'),
     },
   };
 }
@@ -85,9 +85,9 @@ export function showHelp(filename) {
   npm run version:create   - Criar versão manual
 
 📁 Estrutura:
-  input/translated/     → Original do Google (NUNCA modificado)
-  input-fixed/v1/       → Primeira correção
-  input-fixed/v2/       → Segunda correção
+  input/translatedGoogle/     → Original do Google (NUNCA modificado)
+  input-fixed/v1/             → Primeira correção
+  input-fixed/v2/             → Segunda correção
 
 📄 Arquivo: ${filename}
 📍 Step atual: ${currentStep}

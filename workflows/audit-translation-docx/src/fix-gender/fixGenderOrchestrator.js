@@ -19,7 +19,7 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '../..');
 
-const inputDir = path.join(projectRoot, 'input', 'translated');
+const inputDir = path.join(projectRoot, 'input', 'translatedGoogle');
 const logsDir = path.join(projectRoot, 'logs');
 const versionsDir = path.join(projectRoot, 'input', 'versions');
 const backupDir = path.join(projectRoot, 'input', 'backup');

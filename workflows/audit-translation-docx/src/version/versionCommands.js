@@ -30,7 +30,7 @@ try {
 } catch (err) {
   config = {
     files: {
-      translatedDir: path.join(projectRoot, 'input', 'translated'),
+      translatedDir: path.join(projectRoot, 'input', 'translatedGoogle'),
     },
   };
 }
@@ -116,7 +116,7 @@ export async function runVersionCommand() {
   const filename = getFirstDocxFile();
 
   if (!filename && command !== 'help' && command !== '--help' && command !== '-h') {
-    log('❌ Nenhum arquivo .docx encontrado em input/translated/', 'red');
+    log('❌ Nenhum arquivo .docx encontrado em input/translatedGoogle/', 'red');
     process.exit(1);
   }
 

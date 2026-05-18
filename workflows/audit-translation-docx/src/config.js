@@ -82,7 +82,7 @@ export default {
   // Arquivos
   files: {
     sourceDir: path.join(projectRoot, "input", "source"),
-    translatedDir: path.join(projectRoot, "input", "translated"),  // NUNCA modificar
+    translatedDir: path.join(projectRoot, "input", "translatedGoogle"),  // NUNCA modificar
     translatedFixedDir: path.join(projectRoot, "input", "translated-fixed"),
     inputFixedDir: path.join(projectRoot, "input-fixed"),         // NOVO: versões corrigidas
     outputDir: path.join(projectRoot, "output"),

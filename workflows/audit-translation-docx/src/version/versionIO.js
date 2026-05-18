@@ -17,7 +17,7 @@ try {
 } catch (err) {
   config = {
     files: {
-      translatedDir: path.join(projectRoot, 'input', 'translated'),
+      translatedDir: path.join(projectRoot, 'input', 'translatedGoogle'),
       backupDir: path.join(projectRoot, 'input', 'backup'),
     },
     versioning: {
@@ -36,7 +36,7 @@ if (!fs.existsSync(backupDir)) {
 }
 
 /**
- * Criar uma nova versão a partir do arquivo atual em input/translated/
+ * Criar uma nova versão a partir do arquivo atual em input/translatedGoogle/
  * @param {string} filename - Nome do arquivo
  * @param {number} step - Número da versão (opcional)
  * @returns {boolean}
