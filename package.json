@@ -1,8 +1,8 @@
 {
   "type": "module",
   "name": "extrair_novel",
-  "version": "2.0.0",
-  "description": "Extração de DOCX e geração de EPUBs organizados com suporte a traduções e auditoria.",
+  "version": "2.1.0",
+  "description": "Extração de DOCX e geração de EPUBs organizados com suporte a traduções, auditoria e versionamento incremental.",
   "main": "src/cli.js",
   "repository": {
     "type": "git",
@@ -27,8 +27,20 @@
     
     "fix:gender": "node workflows/audit-translation-docx/src/fix-gender-issues.js",
     "fix:gender:verbose": "node workflows/audit-translation-docx/src/fix-gender-issues.js --verbose",
+    "fix:gender:step": "node workflows/audit-translation-docx/src/fix-gender-issues.js --step",
     
     "audit:menu": "node workflows/audit-translation-docx/src/menu.js",
+    
+    "version:status": "node workflows/audit-translation-docx/src/version-cli.js status",
+    "version:current": "node workflows/audit-translation-docx/src/version-cli.js current",
+    "version:list": "node workflows/audit-translation-docx/src/version-cli.js list",
+    "version:next": "node workflows/audit-translation-docx/src/version-cli.js next",
+    "version:prev": "node workflows/audit-translation-docx/src/version-cli.js prev",
+    "version:goto": "node workflows/audit-translation-docx/src/version-cli.js goto",
+    "version:diff": "node workflows/audit-translation-docx/src/version-cli.js diff",
+    "version:clean": "node workflows/audit-translation-docx/src/version-cli.js clean",
+    "version:create": "node workflows/audit-translation-docx/src/version-cli.js create",
+    "version:help": "node workflows/audit-translation-docx/src/version-cli.js help",
     
     "test": "echo \"No tests configured\""
   },
@@ -39,7 +51,8 @@
     "traducao",
     "ebook",
     "cli",
-    "auditoria"
+    "auditoria",
+    "versionamento"
   ],
   "author": "Aline Souza <angeline.fm@gmail.com> (https://github.com/angeline1986)",
   "license": "ISC",

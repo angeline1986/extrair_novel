@@ -28,6 +28,8 @@ export function showHeader() {
   log('║                                                                ║', 'cyan');
   log('║  Audita e corrige problemas comuns de gênero em traduções      ║', 'cyan');
   log('║  automáticas do Google Tradutor.                               ║', 'cyan');
+  log('║                                                                ║', 'cyan');
+  log('║  Versão: 2.1.0 | Versionamento incremental (steps)             ║', 'cyan');
   log('╚════════════════════════════════════════════════════════════════╝', 'cyan');
   console.log();
 }
@@ -35,14 +37,33 @@ export function showHeader() {
 export function showMenu() {
   log('📋 ESCOLHA UMA OPÇÃO:', 'yellow');
   console.log();
+  
+  // Opções principais
+  log('  ┌───────────── AUDITORIA ─────────────┐', 'dim');
   log('  1. 🔍 Auditoria normal', 'white');
   log('  2. 🔍📋 Auditoria com detalhes (verbose)', 'white');
+  console.log();
+  
+  log('  ┌───────────── CORREÇÃO ──────────────┐', 'dim');
   log('  3. 🔧 Corrigir problemas de gênero', 'white');
   log('  4. 🔧📋 Corrigir problemas de gênero (verbose)', 'white');
-  log('  5. 🚀 Workflow completo (auditar + corrigir)', 'green');
+  console.log();
+  
+  log('  ┌───────────── WORKFLOW ──────────────┐', 'dim');
+  log('  5. 🚀 Workflow completo (auditar + corrigir + aplicar)', 'green');
+  console.log();
+  
+  log('  ┌───────────── VERSIONAMENTO ─────────┐', 'dim');
   log('  6. 📊 Ver último relatório', 'cyan');
   log('  7. 🗑️  Limpar relatórios antigos', 'red');
-  log('  8. ❌ Sair', 'magenta');
+  log('  8. 📂 Gerenciar versões (status)', 'cyan');
+  log('  9. ➡️  Avançar para próximo step', 'green');
+  log('  10. ⬅️ Voltar para step anterior', 'yellow');
+  log('  11. 🔄 Restaurar versão específica', 'magenta');
+  console.log();
+  
+  log('  ┌───────────── SISTEMA ───────────────┐', 'dim');
+  log('  12. ❌ Sair', 'magenta');
   console.log();
   console.log('─'.repeat(64));
   console.log();
