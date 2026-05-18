@@ -13,6 +13,9 @@ workflows/*/reports/*
 !workflows/*/reports/.gitkeep
 workflows/*/assets/*
 !workflows/*/assets/.gitkeep
+workflows/audit-translation-docx/input-fixed/*
+!workflows/audit-translation-docx/input-fixed/.gitkeep
+workflows/audit-translation-docx/logs_old/
 .DS_Store
 ~$*.docx
 *.log
