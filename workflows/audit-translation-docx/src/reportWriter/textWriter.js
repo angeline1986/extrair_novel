@@ -1,5 +1,10 @@
 // src/reportWriter/textWriter.js
 import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const projectRoot = path.resolve(__dirname, '../..');
 
 function writeParagraphPreview(sourceDocs, translatedDocs) {
   const lines = [];
@@ -59,6 +64,56 @@ export function writeTextSummary(report, summaryPath, sourceDocs, translatedDocs
     `  - WARN: ${report.stats.ollamaWarnings}`,
     "",
   ];
+
+  const workflowEventsFile = path.join(projectRoot, 'logs', 'workflow-events.jsonl');
+  if (fs.existsSync(workflowEventsFile)) {
+    const events = fs.readFileSync(workflowEventsFile, 'utf8')
+      .split('\n')
+      .filter((l) => l.trim())
+      .map((l) => JSON.parse(l));
+
+    const versionEvents = events.filter((e) => e.event === 'VERSION_CREATED' || e.event === 'VERSION_MISSING_GAP');
+    const lastRun = events.filter((e) => e.event === 'WORKFLOW_STARTED').slice(-1)[0];
+
+    if (versionEvents.length > 0 || lastRun) {
+      lines.push('');
+      lines.push('='.repeat(80));
+      lines.push('HISTÓRICO / VERSIONAMENTO');
+      lines.push('='.repeat(80));
+      lines.push('');
+
+      if (lastRun) {
+        lines.push(`Step atual: ${lastRun.currentStep || '?'}`);
+        lines.push(`Modo: ${lastRun.mode || 'normal'}`);
+        lines.push('');
+      }
+
+      const versionsFound = [];
+      for (let i = 1; i <= 10; i++) {
+        const vPath = path.join(projectRoot, 'workflows/audit-translation-docx/input-fixed', `v${i}`);
+        if (fs.existsSync(vPath)) versionsFound.push(`v${i}`);
+      }
+
+      const versionsCreated = versionEvents.filter((e) => e.event === 'VERSION_CREATED').map((e) => `v${e.step}`);
+      const missingGaps = versionEvents.filter((e) => e.event === 'VERSION_MISSING_GAP');
+
+      lines.push(`Versões encontradas: ${versionsFound.length > 0 ? versionsFound.join(', ') : 'nenhuma'}`);
+      lines.push(`Versões criadas nesta execução: ${versionsCreated.length > 0 ? versionsCreated.join(', ') : 'nenhuma'}`);
+
+      if (missingGaps.length > 0) {
+        lines.push('');
+        lines.push('⚠️ GAP DETECTADO:');
+        for (const gap of missingGaps) {
+          lines.push(`   ${gap.details?.explanation || 'versões ausentes detectadas'}`);
+          if (gap.details?.missingVersions) {
+            lines.push(`   Versões ausentes: ${gap.details.missingVersions.join(', ')}`);
+          }
+        }
+      }
+
+      lines.push('');
+    }
+  }
 
   const previewLines = writeParagraphPreview(sourceDocs, translatedDocs);
   lines.push(...previewLines);

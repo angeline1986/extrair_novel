@@ -3,7 +3,11 @@
 
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { formatTimestamp, determineConsolidatedStatus } from './utils.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const projectRoot = path.resolve(__dirname, '../..');
 import { serializeIssue, serializeWarning, serializeOllamaResult, serializeFile, generateSummary } from './serializers.js';
 import { writeIssuesCsv } from './csvWriter.js';
 import { writeTextSummary } from './textWriter.js';
@@ -75,6 +79,40 @@ export function generateReports({
     const detailsPath = path.join(logsDir, `problematic-chapters-${timestamp}.txt`);
     writeProblematicChaptersReport(alignedDocs, ollamaResults, detailsPath);
     console.log(`⚠️  Detalhes: ${detailsPath}`);
+  }
+
+  const workflowEventsFile = path.join(projectRoot, 'logs', 'workflow-events.jsonl');
+  if (fs.existsSync(workflowEventsFile)) {
+    const events = fs.readFileSync(workflowEventsFile, 'utf8')
+      .split('\n')
+      .filter((l) => l.trim())
+      .map((l) => JSON.parse(l));
+
+    const lastRun = events.filter((e) => e.event === 'WORKFLOW_STARTED').slice(-1)[0];
+    const versionEvents = events.filter((e) => e.event === 'VERSION_CREATED' || e.event === 'VERSION_MISSING_GAP');
+    const writes = events.filter((e) => e.event === 'FILE_WRITE');
+    const deletes = events.filter((e) => e.event === 'FILE_DELETE');
+
+    const versionsFound = [];
+    for (let i = 1; i <= 10; i++) {
+      const vPath = path.join(projectRoot, 'workflows/audit-translation-docx/input-fixed', `v${i}`);
+      if (fs.existsSync(vPath)) versionsFound.push(`v${i}`);
+    }
+
+    const allExpected = versionsFound.length > 0
+      ? Array.from({ length: Math.max(...versionsFound.map((v) => parseInt(v.substring(1))), 0) }, (_, i) => `v${i + 1}`)
+      : [];
+    const missing = allExpected.filter((v) => !versionsFound.includes(v));
+
+    report.workflowTrace = {
+      currentStep: lastRun?.currentStep || null,
+      versionsFound,
+      versionsCreated: versionEvents.filter((e) => e.event === 'VERSION_CREATED').map((e) => `v${e.step}`),
+      versionsMissing: missing,
+      writes: writes.slice(-10),
+      deletes: deletes.slice(-5),
+      warnings: versionEvents.filter((e) => e.event === 'VERSION_MISSING_GAP').map((e) => e.details?.explanation || 'VERSION_MISSING_GAP'),
+    };
   }
 
   return report;

@@ -30,6 +30,7 @@
     "fix:gender:step": "node workflows/audit-translation-docx/src/fix-gender-issues.js --step",
     
     "audit:menu": "node workflows/audit-translation-docx/src/menu.js",
+    "logs:view": "node workflows/audit-translation-docx/src/observability/viewLog.js",
     
     "version:status": "node workflows/audit-translation-docx/src/version-cli.js status",
     "version:current": "node workflows/audit-translation-docx/src/version-cli.js current",
