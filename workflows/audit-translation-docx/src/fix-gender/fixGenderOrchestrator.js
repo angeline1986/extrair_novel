@@ -33,6 +33,24 @@ function getTargetStep() {
   return getCurrentStep();
 }
 
+export function getInputDir(step, filename = 'file.docx') {
+  return getCorrectionSourcePath(step, filename).sourcePath;
+}
+
+export async function runFixGender({ step, verbose = false } = {}) {
+  const originalArgv = process.argv;
+  const nodePath = process.argv[0];
+  const scriptPath = process.argv[1];
+  const args = [nodePath, scriptPath, `--step=${step ?? getCurrentStep()}`];
+  if (verbose) args.push('--verbose');
+  process.argv = args;
+  try {
+    return await main();
+  } finally {
+    process.argv = originalArgv;
+  }
+}
+
 export async function main() {
   const verbose = process.argv.includes('--verbose') || process.argv.includes('-v');
   const targetStep = getTargetStep();
