@@ -15,15 +15,27 @@ export function showLastReport() {
     return;
   }
   
+  const htmlFiles = fs.readdirSync(logsDir)
+    .filter(f => f.startsWith('audit-dashboard-') && f.endsWith('.html'))
+    .sort()
+    .reverse();
   const files = fs.readdirSync(logsDir)
     .filter(f => f.startsWith('audit-summary-') && f.endsWith('.txt'))
     .sort()
     .reverse();
   
-  if (files.length === 0) {
+  if (files.length === 0 && htmlFiles.length === 0) {
     log('⚠️ Nenhum relatório encontrado.', 'yellow');
     return;
   }
+
+  if (htmlFiles.length > 0) {
+    const latestHtml = htmlFiles.find((file) => file !== 'audit-dashboard-latest.html') || htmlFiles[0];
+    log(`\n🧭 Dashboard HTML: ${path.join(logsDir, latestHtml)}`, 'cyan');
+    log(`   Atalho estável: ${path.join(logsDir, 'audit-dashboard-latest.html')}`, 'cyan');
+  }
+
+  if (files.length === 0) return;
   
   const latest = files[0];
   const reportPath = path.join(logsDir, latest);

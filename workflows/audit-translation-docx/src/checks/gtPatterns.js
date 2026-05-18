@@ -11,7 +11,8 @@ export function detectGoogleTranslateIssues(text, originalText = null) {
   
   // 1. Problemas de gênero
   for (const pattern of patterns.genderIssues) {
-    const matches = text.match(new RegExp(pattern.pattern, 'gi'));
+    const regex = new RegExp(pattern.pattern, 'gi');
+    const matches = text.match(regex);
     if (matches && matches.length > 3) { // Mínimo 3 ocorrências para reportar
       issues.push({
         type: 'gender_issue',
@@ -19,13 +20,15 @@ export function detectGoogleTranslateIssues(text, originalText = null) {
         description: pattern.description,
         occurrences: matches.length,
         severity: matches.length > 10 ? 'FAIL' : 'WARN',
+        examples: collectPatternExamples(text, regex),
       });
     }
   }
   
   // 2. Frases quebradas
   for (const pattern of patterns.brokenSentences) {
-    const matches = text.match(pattern.pattern);
+    const regex = ensureGlobalRegex(pattern.pattern);
+    const matches = text.match(regex);
     if (matches && matches.length > 5) {
       warnings.push({
         type: 'broken_sentence',
@@ -33,13 +36,15 @@ export function detectGoogleTranslateIssues(text, originalText = null) {
         description: pattern.description,
         occurrences: matches.length,
         severity: 'WARN',
+        examples: collectPatternExamples(text, regex),
       });
     }
   }
   
   // 3. Nomes próprios alterados
   for (const pattern of patterns.nameCorruption) {
-    const matches = text.match(pattern.pattern);
+    const regex = ensureGlobalRegex(pattern.pattern);
+    const matches = text.match(regex);
     if (matches && matches.length > 0) {
       warnings.push({
         type: 'name_corruption',
@@ -47,6 +52,7 @@ export function detectGoogleTranslateIssues(text, originalText = null) {
         description: pattern.description,
         occurrences: matches.length,
         severity: matches.length > 5 ? 'FAIL' : 'WARN',
+        examples: collectPatternExamples(text, regex),
       });
     }
   }
@@ -65,11 +71,13 @@ export function detectGoogleTranslateIssues(text, originalText = null) {
   // 5. Detectar pontuação estranha (espaços antes de pontuação)
   const weirdSpacing = text.match(/[a-z]\s+[.,!?;]/gi);
   if (weirdSpacing && weirdSpacing.length > 10) {
+    const regex = /[a-z]\s+[.,!?;]/gi;
     warnings.push({
       type: 'weird_spacing',
       description: 'Espaço antes de pontuação',
       occurrences: weirdSpacing.length,
       severity: 'WARN',
+      examples: collectPatternExamples(text, regex),
     });
   }
   
@@ -90,6 +98,33 @@ export function detectGoogleTranslateIssues(text, originalText = null) {
   }
   
   return { issues, warnings };
+}
+
+function ensureGlobalRegex(regex) {
+  const flags = regex.flags.includes('g') ? regex.flags : `${regex.flags}g`;
+  return new RegExp(regex.source, flags);
+}
+
+function collectPatternExamples(text, regex, limit = 5) {
+  const examples = [];
+  const globalRegex = ensureGlobalRegex(regex);
+  let match;
+
+  while ((match = globalRegex.exec(text)) && examples.length < limit) {
+    const start = Math.max(0, match.index - 90);
+    const end = Math.min(text.length, match.index + match[0].length + 90);
+    const context = text.slice(start, end).replace(/\s+/g, ' ').trim();
+
+    examples.push({
+      match: match[0],
+      context,
+      index: match.index,
+    });
+
+    if (match[0].length === 0) globalRegex.lastIndex += 1;
+  }
+
+  return examples;
 }
 
 function detectEnglishWords(text) {

@@ -8,6 +8,7 @@ export function serializeIssue(issue) {
     description: issue.description || getIssueDescription(issue),
     details: issue.details || null,
     occurrences: issue.occurrences || null,
+    examples: issue.examples || null,
   };
 }
 
@@ -18,6 +19,7 @@ export function serializeWarning(warning) {
     description: warning.description || getWarningDescription(warning),
     details: warning.details || null,
     occurrences: warning.occurrences || null,
+    examples: warning.examples || null,
   };
 }
 

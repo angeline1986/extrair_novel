@@ -19,7 +19,7 @@ export async function cleanOldReports() {
   const files = fs.readdirSync(logsDir);
   
   const reportFiles = files.filter(f => {
-    return f.match(/\.(json|csv|txt)$/) && 
+    return f.match(/\.(json|csv|txt|html)$/) && 
            (f.includes('audit-') || f.includes('issues-') || 
             f.includes('problematic-') || f.includes('correcoes_') ||
             f.includes('audit-summary'));

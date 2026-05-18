@@ -12,6 +12,7 @@ import { serializeIssue, serializeWarning, serializeOllamaResult, serializeFile,
 import { writeIssuesCsv } from './csvWriter.js';
 import { writeTextSummary } from './textWriter.js';
 import { writeProblematicChaptersReport } from './detailsWriter.js';
+import { writeHtmlDashboard } from './htmlWriter.js';
 
 export function generateReports({
   sourceDocs,
@@ -63,10 +64,55 @@ export function generateReports({
     },
   };
 
+  const workflowEventsFile = path.join(projectRoot, 'logs', 'workflow-events.jsonl');
+  if (fs.existsSync(workflowEventsFile)) {
+    const events = fs.readFileSync(workflowEventsFile, 'utf8')
+      .split('\n')
+      .filter((l) => l.trim())
+      .map((l) => JSON.parse(l));
+
+    const lastRun = events.filter((e) => e.event === 'WORKFLOW_STARTED').slice(-1)[0];
+    const versionEvents = events.filter((e) => e.event === 'VERSION_CREATED' || e.event === 'VERSION_MISSING_GAP');
+    const writes = events.filter((e) => e.event === 'FILE_WRITE');
+    const deletes = events.filter((e) => e.event === 'FILE_DELETE');
+
+    const versionsFound = [];
+    for (let i = 1; i <= 10; i++) {
+      const vPath = path.join(projectRoot, 'input-fixed', `v${i}`);
+      if (fs.existsSync(vPath)) versionsFound.push(`v${i}`);
+    }
+
+    const allExpected = versionsFound.length > 0
+      ? Array.from({ length: Math.max(...versionsFound.map((v) => parseInt(v.substring(1))), 0) }, (_, i) => `v${i + 1}`)
+      : [];
+    const missing = allExpected.filter((v) => !versionsFound.includes(v));
+
+    report.workflowTrace = {
+      currentStep: lastRun?.currentStep || null,
+      versionsFound,
+      versionsCreated: versionEvents.filter((e) => e.event === 'VERSION_CREATED').map((e) => e.version || `v${e.step}`),
+      versionsMissing: missing,
+      writes: writes.slice(-10),
+      deletes: deletes.slice(-5),
+      warnings: versionEvents.filter((e) => e.event === 'VERSION_MISSING_GAP').map((e) => e.details?.explanation || 'VERSION_MISSING_GAP'),
+    };
+  }
+
   // JSON
   const jsonPath = path.join(logsDir, `audit-report-${timestamp}.json`);
   fs.writeFileSync(jsonPath, JSON.stringify(report, null, 2), "utf8");
   console.log(`📄 JSON: ${jsonPath}`);
+
+  // Dashboard HTML
+  const htmlPath = path.join(logsDir, `audit-dashboard-${timestamp}.html`);
+  writeHtmlDashboard(report, htmlPath, {
+    logsDir,
+    sourceDocs,
+    translatedDocs,
+    alignedDocs,
+  });
+  fs.copyFileSync(htmlPath, path.join(logsDir, 'audit-dashboard-latest.html'));
+  console.log(`🧭 Dashboard: ${htmlPath}`);
 
   // CSV
   if (allIssues.length > 0 || allWarnings.length > 0) {
@@ -101,40 +147,6 @@ export function generateReports({
     const detailsPath = path.join(logsDir, `problematic-chapters-${timestamp}.txt`);
     writeProblematicChaptersReport(alignedDocs, ollamaResults, detailsPath);
     console.log(`⚠️  Detalhes: ${detailsPath}`);
-  }
-
-  const workflowEventsFile = path.join(projectRoot, 'logs', 'workflow-events.jsonl');
-  if (fs.existsSync(workflowEventsFile)) {
-    const events = fs.readFileSync(workflowEventsFile, 'utf8')
-      .split('\n')
-      .filter((l) => l.trim())
-      .map((l) => JSON.parse(l));
-
-    const lastRun = events.filter((e) => e.event === 'WORKFLOW_STARTED').slice(-1)[0];
-    const versionEvents = events.filter((e) => e.event === 'VERSION_CREATED' || e.event === 'VERSION_MISSING_GAP');
-    const writes = events.filter((e) => e.event === 'FILE_WRITE');
-    const deletes = events.filter((e) => e.event === 'FILE_DELETE');
-
-    const versionsFound = [];
-    for (let i = 1; i <= 10; i++) {
-      const vPath = path.join(projectRoot, 'workflows/audit-translation-docx/input-fixed', `v${i}`);
-      if (fs.existsSync(vPath)) versionsFound.push(`v${i}`);
-    }
-
-    const allExpected = versionsFound.length > 0
-      ? Array.from({ length: Math.max(...versionsFound.map((v) => parseInt(v.substring(1))), 0) }, (_, i) => `v${i + 1}`)
-      : [];
-    const missing = allExpected.filter((v) => !versionsFound.includes(v));
-
-    report.workflowTrace = {
-      currentStep: lastRun?.currentStep || null,
-      versionsFound,
-      versionsCreated: versionEvents.filter((e) => e.event === 'VERSION_CREATED').map((e) => `v${e.step}`),
-      versionsMissing: missing,
-      writes: writes.slice(-10),
-      deletes: deletes.slice(-5),
-      warnings: versionEvents.filter((e) => e.event === 'VERSION_MISSING_GAP').map((e) => e.details?.explanation || 'VERSION_MISSING_GAP'),
-    };
   }
 
   return report;

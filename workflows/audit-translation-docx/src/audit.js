@@ -192,6 +192,7 @@ async function main() {
   log(`Issues: ${allIssues.length} | Warnings: ${allWarnings.length}`);
   log(`Relatório: ${outputDir}/audit-report.json`);
   log(`Resumo: ${logsDir}/audit-summary.txt`);
+  log(`Dashboard HTML: ${logsDir}/audit-dashboard-latest.html`);
   
   process.exit(hasFail ? 1 : 0);
 }
