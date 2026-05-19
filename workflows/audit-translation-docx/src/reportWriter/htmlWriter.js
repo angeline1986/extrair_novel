@@ -419,62 +419,134 @@ function getVersionInfo(report) {
   };
 }
 
+function shortPath(filePath = '') {
+  const normalized = String(filePath).replaceAll('\\', '/');
+  const parts = normalized.split('/').filter(Boolean);
+  const interesting = ['input', 'input-fixed', 'output'];
+  const start = parts.findIndex((part) => interesting.includes(part));
+
+  return start >= 0 ? parts.slice(start).join('/') : normalized;
+}
+
+function dirname(filePath = '') {
+  const normalized = shortPath(filePath);
+  const index = normalized.lastIndexOf('/');
+
+  return index >= 0 ? normalized.slice(0, index) : normalized;
+}
+
+function basename(filePath = '') {
+  const normalized = String(filePath).replaceAll('\\', '/');
+  const parts = normalized.split('/').filter(Boolean);
+
+  return parts.at(-1) || normalized;
+}
+
+function stageFromEvent(event, firstSource) {
+  if (event.event === 'NORMALIZED_FILE_CREATED') {
+    return {
+      className: 'normalize',
+      title: 'Normalização',
+      meta: `step ${event.step || '?'}${event.aliasesReplaced !== undefined ? ` · ${formatNumber(event.aliasesReplaced)} aliases` : ''}`,
+      file: dirname(event.destination),
+      chain: dirname(event.destination),
+    };
+  }
+
+  if (event.event === 'FIXED_FILE_CREATED') {
+    return {
+      className: 'gender',
+      title: 'Fix-gender',
+      meta: `step ${event.step || '?'}`,
+      file: dirname(event.destination),
+      chain: dirname(event.destination),
+    };
+  }
+
+  if (event.event === 'VERSION_FILE_PUBLISHED') {
+    return {
+      className: 'version',
+      title: `${event.version || 'Versão'} publicada`,
+      meta: 'snapshot versionado',
+      file: dirname(event.destination),
+      chain: dirname(event.destination),
+    };
+  }
+
+  if (event.event === 'CURRENT_FILE_UPDATED') {
+    return {
+      className: 'current',
+      title: 'Current',
+      meta: 'working source',
+      file: dirname(event.destination),
+      chain: dirname(event.destination),
+    };
+  }
+
+  return {
+    className: 'origin',
+    title: 'Origem',
+    meta: dirname(firstSource || event.source || event.sourcePath || ''),
+    file: basename(firstSource || event.source || event.sourcePath || ''),
+    chain: dirname(firstSource || event.source || event.sourcePath || ''),
+  };
+}
+
+function renderFlowSteps(steps) {
+  return steps.map((step, index) => `
+    ${index > 0 ? '<div class="flow-arrow">-&gt;</div>' : ''}
+    <div class="flow-step ${step.className}">
+      <div class="flow-step-title">${escapeHtml(step.title)}</div>
+      <div class="flow-step-meta">${escapeHtml(step.meta)}</div>
+      <div class="flow-step-file">${escapeHtml(step.file)}</div>
+    </div>`).join('');
+}
+
+function renderFlowChain(steps) {
+  return `
+    <div class="flow-chain">
+      ${steps.map((step, index) => `
+        ${index > 0 ? '<div class="flow-chain-arrow">-&gt;</div>' : ''}
+        <div class="flow-node">${escapeHtml(step.chain || step.file || step.title)}</div>`).join('')}
+    </div>`;
+}
+
 function renderVersionTimeline(report) {
   const version = getVersionInfo(report);
   const fileFlows = report.workflowTrace?.fileFlows || [];
 
   if (fileFlows.length) {
     return fileFlows.map((flow) => {
-      const nodes = [];
       const firstSource = flow.events.find((event) => event.source)?.source;
-
-      if (firstSource) {
-        nodes.push({
-          title: firstSource,
-          subtitle: 'arquivo de origem',
-          type: 'path',
-        });
-      }
-
-      for (const event of flow.events) {
-        if (event.event === 'CORRECTION_SOURCE') continue;
-
-        nodes.push({
-          title: event.stage,
-          subtitle: event.version || `step ${event.step || '?'}`,
-          type: 'stage',
-        });
-
-        if (event.destination) {
-          nodes.push({
-            title: event.destination,
-            subtitle: event.changed === false ? 'cópia sem alteração' : 'arquivo gerado',
-            type: 'path',
-          });
-        }
-      }
+      const steps = [
+        stageFromEvent({ event: 'CORRECTION_SOURCE' }, firstSource),
+        ...flow.events
+          .filter((event) => event.event !== 'CORRECTION_SOURCE')
+          .map((event) => stageFromEvent(event, firstSource)),
+      ];
 
       return `
-        <div class="file-flow">
-          <h3>${escapeHtml(flow.file)}</h3>
-          <div class="timeline detailed">
-            ${nodes.map((node, index) => `
-              ${index > 0 ? '<div class="arrow">-&gt;</div>' : ''}
-              <div class="node ${node.type === 'path' ? 'path-node' : 'stage-node'}">
-                <strong>${escapeHtml(node.title)}</strong>
-                <span>${escapeHtml(node.subtitle)}</span>
-              </div>`).join('')}
-          </div>
+        <div class="version-file-flow">
+          <div class="version-file-name">${escapeHtml(flow.file)}</div>
+          <div class="version-timeline">${renderFlowSteps(steps)}</div>
+          ${renderFlowChain(steps)}
         </div>`;
     }).join('');
   }
 
-  return version.flow.map((node, index) => `
-    ${index > 0 ? '<div class="arrow">-&gt;</div>' : ''}
-    <div class="node">
-      <strong>${escapeHtml(node)}</strong>
-      <span>${index === 0 ? 'base inicial' : index === version.flow.length - 1 ? 'próxima esperada' : 'etapa atual'}</span>
-    </div>`).join('');
+  const steps = version.flow.map((node, index) => ({
+    className: index === 0 ? 'origin' : index === version.flow.length - 1 ? 'version' : 'current',
+    title: node,
+    meta: index === 0 ? 'base inicial' : index === version.flow.length - 1 ? 'próxima esperada' : 'etapa atual',
+    file: node,
+    chain: node,
+  }));
+
+  return `
+    <div class="version-file-flow">
+      <div class="version-timeline">${renderFlowSteps(steps)}</div>
+      ${renderFlowChain(steps)}
+    </div>`;
 }
 
 function buildDiagnostics(report, previousReport, normalization) {
@@ -672,16 +744,16 @@ export function writeHtmlDashboard(report, htmlPath, {
     </div>
 
     <section>
-      <div class="section-title">
-        <div>
-          <h2>Fluxo de versionamento</h2>
-          <p>Cadeia evolutiva esperada da tradução.</p>
+      <div class="version-flow-card">
+        <div class="version-flow-header">
+          <div class="version-flow-title">
+            Fluxo de versionamento
+            <small>Cadeia evolutiva esperada da tradução.</small>
+          </div>
+          ${statusBadge(version.overwritten ? 'WARN' : 'OK', version.overwritten ? 'sobrescrita detectada' : 'leitura sequencial')}
         </div>
-        ${statusBadge(version.overwritten ? 'WARN' : 'OK', version.overwritten ? 'sobrescrita detectada' : 'sem sobrescrita')}
-      </div>
 
-      <div class="card">
-        <div class="timeline">${renderVersionTimeline(report)}</div>
+        <div class="version-flow-body">${renderVersionTimeline(report)}</div>
       </div>
     </section>
 
