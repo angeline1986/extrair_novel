@@ -190,8 +190,7 @@ async function main() {
   log('=== AUDITORIA CONCLUÍDA ===');
   log(`Status: ${hasFail ? 'FAIL' : hasWarn ? 'WARN' : 'OK'}`);
   log(`Issues: ${allIssues.length} | Warnings: ${allWarnings.length}`);
-  log(`Relatório: ${outputDir}/audit-report.json`);
-  log(`Resumo: ${logsDir}/audit-summary.txt`);
+  log(`Relatórios: ${logsDir}`);
   log(`Dashboard HTML: ${logsDir}/audit-dashboard-latest.html`);
   
   process.exit(hasFail ? 1 : 0);

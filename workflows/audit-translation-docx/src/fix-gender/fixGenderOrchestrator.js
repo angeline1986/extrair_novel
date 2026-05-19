@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import { getTimestamp } from './utils.js';
 import { processDocxFile } from './docxProcessor.js';
 import { generateCorrectionsCsv } from './reportGenerator.js';
+import config from '../config.js';
 import { getCorrectionSourcePath, getCurrentStep } from '../version/versionCore.js';
 import { logWorkflowEvent } from '../observability/workflowLog.js';
 import { loadEntityGlossary, normalizeEntitiesInDocx } from '../entities/index.js';
@@ -23,6 +24,7 @@ const projectRoot = path.resolve(__dirname, '../..');
 const originalInputDir = path.join(projectRoot, 'input', 'translatedGoogle');  // APENAS LEITURA
 const logsDir = path.join(projectRoot, 'logs');
 const inputFixedDir = path.join(projectRoot, 'input-fixed');
+const reportOutputs = config.report.outputs || {};
 
 // Criar diretórios necessários
 if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
@@ -210,6 +212,16 @@ export async function main() {
         },
       });
 
+      logWorkflowEvent('NORMALIZED_FILE_CREATED', {
+        step: targetStep,
+        file,
+        stage: 'normalização de entidades',
+        source: inputPath,
+        destination: normalizedPath,
+        changed: entityNormalization.changed,
+        aliasesReplaced,
+      });
+
       if (entityNormalization.changed) {
         for (const change of entityReplacements) {
           allCorrectionsLog.push({
@@ -253,6 +265,16 @@ export async function main() {
         processed++;
         hasChanges = true;
         allCorrectionsLog.push(...correctionsLog);
+
+        logWorkflowEvent('FIXED_FILE_CREATED', {
+          step: targetStep,
+          file,
+          stage: 'fix-gender',
+          source: normalizedPath,
+          destination: outputPath,
+          genderChanged: genderSuccess,
+          entityOnlyFallback: !genderSuccess && entityNormalization.changed,
+        });
         
         // 1. Publicar nova versão evolutiva em input-fixed/v{N}/ e current/
         const published = publishVersion({
@@ -264,6 +286,24 @@ export async function main() {
             normalizedBeforeFixGender: true,
             aliasesReplaced,
           },
+        });
+
+        logWorkflowEvent('VERSION_FILE_PUBLISHED', {
+          step: targetStep,
+          file,
+          stage: 'publicação de versão',
+          source: outputPath,
+          destination: published.versionDest,
+          version: `v${published.version}`,
+        });
+
+        logWorkflowEvent('CURRENT_FILE_UPDATED', {
+          step: targetStep,
+          file,
+          stage: 'atualização current',
+          source: outputPath,
+          destination: published.currentDest,
+          version: `v${published.version}`,
         });
 
         console.log(`  📁 Versão v${targetStep} criada: ${published.versionDest}`);
@@ -279,12 +319,12 @@ export async function main() {
     }
   }
   
-  if (allCorrectionsLog.length > 0) {
+  if (reportOutputs.correctionsCsv && allCorrectionsLog.length > 0) {
     const csvFilename = `correcoes_step${targetStep}_${timestamp}`;
     generateCorrectionsCsv(allCorrectionsLog, logsDir, csvFilename);
   }
 
-  if (allEntityNormalizationLog.length > 0) {
+  if (allEntityNormalizationLog.length > 0 && reportOutputs.entityNormalizationJson !== false) {
     const entityLogPath = path.join(logsDir, `entity-normalization-${timestamp}.json`);
     const summaryPath = path.join(logsDir, `entity-normalization-summary-${timestamp}.txt`);
     const aliasesReplaced = allEntityNormalizationLog.reduce(
@@ -316,9 +356,12 @@ export async function main() {
       entityNormalization: report.entityNormalization,
       changes: allEntityNormalizationLog,
     }, null, 2), 'utf8');
-    writeEntityNormalizationSummary(summaryPath, report);
     console.log(`🏷️ Log de entidades: ${entityLogPath}`);
-    console.log(`🏷️ Resumo de entidades: ${summaryPath}`);
+
+    if (reportOutputs.entityNormalizationSummary) {
+      writeEntityNormalizationSummary(summaryPath, report);
+      console.log(`🏷️ Resumo de entidades: ${summaryPath}`);
+    }
   }
   
   console.log(`\n${'='.repeat(60)}`);
@@ -330,7 +373,7 @@ export async function main() {
   console.log(`   Backup: ${outputBackupDir}`);
   console.log(`   Versão versionada: ${inputFixedDir}/v${targetStep}/`);
   console.log(`   Última versão corrigida: ${inputFixedDir}/current/`);
-  console.log(`   Logs: ${logsDir}/correcoes_*.csv`);
+  console.log(`   Logs: ${logsDir}/`);
   
   if (hasChanges) {
     console.log(`\n✨ PRÓXIMOS PASSOS:`);

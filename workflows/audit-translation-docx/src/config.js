@@ -69,5 +69,16 @@ export default {
   report: {
     csvDelimiter: ";",
     includeOllamaDetails: true,
+    outputs: {
+      htmlDashboard: true,
+      jsonReport: true,
+      issuesCsv: false,
+      textSummary: false,
+      problematicChaptersText: false,
+      entityConsistencyJson: false,
+      correctionsCsv: false,
+      entityNormalizationJson: true,
+      entityNormalizationSummary: false,
+    },
   },
 };

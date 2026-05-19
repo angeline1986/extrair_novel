@@ -421,6 +421,53 @@ function getVersionInfo(report) {
 
 function renderVersionTimeline(report) {
   const version = getVersionInfo(report);
+  const fileFlows = report.workflowTrace?.fileFlows || [];
+
+  if (fileFlows.length) {
+    return fileFlows.map((flow) => {
+      const nodes = [];
+      const firstSource = flow.events.find((event) => event.source)?.source;
+
+      if (firstSource) {
+        nodes.push({
+          title: firstSource,
+          subtitle: 'arquivo de origem',
+          type: 'path',
+        });
+      }
+
+      for (const event of flow.events) {
+        if (event.event === 'CORRECTION_SOURCE') continue;
+
+        nodes.push({
+          title: event.stage,
+          subtitle: event.version || `step ${event.step || '?'}`,
+          type: 'stage',
+        });
+
+        if (event.destination) {
+          nodes.push({
+            title: event.destination,
+            subtitle: event.changed === false ? 'cópia sem alteração' : 'arquivo gerado',
+            type: 'path',
+          });
+        }
+      }
+
+      return `
+        <div class="file-flow">
+          <h3>${escapeHtml(flow.file)}</h3>
+          <div class="timeline detailed">
+            ${nodes.map((node, index) => `
+              ${index > 0 ? '<div class="arrow">-&gt;</div>' : ''}
+              <div class="node ${node.type === 'path' ? 'path-node' : 'stage-node'}">
+                <strong>${escapeHtml(node.title)}</strong>
+                <span>${escapeHtml(node.subtitle)}</span>
+              </div>`).join('')}
+          </div>
+        </div>`;
+    }).join('');
+  }
 
   return version.flow.map((node, index) => `
     ${index > 0 ? '<div class="arrow">-&gt;</div>' : ''}

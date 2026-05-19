@@ -241,12 +241,44 @@ export const dashboardStyles = `    :root {
       flex-wrap: wrap;
     }
 
+    .timeline.detailed {
+      align-items: stretch;
+      gap: 8px;
+    }
+
+    .file-flow {
+      display: grid;
+      gap: 12px;
+    }
+
+    .file-flow + .file-flow {
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+    }
+
+    .file-flow h3 {
+      font-size: 15px;
+      color: var(--text);
+    }
+
     .node {
       padding: 12px 14px;
       border-radius: 8px;
       background: var(--panel-2);
       border: 1px solid var(--border);
       min-width: 150px;
+    }
+
+    .path-node {
+      min-width: 260px;
+      max-width: 360px;
+    }
+
+    .stage-node {
+      min-width: 150px;
+      background: rgba(56, 189, 248, 0.08);
+      border-color: #075985;
     }
 
     .node strong {

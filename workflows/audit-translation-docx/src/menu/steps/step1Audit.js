@@ -31,7 +31,7 @@ export async function step1Audit(isVerbose) {
   const logsDir = getLogsDir();
   if (fs.existsSync(logsDir)) {
     const reportFiles = fs.readdirSync(logsDir)
-      .filter(f => f.includes('audit-report') || f.includes('audit-summary') || f.includes('issues'))
+      .filter(f => f.includes('audit-dashboard') || f.includes('audit-report'))
       .sort()
       .reverse()
       .slice(0, 3);
