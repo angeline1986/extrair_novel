@@ -3,7 +3,11 @@
 
 import fs from 'fs';
 import { dashboardScript, dashboardStyles } from './dashboard/assets.js';
-import { getLatestJsonReport, getLatestNormalization } from './dashboard/dataSources.js';
+import {
+  getLatestJsonReport,
+  getLatestJsonReportByWorkingInput,
+  getLatestNormalization,
+} from './dashboard/dataSources.js';
 import {
   renderDocumentPreviews,
   renderFileInventory,
@@ -82,7 +86,7 @@ function buildCompareRows(report, previousReport) {
       metric: `Gender issue: ${description}`,
       before: getIssueOccurrence(previousReport, description),
       after: getIssueOccurrence(report, description),
-      reading: 'Comparativo específico do fix-gender.',
+      reading: 'Comparativo específico da correção de gênero.',
       kind: 'gender',
       description,
     });
@@ -114,12 +118,12 @@ function buildCompareDetail(row, report, previousReport) {
       interpretation: delta > 0
         ? 'A contagem aumentou depois do script. Isso pode ser regressão real, mas também pode ser efeito da normalização ter exposto mais padrões para o auditor encontrar.'
         : delta === 0
-          ? 'A contagem não mudou. O fix-gender ainda não atacou esse padrão ou o detector está capturando falsos positivos.'
+          ? 'A contagem não mudou. A correção de gênero ainda não atacou esse padrão ou o detector está capturando falsos positivos.'
           : 'A contagem caiu. Ainda vale revisar exemplos se restarem ocorrências.',
       actions: [
         'Abrir os exemplos desta issue em Issues e warnings e confirmar se são erros reais.',
         'Se houver falso positivo, ajustar o padrão em gtPatterns para reduzir ruído.',
-        'Se forem erros reais, criar regra específica no fix-gender para este padrão.',
+        'Se forem erros reais, criar regra específica na correção de gênero para este padrão.',
         'Rodar nova auditoria e conferir se esta linha passa a cair.',
       ],
       raw: {
@@ -378,7 +382,7 @@ function renderCorrectionsRows(report, normalization) {
           ],
           interpretation: row.status === 'warn'
             ? 'Este item ficou pendente porque precisa de confirmação de glossário ou contexto.'
-            : 'Este alias foi substituído durante a normalização antes do fix-gender.',
+            : 'Este alias foi substituído durante a normalização antes da correção de gênero.',
           actions: row.status === 'warn'
             ? [
               'Confirmar se o alias e o canônico representam o mesmo personagem.',
@@ -404,7 +408,10 @@ function getVersionInfo(report) {
     ? [...workflow.flow]
     : [workflow.origin || 'input/translatedGoogle'];
   const currentLabel = workflow.currentVersion ? `v${workflow.currentVersion}` : null;
-  const nextLabel = workflow.nextVersion ? `v${workflow.nextVersion}` : 'v1';
+  const currentNumber = Number(workflow.currentVersion || 0);
+  const reportedNext = Number(workflow.nextVersion || 0);
+  const nextNumber = Math.max(reportedNext, currentNumber + 1, 1);
+  const nextLabel = `v${nextNumber}`;
 
   if (currentLabel && !flow.includes(currentLabel)) flow.push(currentLabel);
   if (workflow.workingInput?.includes('current') && !flow.includes('current')) flow.push('current');
@@ -442,31 +449,46 @@ function basename(filePath = '') {
   return parts.at(-1) || normalized;
 }
 
-function stageFromEvent(event, firstSource) {
+function versionLabel(event) {
+  if (event.version) return event.version;
+  if (event.step) return `v${event.step}`;
+  return 'v?';
+}
+
+function originSourceLabel(sourcePath = '', step) {
+  const source = shortPath(sourcePath);
+
+  if (source.includes('input-fixed/current') && step > 1) return `input-fixed/v${step - 1}`;
+  return dirname(source);
+}
+
+function stageFromEvent(event, firstSource, sourceStep) {
   if (event.event === 'NORMALIZED_FILE_CREATED') {
+    const version = versionLabel(event);
+
     return {
       className: 'normalize',
-      title: 'Normalização',
-      meta: `step ${event.step || '?'}${event.aliasesReplaced !== undefined ? ` · ${formatNumber(event.aliasesReplaced)} aliases` : ''}`,
-      file: dirname(event.destination),
-      chain: dirname(event.destination),
+      title: '⚙️ Normalização',
+      meta: `${version} · intermediário${event.aliasesReplaced !== undefined ? ` · ${formatNumber(event.aliasesReplaced)} aliases` : ''}`,
+      file: 'output/normalized',
+      chain: 'output/normalized',
     };
   }
 
   if (event.event === 'FIXED_FILE_CREATED') {
     return {
       className: 'gender',
-      title: 'Fix-gender',
-      meta: `step ${event.step || '?'}`,
-      file: dirname(event.destination),
-      chain: dirname(event.destination),
+      title: '🏳️ Correção de gênero',
+      meta: `${versionLabel(event)} · intermediário`,
+      file: 'output/fixed',
+      chain: 'output/fixed',
     };
   }
 
   if (event.event === 'VERSION_FILE_PUBLISHED') {
     return {
       className: 'version',
-      title: `${event.version || 'Versão'} publicada`,
+      title: `✅ ${event.version || 'Versão'} publicada`,
       meta: 'snapshot versionado',
       file: dirname(event.destination),
       chain: dirname(event.destination),
@@ -476,8 +498,8 @@ function stageFromEvent(event, firstSource) {
   if (event.event === 'CURRENT_FILE_UPDATED') {
     return {
       className: 'current',
-      title: 'Current',
-      meta: 'working source',
+      title: '🔄 Current',
+      meta: 'arquivo final atual',
       file: dirname(event.destination),
       chain: dirname(event.destination),
     };
@@ -485,10 +507,10 @@ function stageFromEvent(event, firstSource) {
 
   return {
     className: 'origin',
-    title: 'Origem',
-    meta: dirname(firstSource || event.source || event.sourcePath || ''),
+    title: '📂 Origem',
+    meta: originSourceLabel(firstSource || event.source || event.sourcePath || '', sourceStep),
     file: basename(firstSource || event.source || event.sourcePath || ''),
-    chain: dirname(firstSource || event.source || event.sourcePath || ''),
+    chain: originSourceLabel(firstSource || event.source || event.sourcePath || '', sourceStep),
   };
 }
 
@@ -517,12 +539,14 @@ function renderVersionTimeline(report) {
 
   if (fileFlows.length) {
     return fileFlows.map((flow) => {
-      const firstSource = flow.events.find((event) => event.source)?.source;
+      const sourceEvent = flow.events.find((event) => event.event === 'CORRECTION_SOURCE');
+      const firstSource = flow.events.find((event) => event.source)?.source || sourceEvent?.sourcePath;
+      const sourceStep = sourceEvent?.step || flow.events.find((event) => event.step)?.step;
       const steps = [
-        stageFromEvent({ event: 'CORRECTION_SOURCE' }, firstSource),
+        stageFromEvent({ event: 'CORRECTION_SOURCE' }, firstSource, sourceStep),
         ...flow.events
           .filter((event) => event.event !== 'CORRECTION_SOURCE')
-          .map((event) => stageFromEvent(event, firstSource)),
+          .map((event) => stageFromEvent(event, firstSource, sourceStep)),
       ];
 
       return `
@@ -591,12 +615,12 @@ function buildDiagnostics(report, previousReport, normalization) {
   const currentGender = sumIssueOccurrences(report, (issue) => issue.type === 'gender_issue');
   diagnostics.push({
     status: currentGender === 0 ? 'ok' : previousGender && currentGender > previousGender ? 'fail' : 'warn',
-    title: currentGender === 0 ? 'Fix-gender não deixou issues críticas.' : 'Fix-gender ainda precisa revisão.',
+    title: currentGender === 0 ? 'Correção de gênero não deixou issues críticas.' : 'Correção de gênero ainda precisa revisão.',
     detail: previousGender
       ? `Antes: ${formatNumber(previousGender)} · depois: ${formatNumber(currentGender)}.`
       : `${formatNumber(currentGender)} ocorrências críticas de gênero agora.`,
     actions: currentGender > 0
-      ? ['Abrir as linhas de gender issue em Comparativo e Issues e warnings.', 'Separar erro real de falso positivo antes de mexer no fix-gender.']
+      ? ['Abrir as linhas de gender issue em Comparativo e Issues e warnings.', 'Separar erro real de falso positivo antes de mexer na correção de gênero.']
       : ['Nenhuma ação imediata necessária.'],
   });
 
@@ -604,7 +628,7 @@ function buildDiagnostics(report, previousReport, normalization) {
     diagnostics.push({
       status: 'info',
       title: 'Pré-processamento de entidades aplicado.',
-      detail: `${formatNumber(normalization.preprocessing.aliasesReplaced)} ocorrências substituídas antes do fix-gender.`,
+      detail: `${formatNumber(normalization.preprocessing.aliasesReplaced)} ocorrências substituídas antes da correção de gênero.`,
       actions: ['Usar Correções aplicadas para revisar exemplos antes/depois.', 'Se uma substituição ficou estranha, ajustar o glossário.'],
     });
   }
@@ -680,6 +704,137 @@ function renderIssueRows(items) {
     </tr>`).join('');
 }
 
+function renderSnapshotMetrics(report) {
+  if (!report) {
+    return '<div class="empty-tab">Nenhuma auditoria disponível para esta aba ainda.</div>';
+  }
+
+  const version = getVersionInfo(report);
+  return `
+    <div class="grid grid-4">
+      <div class="card">
+        <div class="metric-label">Status</div>
+        <div class="metric-value">${statusBadge(report.status)}</div>
+        <div class="metric-note">${formatNumber(report.stats?.failIssues || 0)} issues críticas.</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Origem auditada</div>
+        <div class="metric-value" style="font-size:18px">${escapeHtml(version.workingInput)}</div>
+        <div class="metric-note">${escapeHtml(report.stats?.timestamp || 'sem timestamp')}</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Warnings</div>
+        <div class="metric-value">${formatNumber(report.stats?.totalWarnings || 0)}</div>
+        <div class="metric-note">Alertas operacionais.</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Aliases pendentes</div>
+        <div class="metric-value">${formatNumber(report.entityConsistency?.totalAliasOccurrences || 0)}</div>
+        <div class="metric-note">${formatNumber(report.entityConsistency?.aliasesFound || 0)} tipos de alias.</div>
+      </div>
+    </div>`;
+}
+
+function renderSnapshotIssues(report) {
+  const rows = [...(report?.issues || []), ...(report?.warnings || [])];
+
+  if (!report || !rows.length) return '<div class="empty-tab">Nenhuma issue ou warning nesta auditoria.</div>';
+
+  return `
+    <div class="card compact-table-card">
+      <table>
+        <thead>
+          <tr>
+            <th>Status</th>
+            <th>Tipo</th>
+            <th>Descrição</th>
+            <th>Ocorrências</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((item) => `
+            <tr>
+              <td>${statusBadge(item.severity || 'WARN')}</td>
+              <td>${escapeHtml(item.type || '-')}</td>
+              <td>${escapeHtml(item.description || '-')}</td>
+              <td>${formatNumber(item.occurrences || 1)}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function renderCompareSnapshotRows(report, previousReport) {
+  if (!report) return '<tr><td colspan="5">Sem dados para comparar.</td></tr>';
+
+  return buildCompareRows(report, previousReport).map((row) => {
+    const delta = formatDelta(row.before, row.after);
+    const before = row.before === null || row.before === undefined ? '-' : formatNumber(row.before);
+
+    return `
+      <tr>
+        <td>${escapeHtml(row.metric)}</td>
+        <td>${before}</td>
+        <td>${formatNumber(row.after)}</td>
+        <td class="${delta.className}">${delta.text}</td>
+        <td>${escapeHtml(row.reading)}</td>
+      </tr>`;
+  }).join('');
+}
+
+function renderReportSnapshot(report) {
+  return `
+    ${renderSnapshotMetrics(report)}
+    <section>
+      <div class="section-title">
+        <div>
+          <h2>Issues e warnings</h2>
+          <p>Resumo desta origem auditada.</p>
+        </div>
+      </div>
+      ${renderSnapshotIssues(report)}
+    </section>`;
+}
+
+function renderTabbedOverview({ sourceReport, currentReport }) {
+  const compareBase = currentReport || sourceReport;
+  const comparePrevious = sourceReport && currentReport && sourceReport !== currentReport ? sourceReport : null;
+
+  return `
+    <section class="dashboard-tabs">
+      <div class="tab-list" role="tablist" aria-label="Visões do relatório">
+        <button class="tab-button active" type="button" data-tab="tab-source">Fonte bruta</button>
+        <button class="tab-button" type="button" data-tab="tab-current">Versão corrigida</button>
+        <button class="tab-button" type="button" data-tab="tab-compare">Comparativo</button>
+      </div>
+
+      <div class="tab-panel active" id="tab-source">
+        ${renderReportSnapshot(sourceReport)}
+      </div>
+
+      <div class="tab-panel" id="tab-current">
+        ${renderReportSnapshot(currentReport)}
+      </div>
+
+      <div class="tab-panel" id="tab-compare">
+        <div class="card">
+          <table>
+            <thead>
+              <tr>
+                <th>Métrica</th>
+                <th>Antes</th>
+                <th>Depois</th>
+                <th>Delta</th>
+                <th>Leitura</th>
+              </tr>
+            </thead>
+            <tbody>${renderCompareSnapshotRows(compareBase, comparePrevious)}</tbody>
+          </table>
+        </div>
+      </div>
+    </section>`;
+}
+
 export function writeHtmlDashboard(report, htmlPath, {
   logsDir,
   sourceDocs = [],
@@ -688,6 +843,8 @@ export function writeHtmlDashboard(report, htmlPath, {
 } = {}) {
   const previousReport = logsDir ? getLatestJsonReport(logsDir, report.stats?.timestamp) : null;
   const normalization = logsDir ? getLatestNormalization(logsDir) : null;
+  const sourceReport = logsDir ? getLatestJsonReportByWorkingInput(logsDir, 'input/translatedGoogle', report) : null;
+  const currentReport = logsDir ? getLatestJsonReportByWorkingInput(logsDir, 'input-fixed/current', report) : null;
   const version = getVersionInfo(report);
   const fileLabel = report.files?.map((file) => file.filename).filter(Boolean).join(', ') || 'sem arquivo';
   const rawJson = JSON.stringify({
@@ -717,6 +874,8 @@ export function writeHtmlDashboard(report, htmlPath, {
   </header>
 
   <main>
+    ${renderTabbedOverview({ sourceReport, currentReport })}
+
     <div class="grid grid-4">
       <div class="card">
         <div class="metric-label">Status consolidado</div>
@@ -725,7 +884,7 @@ export function writeHtmlDashboard(report, htmlPath, {
       </div>
 
       <div class="card">
-        <div class="metric-label">Working source</div>
+        <div class="metric-label">Origem auditada</div>
         <div class="metric-value" style="font-size:20px">${escapeHtml(version.workingInput)}</div>
         <div class="metric-note">Origem usada nesta auditoria.</div>
       </div>
@@ -737,9 +896,9 @@ export function writeHtmlDashboard(report, htmlPath, {
       </div>
 
       <div class="card">
-        <div class="metric-label">Entidades pendentes</div>
-        <div class="metric-value">${formatNumber(report.entityConsistency?.totalAliasOccurrences || 0)}</div>
-        <div class="metric-note">${formatNumber(report.entityConsistency?.aliasesFound || 0)} tipos de alias.</div>
+        <div class="metric-label">Arquivo final</div>
+        <div class="metric-value" style="font-size:20px">input-fixed/current</div>
+        <div class="metric-note">${formatNumber(report.entityConsistency?.totalAliasOccurrences || 0)} entidades pendentes.</div>
       </div>
     </div>
 
@@ -789,7 +948,7 @@ export function writeHtmlDashboard(report, htmlPath, {
         </div>
       </div>
 
-      <div class="grid grid-2">${renderEntityCards(report, normalization)}</div>
+      <div class="grid grid-2 entity-grid">${renderEntityCards(report, normalization)}</div>
     </section>
 
     <section>

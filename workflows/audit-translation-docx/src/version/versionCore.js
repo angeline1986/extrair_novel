@@ -6,7 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const projectRoot = path.resolve(__dirname, '../..');
+const projectRoot = process.env.AUDIT_TRANSLATION_WORKFLOW_ROOT || path.resolve(__dirname, '../..');
 
 const currentStepFile = path.join(projectRoot, '.current-step');
 const inputFixedDir = path.join(projectRoot, 'input-fixed');

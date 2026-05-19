@@ -36,6 +36,13 @@ const logsDir = path.resolve(__dirname, config.files.logsDir);
 // Inicializar cache do Ollama
 initCache();
 
+function displayPath(filePath) {
+  if (process.env.AUDIT_CONCISE !== '1') return filePath;
+
+  const relative = path.relative(path.resolve(__dirname, '..'), filePath).replaceAll('\\', '/');
+  return relative && !relative.startsWith('..') ? relative : filePath;
+}
+
 async function main() {
   const verbose = process.argv.includes('--verbose');
   const resetWorkingCopy = process.argv.includes('--reset-working-copy');
@@ -190,8 +197,8 @@ async function main() {
   log('=== AUDITORIA CONCLUÍDA ===');
   log(`Status: ${hasFail ? 'FAIL' : hasWarn ? 'WARN' : 'OK'}`);
   log(`Issues: ${allIssues.length} | Warnings: ${allWarnings.length}`);
-  log(`Relatórios: ${logsDir}`);
-  log(`Dashboard HTML: ${logsDir}/audit-dashboard-latest.html`);
+  log(`Relatórios: ${displayPath(logsDir)}`);
+  log(`Dashboard HTML: ${displayPath(path.join(logsDir, 'audit-dashboard-latest.html'))}`);
   
   process.exit(hasFail ? 1 : 0);
 }

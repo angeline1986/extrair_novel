@@ -1,19 +1,28 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { getCorrectionSourcePath, createVersionFromFile, setCurrentStep } from '../../src/version/versionCore.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '../..');
+const isolatedRoot = path.join(projectRoot, 'output', 'test-step-by-step-versions-root');
 
 const testFilename = 'integration-test.docx';
-const inputDir = path.join(projectRoot, 'input', 'translatedGoogle');
-const inputFixedDir = path.join(projectRoot, 'input-fixed');
-const outputDir = path.join(projectRoot, 'output', 'fixed');
+const inputDir = path.join(isolatedRoot, 'input', 'translatedGoogle');
+const inputFixedDir = path.join(isolatedRoot, 'input-fixed');
+const outputDir = path.join(isolatedRoot, 'output', 'fixed');
 const testSourceFile = path.join(inputDir, testFilename);
 const testContent = Buffer.from('test-content-v1');
+let getCorrectionSourcePath;
+let createVersionFromFile;
+let setCurrentStep;
 
 function cleanupState() {
+  if (fs.existsSync(isolatedRoot)) {
+    fs.rmSync(isolatedRoot, { recursive: true, force: true });
+  }
+}
+
+function cleanupTestState() {
   // Remove test file
   if (fs.existsSync(testSourceFile)) {
     fs.unlinkSync(testSourceFile);
@@ -63,13 +72,20 @@ function getVersionContent(step) {
 }
 
 describe('integration: step-by-step version evolution', () => {
-  beforeAll(() => {
+  beforeAll(async () => {
     cleanupState();
+    process.env.AUDIT_TRANSLATION_WORKFLOW_ROOT = isolatedRoot;
+    const module = await import(`../../src/version/versionCore.js?test=${Date.now()}`);
+    getCorrectionSourcePath = module.getCorrectionSourcePath;
+    createVersionFromFile = module.createVersionFromFile;
+    setCurrentStep = module.setCurrentStep;
+    setCurrentStep(1);
     ensureTestFile();
   });
 
   afterAll(() => {
     cleanupState();
+    delete process.env.AUDIT_TRANSLATION_WORKFLOW_ROOT;
   });
 
   test('step 1 creates v1 version from original input', () => {

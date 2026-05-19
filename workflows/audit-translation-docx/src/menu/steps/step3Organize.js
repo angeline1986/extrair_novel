@@ -1,5 +1,5 @@
 // src/menu/steps/step3Organize.js
-// PASSO 3: Organizar versões corrigidas em input-fixed/
+// LEGADO: organiza versões antigas em input-fixed/ quando necessário.
 
 import fs from 'fs';
 import path from 'path';
@@ -14,7 +14,7 @@ import { logWorkflowEvent } from '../../observability/workflowLog.js';
 const projectRoot = '/Users/alinesouza/Documents/TI/Projetos/Extrair_novel';
 
 export async function step3Organize() {
-  log('\n📋 [PASSO 3] Organizando versões corrigidas...', 'cyan');
+  log('\n📋 [LEGADO] Organizando versões corrigidas...', 'cyan');
   
   const inputFixedDir = getInputFixedDir();
   const outputBackupDir = path.join(projectRoot, 'workflows/audit-translation-docx/output', 'fixed');
@@ -48,7 +48,7 @@ export async function step3Organize() {
         
         if (fixedFiles.length === 0) continue;
         
-        const stepMatch = versionFolder.match(/step(\d+)_/);
+        const stepMatch = versionFolder.match(/^v(\d+)$/) || versionFolder.match(/step(\d+)_/);
         const stepNum = stepMatch ? stepMatch[1] : '1';
         
         logWorkflowEvent('STEP_STARTED', {

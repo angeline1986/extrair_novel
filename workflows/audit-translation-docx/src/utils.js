@@ -78,8 +78,21 @@ export function extractChapterRange(filename) {
 
 // Log com timestamp
 export function log(message, level = 'INFO') {
+  if (process.env.AUDIT_CONCISE === '1' && level === 'INFO') {
+    const visible = [
+      '=== AUDITORIA CONCLUÍDA ===',
+      'Status:',
+      'Issues:',
+      'Relatórios:',
+      'Dashboard HTML:',
+    ].some((prefix) => String(message).startsWith(prefix));
+
+    if (!visible) return;
+  }
+
   const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] [${level}] ${message}`);
+  const prefix = process.env.AUDIT_CONCISE === '1' ? '' : `[${timestamp}] [${level}] `;
+  console.log(`${prefix}${message}`);
 }
 
 // Delay para rate limiting

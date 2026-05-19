@@ -29,6 +29,25 @@ export function getLatestJsonReport(logsDir, currentTimestamp) {
   return null;
 }
 
+export function getLatestJsonReportByWorkingInput(logsDir, workingInputPart, currentReport = null) {
+  const matches = (report) => report?.versionWorkflow?.workingInput?.includes(workingInputPart);
+
+  if (matches(currentReport)) return currentReport;
+  if (!fs.existsSync(logsDir)) return null;
+
+  const candidates = fs.readdirSync(logsDir)
+    .filter((file) => file.startsWith('audit-report-') && file.endsWith('.json'))
+    .sort()
+    .reverse();
+
+  for (const file of candidates) {
+    const report = readJsonSafe(path.join(logsDir, file));
+    if (matches(report)) return report;
+  }
+
+  return null;
+}
+
 export function getLatestNormalization(logsDir) {
   if (!fs.existsSync(logsDir)) return null;
 

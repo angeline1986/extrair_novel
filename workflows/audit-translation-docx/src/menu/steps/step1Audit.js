@@ -11,16 +11,16 @@ import { getWorkingInput } from '../../version/versionWorkflow.js';
 export async function step1Audit(isVerbose) {
   const resetWorkingCopy = process.argv.includes('--reset-working-copy');
   const workingInput = getWorkingInput({ resetWorkingCopy });
-  const auditCmd = isVerbose 
-    ? `npm run audit:translation:verbose${resetWorkingCopy ? ' -- --reset-working-copy' : ''}`
-    : `npm run audit:translation${resetWorkingCopy ? ' -- --reset-working-copy' : ''}`;
+  const auditCmd = isVerbose
+    ? `npm run --silent audit:translation:verbose${resetWorkingCopy ? ' -- --reset-working-copy' : ''}`
+    : `npm run --silent audit:translation${resetWorkingCopy ? ' -- --reset-working-copy' : ''}`;
   
   log('\n📋 [PASSO 1] Auditando working source...', 'cyan');
   console.log(`   📁 Origem: ${workingInput.relativePath}`);
   console.log('   📁 Destino dos relatórios: logs/');
   
   const auditStartTime = new Date();
-  if (!runCommand(auditCmd, 'Auditoria')) {
+  if (!runCommand(auditCmd, 'Auditoria', { env: { AUDIT_CONCISE: '1' } })) {
     log('❌ Workflow interrompido na auditoria.', 'red');
     return false;
   }

@@ -35,9 +35,9 @@ workflows/audit-translation-docx/
 │
 ├── output/
 │   ├── normalized/          # Cópias temporárias com nomes/personagens normalizados
-│   │   └── step1_18-05-2026_12-21-14/
+│   │   └── v1/
 │   └── fixed/               # Resultado bruto da correção antes de versionar
-│       └── step1_18-05-2026_12-21-14/
+│       └── v1/
 │
 ├── logs/                    # Relatórios de auditoria e correções
 │   ├── audit-report-*.json
@@ -72,12 +72,12 @@ input-fixed/manifest.json
   Controle local do versionamento. Guarda versão atual, origem e histórico.
   É ignorado pelo Git junto com o conteúdo de input-fixed/.
 
-output/normalized/step{N}_*/
+output/normalized/v{N}/
   Cópia intermediária criada antes do fix-gender.
   Aqui aliases de nomes/personagens já foram normalizados.
 
-output/fixed/step{N}_*/
-  Resultado bruto da correção daquele step.
+output/fixed/v{N}/
+  Resultado bruto da correção daquela versão.
   A partir dele o sistema publica input-fixed/v{N}/ e input-fixed/current/.
 
 logs/
@@ -104,11 +104,11 @@ GERENCIAMENTO DE VERSÕES
 Comando                              | Descrição
 -------------------------------------|-----------------------------------------
 npm run version:status               | Mostrar status das versões
-npm run version:current              | Mostrar step atual
+npm run version:current              | Mostrar versão atual
 npm run version:list                 | Listar todas as versões disponíveis
-npm run version:next                 | Avançar para próximo step
-npm run version:prev                 | Voltar para step anterior
-npm run version:goto -- 3            | Ir para step específico
+npm run version:next                 | Avançar para próxima versão
+npm run version:prev                 | Voltar para versão anterior
+npm run version:goto -- 3            | Ir para versão específica
 npm run version:diff -- 1 2          | Comparar duas versões
 npm run version:clean                | Limpar versões antigas (mantém 5)
 npm run version:create               | Criar versão manual
@@ -120,12 +120,14 @@ WORKFLOW COMPLETO (RECOMENDADO)
 
 O workflow completo (opção 5 no menu) executa:
 
-1. Auditoria da working source atual
-2. Normalização de entidades em output/normalized/step{N}_*/
-3. Correção de problemas de gênero em output/fixed/step{N}_*/
-4. Publicação da versão em input-fixed/v{N}/
-5. Atualização de input-fixed/current/
-6. Re-auditoria da versão atual, se solicitado
+1. Auditoria inicial da working source atual
+2. Normalização de entidades + correção de problemas de gênero
+   - gera output/normalized/v{N}/
+   - gera output/fixed/v{N}/
+   - publica input-fixed/v{N}/
+   - atualiza input-fixed/current/
+3. Re-auditoria automática da versão publicada
+4. Exibição do relatório HTML final
 
 IMPORTANTE: O arquivo original em input/translatedGoogle/ NUNCA é modificado!
 
@@ -170,9 +172,9 @@ Durante a auditoria:
 - gera logs/entity-consistency-*.json quando encontra aliases.
 
 Durante a correção:
-- normaliza aliases antes do fix-gender em output/normalized/step{N}_*/;
+- normaliza aliases antes do fix-gender em output/normalized/v{N}/;
 - roda o fix-gender somente sobre a cópia já normalizada;
-- salva a cópia final em output/fixed/step{N}_*/;
+- salva a cópia final em output/fixed/v{N}/;
 - versiona o resultado em input-fixed/v{N}/;
 - atualiza a última versão oficial em input-fixed/current/;
 - nunca altera input/source/ nem input/translatedGoogle/ diretamente;
@@ -200,27 +202,28 @@ MENU INTERATIVO
 
 Ao executar npm run audit:menu, as opções disponíveis são:
 
+  ┌───────────── FLUXO PRINCIPAL ─────────────┐
+  1. 🚀 Gerar versão revisada da tradução
+     Audita + normaliza entidades + corrige gênero + reaudita
+
   ┌───────────── AUDITORIA ─────────────┐
-  1. 🔍 Auditoria normal
-  2. 🔍📋 Auditoria com detalhes (verbose)
+  2. 🔍 Auditar versão atual
+  3. 🔍📋 Auditar versão atual com detalhes
 
   ┌───────────── CORREÇÃO ──────────────┐
-  3. 🔧 Corrigir problemas de gênero
-  4. 🔧📋 Corrigir problemas de gênero (verbose)
+  4. 🔧 Normalizar entidades + corrigir gênero
+  5. 🔧📋 Normalizar entidades + corrigir gênero com detalhes
 
-  ┌───────────── WORKFLOW ──────────────┐
-  5. 🚀 Workflow completo
-
-  ┌───────────── VERSIONAMENTO ─────────┐
+  ┌───────────── RELATÓRIOS ────────────┐
   6. 📊 Ver último relatório
   7. 🗑️  Limpar relatórios antigos
-  8. 📂 Gerenciar versões (status)
-  9. ➡️  Avançar para próximo step
-  10. ⬅️ Voltar para step anterior
-  11. 🔄 Restaurar versão específica
+
+  ┌───────────── VERSÕES ───────────────┐
+  8. 📂 Ver status das versões
+  9. 🔄 Restaurar versão específica
 
   ┌───────────── SISTEMA ───────────────┐
-  12. ❌ Sair
+  10. ❌ Sair
 
 
 --------------------------------------------------------------------------------

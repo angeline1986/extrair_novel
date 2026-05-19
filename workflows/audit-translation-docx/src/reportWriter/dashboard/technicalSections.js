@@ -260,7 +260,7 @@ export function renderTechnicalTrace(report) {
             title: 'Workflow',
             status: trace?.warnings?.length ? 'WARN' : 'INFO',
             evidence: [
-              `Step atual: ${trace?.currentStep ?? 'desconhecido'}.`,
+              `Versão atual: ${trace?.currentStep ? `v${trace.currentStep}` : 'desconhecida'}.`,
               `Versões encontradas: ${(trace?.versionsFound || []).join(', ') || 'nenhuma'}.`,
               `Versões criadas: ${(trace?.versionsCreated || []).join(', ') || 'nenhuma'}.`,
               `Versões ausentes: ${(trace?.versionsMissing || []).join(', ') || 'nenhuma'}.`,

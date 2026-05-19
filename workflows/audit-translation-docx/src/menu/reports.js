@@ -30,9 +30,9 @@ export function showLastReport() {
   }
 
   if (htmlFiles.length > 0) {
-    const latestHtml = htmlFiles.find((file) => file !== 'audit-dashboard-latest.html') || htmlFiles[0];
+    const latestHtml = htmlFiles.find((file) => file === 'audit-dashboard-latest.html') || htmlFiles[0];
     log(`\n🧭 Dashboard HTML: ${path.join(logsDir, latestHtml)}`, 'cyan');
-    log(`   Atalho estável: ${path.join(logsDir, 'audit-dashboard-latest.html')}`, 'cyan');
+    log('   Abas disponíveis: Fonte bruta · Versão corrigida · Comparativo', 'cyan');
   }
 
   if (files.length === 0) return;

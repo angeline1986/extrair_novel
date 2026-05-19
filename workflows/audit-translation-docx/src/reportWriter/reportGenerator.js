@@ -23,6 +23,10 @@ function toProjectRelative(filePath) {
   return relative && !relative.startsWith('..') ? relative : filePath;
 }
 
+function displayPath(filePath) {
+  return process.env.AUDIT_CONCISE === '1' ? toProjectRelative(filePath) : filePath;
+}
+
 export function generateReports({
   sourceDocs,
   translatedDocs,
@@ -142,25 +146,24 @@ export function generateReports({
   if (outputs.jsonReport !== false) {
     const jsonPath = path.join(logsDir, `audit-report-${timestamp}.json`);
     fs.writeFileSync(jsonPath, JSON.stringify(report, null, 2), "utf8");
-    console.log(`📄 JSON: ${jsonPath}`);
+    console.log(`📄 JSON: ${displayPath(jsonPath)}`);
   }
 
   if (outputs.htmlDashboard !== false) {
-    const htmlPath = path.join(logsDir, `audit-dashboard-${timestamp}.html`);
+    const htmlPath = path.join(logsDir, 'audit-dashboard-latest.html');
     writeHtmlDashboard(report, htmlPath, {
       logsDir,
       sourceDocs,
       translatedDocs,
       alignedDocs,
     });
-    fs.copyFileSync(htmlPath, path.join(logsDir, 'audit-dashboard-latest.html'));
-    console.log(`🧭 Dashboard: ${htmlPath}`);
+    console.log(`🧭 Dashboard: ${displayPath(htmlPath)}`);
   }
 
   if (outputs.issuesCsv && (allIssues.length > 0 || allWarnings.length > 0)) {
     const csvPath = path.join(logsDir, `issues-${timestamp}.csv`);
     writeIssuesCsv(allIssues, allWarnings, csvPath, config.report.csvDelimiter);
-    console.log(`📊 CSV: ${csvPath}`);
+    console.log(`📊 CSV: ${displayPath(csvPath)}`);
   }
 
   if (outputs.entityConsistencyJson && entityConsistency.issues.length > 0) {
@@ -176,19 +179,19 @@ export function generateReports({
         action: "suggest_replace",
       })),
     }, null, 2), "utf8");
-    console.log(`🏷️  Entidades: ${entityPath}`);
+    console.log(`🏷️  Entidades: ${displayPath(entityPath)}`);
   }
 
   if (outputs.textSummary) {
     const summaryPath = path.join(logsDir, `audit-summary-${timestamp}.txt`);
     writeTextSummary(report, summaryPath, sourceDocs, translatedDocs);
-    console.log(`📝 Resumo: ${summaryPath}`);
+    console.log(`📝 Resumo: ${displayPath(summaryPath)}`);
   }
 
   if (outputs.problematicChaptersText && (stats.failIssues > 0 || stats.ollamaFails > 0)) {
     const detailsPath = path.join(logsDir, `problematic-chapters-${timestamp}.txt`);
     writeProblematicChaptersReport(alignedDocs, ollamaResults, detailsPath);
-    console.log(`⚠️  Detalhes: ${detailsPath}`);
+    console.log(`⚠️  Detalhes: ${displayPath(detailsPath)}`);
   }
 
   return report;

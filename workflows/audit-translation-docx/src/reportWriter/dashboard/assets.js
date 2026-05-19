@@ -2,17 +2,27 @@
 // CSS e JS embutidos no dashboard HTML gerado.
 
 export const dashboardStyles = `    :root {
-      --bg: #0f172a;
-      --panel: #111827;
-      --panel-2: #1f2937;
-      --text: #e5e7eb;
-      --muted: #9ca3af;
-      --border: #334155;
-      --ok: #22c55e;
-      --warn: #f59e0b;
-      --fail: #ef4444;
-      --info: #38bdf8;
-      --chip: #0b1220;
+      --bg: #eef8ff;
+      --panel: #ffffff;
+      --panel-2: #f7fbff;
+      --text: #0f172a;
+      --muted: #52657c;
+      --border: #d8e2ef;
+      --brand: #216AC4;
+      --brand-2: #61acf7;
+      --brand-3: #0078d4;
+      --brand-strong: #0A66C2;
+      --brand-deep: #1e5a96;
+      --surface-blue: #e0f2ff;
+      --surface-blue-2: #d8ebff;
+      --surface-blue-3: #eef4fb;
+      --surface-blue-4: #d9eeff;
+      --ok: #16a34a;
+      --warn: #d97706;
+      --fail: #dc2626;
+      --info: #0078d4;
+      --chip: #eef8ff;
+      --shadow: 0 14px 32px rgba(33, 106, 196, 0.10);
     }
 
     * { box-sizing: border-box; }
@@ -20,14 +30,16 @@ export const dashboardStyles = `    :root {
     body {
       margin: 0;
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: linear-gradient(135deg, #020617, #111827);
+      background:
+        radial-gradient(circle at top left, rgba(97, 172, 247, 0.22), transparent 34%),
+        linear-gradient(135deg, #f7fbff, #e0f2ff 44%, #eef4fb);
       color: var(--text);
     }
 
     header {
       padding: 28px 32px;
       border-bottom: 1px solid var(--border);
-      background: rgba(15, 23, 42, 0.88);
+      background: rgba(247, 251, 255, 0.92);
       position: sticky;
       top: 0;
       z-index: 10;
@@ -43,7 +55,7 @@ export const dashboardStyles = `    :root {
 
     .subtitle {
       margin-top: 8px;
-      color: var(--muted);
+      color: #52657c;
       font-size: 14px;
     }
 
@@ -60,13 +72,14 @@ export const dashboardStyles = `    :root {
 
     .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .entity-grid { align-items: start; }
 
     .card {
-      background: rgba(17, 24, 39, 0.9);
+      background: var(--panel);
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: 14px;
       padding: 18px;
-      box-shadow: 0 18px 40px rgba(0,0,0,0.25);
+      box-shadow: var(--shadow);
     }
 
     .metric-label {
@@ -100,10 +113,10 @@ export const dashboardStyles = `    :root {
       white-space: nowrap;
     }
 
-    .status.fail { color: #fecaca; border-color: #7f1d1d; background: rgba(239, 68, 68, 0.13); }
-    .status.warn { color: #fde68a; border-color: #78350f; background: rgba(245, 158, 11, 0.13); }
-    .status.ok { color: #bbf7d0; border-color: #14532d; background: rgba(34, 197, 94, 0.13); }
-    .status.info { color: #bae6fd; border-color: #075985; background: rgba(56, 189, 248, 0.13); }
+    .status.fail { color: #991b1b; border-color: #fecaca; background: #fef2f2; }
+    .status.warn { color: #92400e; border-color: #fde68a; background: #fffbeb; }
+    .status.ok { color: #166534; border-color: #bbf7d0; background: #f0fdf4; }
+    .status.info { color: var(--brand-deep); border-color: #b7dcff; background: #eef8ff; }
 
     section { margin-top: 24px; }
 
@@ -143,13 +156,13 @@ export const dashboardStyles = `    :root {
 
     th {
       color: var(--muted);
-      background: rgba(31, 41, 55, 0.75);
+      background: #eef4fb;
       font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 0.06em;
     }
 
-    tr:hover td { background: rgba(56, 189, 248, 0.05); }
+    tr:hover td { background: #f7fbff; }
 
     .expandable-row { cursor: pointer; }
 
@@ -159,8 +172,8 @@ export const dashboardStyles = `    :root {
       margin-right: 10px;
       border-radius: 999px;
       border: 1px solid var(--border);
-      background: #020617;
-      color: var(--text);
+      background: #ffffff;
+      color: var(--brand-deep);
       font-weight: 800;
       line-height: 1;
       cursor: pointer;
@@ -169,17 +182,17 @@ export const dashboardStyles = `    :root {
     .detail-row { display: none; }
     .detail-row.open { display: table-row; }
     .detail-row td {
-      background: rgba(2, 6, 23, 0.45);
+      background: #eef4fb;
       padding: 0 14px 16px;
     }
-    .detail-row:hover td { background: rgba(2, 6, 23, 0.45); }
+    .detail-row:hover td { background: #eef4fb; }
 
     .detail-panel {
       margin-top: 10px;
       padding: 16px;
       border: 1px solid var(--border);
-      border-radius: 8px;
-      background: rgba(2, 6, 23, 0.55);
+      border-radius: 14px;
+      background: #ffffff;
     }
 
     .detail-head {
@@ -191,7 +204,7 @@ export const dashboardStyles = `    :root {
 
     .detail-panel p {
       margin: 0 0 12px;
-      color: #d1d5db;
+      color: #334155;
       line-height: 1.5;
     }
 
@@ -206,7 +219,7 @@ export const dashboardStyles = `    :root {
     .detail-list {
       margin: 0;
       padding-left: 18px;
-      color: #d1d5db;
+      color: #334155;
       line-height: 1.6;
     }
 
@@ -220,26 +233,76 @@ export const dashboardStyles = `    :root {
       border: 1px solid var(--border);
       border-radius: 8px;
       overflow: hidden;
-      background: rgba(15, 23, 42, 0.7);
+      background: #f7fbff;
     }
 
     .example .small { padding: 10px 12px 0; }
 
     .raw-detail {
       margin-top: 14px;
-      background: rgba(15, 23, 42, 0.65);
+      background: #f7fbff;
     }
 
     .delta-good { color: var(--ok); font-weight: 700; }
     .delta-bad { color: var(--fail); font-weight: 700; }
     .delta-neutral { color: var(--muted); font-weight: 700; }
 
-    .version-flow-card {
-      background: rgba(17, 24, 39, 0.9);
+    .dashboard-tabs {
+      margin-top: 0;
+      margin-bottom: 24px;
+    }
+
+    .tab-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 6px;
+      margin-bottom: 14px;
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.72);
+      box-shadow: var(--shadow);
+    }
+
+    .tab-button {
+      border: 1px solid transparent;
+      border-radius: 12px;
+      padding: 10px 14px;
+      background: transparent;
+      color: var(--brand-deep);
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .tab-button.active {
+      background: #ffffff;
+      border-color: #b7dcff;
+      color: var(--brand-strong);
+      box-shadow: 0 8px 18px rgba(33, 106, 196, 0.10);
+    }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .empty-tab {
+      padding: 18px;
+      border: 1px dashed var(--border);
+      border-radius: 14px;
+      background: #f7fbff;
+      color: var(--muted);
+    }
+
+    .compact-table-card {
+      margin-top: 0;
+    }
+
+    .version-flow-card {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 28px;
       overflow: hidden;
-      box-shadow: 0 18px 40px rgba(0,0,0,0.25);
+      box-shadow: var(--shadow);
     }
 
     .version-flow-header {
@@ -248,8 +311,8 @@ export const dashboardStyles = `    :root {
       justify-content: space-between;
       flex-wrap: wrap;
       gap: 12px;
-      padding: 18px;
-      background: rgba(31, 41, 55, 0.55);
+      padding: 19px 28px;
+      background: #f7fbff;
       border-bottom: 1px solid var(--border);
     }
 
@@ -298,7 +361,7 @@ export const dashboardStyles = `    :root {
     .flow-step {
       flex: 1;
       min-width: 140px;
-      border-radius: 8px;
+      border-radius: 24px;
       padding: 14px 12px;
       text-align: center;
       border: 1px solid transparent;
@@ -312,13 +375,13 @@ export const dashboardStyles = `    :root {
     .flow-step-meta {
       margin-top: 5px;
       font-size: 12px;
-      color: #cbd5e1;
+      color: #475569;
     }
 
     .flow-step-file {
       margin-top: 5px;
       font-size: 11px;
-      color: var(--muted);
+      color: #64748b;
       overflow-wrap: anywhere;
     }
 
@@ -330,20 +393,20 @@ export const dashboardStyles = `    :root {
       font-weight: 800;
     }
 
-    .origin { background: rgba(148, 163, 184, 0.12); border-color: #475569; }
-    .normalize { background: rgba(99, 102, 241, 0.15); border-color: #6366f1; }
-    .gender { background: rgba(245, 158, 11, 0.14); border-color: #92400e; }
-    .version { background: rgba(34, 197, 94, 0.14); border-color: #166534; }
-    .current { background: rgba(56, 189, 248, 0.14); border-color: #075985; }
+    .origin { background: #eef4fb; border-color: #d8e2ef; }
+    .normalize { background: #e0f2ff; border-color: #61acf7; }
+    .gender { background: #d8ebff; border-color: #61acf7; }
+    .version { background: #d9eeff; border-color: #216AC4; }
+    .current { background: #eef8ff; border-color: #0078d4; }
 
     .flow-chain {
       margin-top: 4px;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       font-size: 12px;
-      background: rgba(2, 6, 23, 0.55);
-      color: #cbd5e1;
+      background: #eef4fb;
+      color: var(--brand-deep);
       padding: 10px 12px;
-      border-radius: 8px;
+      border-radius: 14px;
       border: 1px solid var(--border);
       overflow-wrap: anywhere;
       display: flex;
@@ -354,10 +417,10 @@ export const dashboardStyles = `    :root {
     }
 
     .flow-node {
-      background: rgba(15, 23, 42, 0.95);
+      background: #ffffff;
       padding: 6px 12px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
+      border-radius: 20px;
+      border: 1px solid #d8e2ef;
       font-weight: 500;
     }
 
@@ -391,7 +454,7 @@ export const dashboardStyles = `    :root {
 
     .node {
       padding: 12px 14px;
-      border-radius: 8px;
+      border-radius: 14px;
       background: var(--panel-2);
       border: 1px solid var(--border);
       min-width: 150px;
@@ -404,8 +467,8 @@ export const dashboardStyles = `    :root {
 
     .stage-node {
       min-width: 150px;
-      background: rgba(56, 189, 248, 0.08);
-      border-color: #075985;
+      background: #eef8ff;
+      border-color: #61acf7;
     }
 
     .node strong {
@@ -424,7 +487,12 @@ export const dashboardStyles = `    :root {
       font-weight: 800;
     }
 
-    .entity-card { display: grid; gap: 10px; }
+    .entity-card {
+      display: grid;
+      gap: 10px;
+      align-self: start;
+      min-height: 0;
+    }
 
     .entity-head {
       display: flex;
@@ -438,14 +506,14 @@ export const dashboardStyles = `    :root {
     .bar {
       height: 10px;
       border-radius: 999px;
-      background: #020617;
+      background: #d8e2ef;
       overflow: hidden;
       border: 1px solid var(--border);
     }
 
     .bar > div {
       height: 100%;
-      background: linear-gradient(90deg, var(--warn), var(--ok));
+      background: linear-gradient(90deg, #61acf7, #216AC4);
     }
 
     .chips {
@@ -458,15 +526,15 @@ export const dashboardStyles = `    :root {
       padding: 5px 8px;
       border-radius: 999px;
       background: var(--chip);
-      color: var(--muted);
-      border: 1px solid var(--border);
+      color: #52657c;
+      border: 1px solid #d8e2ef;
       font-size: 12px;
     }
 
     details {
       border: 1px solid var(--border);
-      border-radius: 8px;
-      background: rgba(31, 41, 55, 0.45);
+      border-radius: 14px;
+      background: #ffffff;
       overflow: hidden;
     }
 
@@ -479,7 +547,7 @@ export const dashboardStyles = `    :root {
     details[open] summary { border-bottom: 1px solid var(--border); }
 
     .inline-detail {
-      background: rgba(2, 6, 23, 0.35);
+      background: #f7fbff;
     }
 
     .inline-detail summary {
@@ -492,8 +560,8 @@ export const dashboardStyles = `    :root {
       margin: 0;
       padding: 16px;
       overflow-x: auto;
-      color: #d1d5db;
-      background: #020617;
+      color: #334155;
+      background: #eef4fb;
       font-size: 12px;
       line-height: 1.55;
     }
@@ -502,8 +570,8 @@ export const dashboardStyles = `    :root {
 
     .diagnostic {
       padding: 13px 14px;
-      border-radius: 8px;
-      background: rgba(31, 41, 55, 0.65);
+      border-radius: 14px;
+      background: #ffffff;
       border: 1px solid var(--border);
     }
 
@@ -533,11 +601,11 @@ export const dashboardStyles = `    :root {
     }
 
     input, select {
-      background: #020617;
+      background: #ffffff;
       border: 1px solid var(--border);
       color: var(--text);
       padding: 10px 12px;
-      border-radius: 8px;
+      border-radius: 10px;
       outline: none;
     }
 
@@ -558,6 +626,18 @@ export const dashboardStyles = `    :root {
 export const dashboardScript = `    const search = document.getElementById("search");
     const severity = document.getElementById("severity");
     const correctionRows = Array.from(document.querySelectorAll("#corrections tbody tr.expandable-row"));
+
+    document.querySelectorAll(".tab-button").forEach(button => {
+      button.addEventListener("click", () => {
+        const target = document.getElementById(button.dataset.tab);
+        if (!target) return;
+
+        document.querySelectorAll(".tab-button").forEach(item => item.classList.remove("active"));
+        document.querySelectorAll(".tab-panel").forEach(panel => panel.classList.remove("active"));
+        button.classList.add("active");
+        target.classList.add("active");
+      });
+    });
 
     document.querySelectorAll(".expandable-row").forEach(row => {
       row.addEventListener("click", event => {
@@ -598,5 +678,5 @@ export const dashboardScript = `    const search = document.getElementById("sear
       });
     }
 
-    search.addEventListener("input", applyFilters);
-    severity.addEventListener("change", applyFilters);`;
+    if (search) search.addEventListener("input", applyFilters);
+    if (severity) severity.addEventListener("change", applyFilters);`;

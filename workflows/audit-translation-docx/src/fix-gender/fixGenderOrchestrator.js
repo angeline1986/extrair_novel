@@ -90,6 +90,17 @@ function writeEntityNormalizationSummary(summaryPath, report) {
   fs.writeFileSync(summaryPath, lines.join('\n'), 'utf8');
 }
 
+function recreateGeneratedDir(dir) {
+  if (fs.existsSync(dir)) {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+  fs.mkdirSync(dir, { recursive: true });
+}
+
+function toProjectRelative(filePath) {
+  return path.relative(projectRoot, filePath).replaceAll('\\', '/');
+}
+
 export async function runFixGender({ step, verbose = false } = {}) {
   const originalArgv = process.argv;
   const nodePath = process.argv[0];
@@ -106,24 +117,23 @@ export async function runFixGender({ step, verbose = false } = {}) {
 
 export async function main() {
   const verbose = process.argv.includes('--verbose') || process.argv.includes('-v');
+  const concise = process.env.AUDIT_CONCISE === '1';
   const explicitStep = process.argv.some(arg => arg.startsWith('--step='));
   const resetWorkingCopy = process.argv.includes('--reset-working-copy');
   const targetStep = explicitStep ? getTargetStep() : getNextVersion();
   const timestamp = getTimestamp();
   const workingInput = getWorkingInput({ resetWorkingCopy });
   const inputDir = workingInput.path;
+  const versionLabel = `v${targetStep}`;
   
-  const outputBackupDir = path.join(projectRoot, 'output', 'fixed', `step${targetStep}_${timestamp}`);
-  const normalizedDir = path.join(projectRoot, 'output', 'normalized', `step${targetStep}_${timestamp}`);
+  const outputBackupDir = path.join(projectRoot, 'output', 'fixed', versionLabel);
+  const normalizedDir = path.join(projectRoot, 'output', 'normalized', versionLabel);
   
-  if (!fs.existsSync(outputBackupDir)) {
-    fs.mkdirSync(outputBackupDir, { recursive: true });
-  }
-  if (!fs.existsSync(normalizedDir)) {
-    fs.mkdirSync(normalizedDir, { recursive: true });
-  }
+  recreateGeneratedDir(outputBackupDir);
+  recreateGeneratedDir(normalizedDir);
   
-  console.log(`
+  if (!concise) {
+    console.log(`
 ╔══════════════════════════════════════════════════════════════╗
 ║           CORRETOR DE GÊNERO - GOOGLE TRADUTOR              ║
 ║                                                              ║
@@ -133,10 +143,11 @@ export async function main() {
 ║  ATENÇÃO: O original em input/translatedGoogle/ NÃO é modificado
 ║  As correções vão para input-fixed/v{N}/ e input-fixed/current/
 ║                                                              ║
-║  Step: ${targetStep}                                          ║
-║  Versão: ${timestamp}                                          ║
+║  Versão: ${versionLabel}                                       ║
+║  Execução: ${timestamp}                                        ║
 ╚══════════════════════════════════════════════════════════════╝
 `);
+  }
 
   if (!fs.existsSync(inputDir)) {
     console.error(`❌ Pasta de entrada não encontrada: ${inputDir}`);
@@ -150,15 +161,11 @@ export async function main() {
     return;
   }
   
-  console.log(`\n🔍 Encontrados ${files.length} arquivo(s) para processar`);
-  console.log(`📁 Entrada de trabalho: ${inputDir}`);
-  console.log(`📁 Base Google: ${originalInputDir} (NÃO será modificado)`);
-  console.log(`📁 Pré-processamento de entidades: ${normalizedDir}`);
-  console.log(`📁 Backup: ${outputBackupDir}`);
-  console.log(`📁 Versão versionada: ${inputFixedDir}/v${targetStep}/`);
-  console.log(`📁 Última versão corrigida: ${inputFixedDir}/current/`);
-  console.log(`📁 Logs: ${logsDir}`);
-  console.log(`\n${'='.repeat(60)}`);
+  console.log(`\nVersão: ${versionLabel}`);
+  console.log(`Arquivos: ${files.length}`);
+  console.log(`Origem: ${toProjectRelative(inputDir)}`);
+  console.log(`Normalização: ${toProjectRelative(normalizedDir)}`);
+  console.log(`Correção: ${toProjectRelative(outputBackupDir)}`);
   
   let processed = 0;
   let hasChanges = false;
@@ -173,9 +180,7 @@ export async function main() {
     const outputPath = path.join(outputBackupDir, file.replace('.docx', '_fixed.docx'));
     const correctionsLog = [];
 
-    console.log(`
-📄 Processando: ${file}`);
-    console.log(`   📁 Origem da correção: ${inputPath}`);
+    console.log(`\nProcessando: ${file}`);
 
     logWorkflowEvent('CORRECTION_SOURCE', {
       step: targetStep,
@@ -250,10 +255,10 @@ export async function main() {
           manualReview: entityNormalization.manualReview,
         });
 
-        console.log(`  🏷️ Entidades normalizadas antes do fix-gender: ${aliasesReplaced} ocorrência(s)`);
+        console.log(`  Entidades normalizadas: ${aliasesReplaced}`);
       }
 
-      const genderSuccess = processDocxFile(normalizedPath, outputPath, verbose, correctionsLog);
+      const genderSuccess = processDocxFile(normalizedPath, outputPath, verbose && !concise, correctionsLog);
 
       if (!genderSuccess && entityNormalization.changed) {
         fs.copyFileSync(normalizedPath, outputPath);
@@ -306,8 +311,8 @@ export async function main() {
           version: `v${published.version}`,
         });
 
-        console.log(`  📁 Versão v${targetStep} criada: ${published.versionDest}`);
-        console.log(`  📁 Última versão atualizada: ${published.currentDest}`);
+        console.log(`  Versão criada: input-fixed/v${targetStep}`);
+        console.log(`  Atual: input-fixed/current`);
       } else {
         if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
         console.log(`  ℹ️ Nenhuma correção necessária para ${file}`);
@@ -356,29 +361,22 @@ export async function main() {
       entityNormalization: report.entityNormalization,
       changes: allEntityNormalizationLog,
     }, null, 2), 'utf8');
-    console.log(`🏷️ Log de entidades: ${entityLogPath}`);
+    if (!concise) console.log(`🏷️ Log de entidades: ${entityLogPath}`);
 
     if (reportOutputs.entityNormalizationSummary) {
       writeEntityNormalizationSummary(summaryPath, report);
-      console.log(`🏷️ Resumo de entidades: ${summaryPath}`);
+      if (!concise) console.log(`🏷️ Resumo de entidades: ${summaryPath}`);
     }
   }
   
-  console.log(`\n${'='.repeat(60)}`);
-  console.log(`\n📊 RESUMO:`);
-  console.log(`   Arquivos processados: ${processed}/${files.length}`);
-  console.log(`   Arquivos com alterações: ${hasChanges ? processed : 0}`);
-  console.log(`   Step: ${targetStep}`);
-  console.log(`   Pré-normalização: ${normalizedDir}`);
-  console.log(`   Backup: ${outputBackupDir}`);
-  console.log(`   Versão versionada: ${inputFixedDir}/v${targetStep}/`);
-  console.log(`   Última versão corrigida: ${inputFixedDir}/current/`);
-  console.log(`   Logs: ${logsDir}/`);
+  console.log(`\nResumo da correção:`);
+  console.log(`  Arquivos processados: ${processed}/${files.length}`);
+  console.log(`  Arquivos com alterações: ${hasChanges ? processed : 0}`);
+  console.log(`  Versão: v${targetStep}`);
+  console.log(`  Final: input-fixed/current`);
+  console.log(`  Relatórios: logs/`);
   
   if (hasChanges) {
-    console.log(`\n✨ PRÓXIMOS PASSOS:`);
-    console.log(`   1. Verificar a versão final em: ${inputFixedDir}/current/`);
-    console.log(`   2. Avançar para próximo step: npm run version:next`);
-    console.log(`   3. Ver status das versões: npm run version:status`);
+    console.log(`\nPróximo passo: reauditar input-fixed/current e revisar o dashboard final.`);
   }
 }

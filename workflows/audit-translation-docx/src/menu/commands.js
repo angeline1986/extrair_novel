@@ -6,7 +6,7 @@ import { log } from './display.js';
 
 const projectRoot = '/Users/alinesouza/Documents/TI/Projetos/Extrair_novel';
 
-export function runCommand(command, description) {
+export function runCommand(command, description, options = {}) {
   log(`\n▶ ${description}`, 'cyan');
   console.log('─'.repeat(64));
   
@@ -14,7 +14,11 @@ export function runCommand(command, description) {
     execSync(command, { 
       stdio: 'inherit', 
       cwd: projectRoot,
-      env: { ...process.env, FORCE_COLOR: 'true' }
+      env: {
+        ...process.env,
+        FORCE_COLOR: 'true',
+        ...(options.env || {}),
+      }
     });
     return true;
   } catch (error) {

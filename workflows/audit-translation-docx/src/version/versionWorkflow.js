@@ -9,7 +9,6 @@ const inputFixedDir = path.join(projectRoot, 'input-fixed');
 const currentDir = path.join(inputFixedDir, 'current');
 const originalTranslatedDir = path.join(projectRoot, 'input', 'translatedGoogle');
 const manifestPath = path.join(inputFixedDir, 'manifest.json');
-const versionWorkflowLog = path.join(projectRoot, 'logs', 'version-workflow.jsonl');
 
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -78,15 +77,6 @@ function reconcileManifestWithExistingVersions(manifest) {
   };
 }
 
-function logVersionWorkflowEvent(event, payload) {
-  ensureDir(path.dirname(versionWorkflowLog));
-  fs.appendFileSync(
-    versionWorkflowLog,
-    `${JSON.stringify({ time: new Date().toISOString(), event, ...payload })}\n`,
-    'utf8'
-  );
-}
-
 export function loadManifest() {
   if (!fs.existsSync(manifestPath)) {
     return reconcileManifestWithExistingVersions({
@@ -109,6 +99,7 @@ export function saveManifest(manifest) {
 
 export function getWorkingInput(options = {}) {
   const reset = Boolean(options.resetWorkingCopy);
+  const shouldLog = options.logEvent !== false;
 
   if (!reset && hasDocxFiles(currentDir)) {
     const result = {
@@ -118,10 +109,12 @@ export function getWorkingInput(options = {}) {
       reason: 'existing corrected version found',
     };
 
-    logVersionWorkflowEvent('WORKING_INPUT_SELECTED', {
-      selected: result.relativePath,
-      reason: result.reason,
-    });
+    if (shouldLog) {
+      logWorkflowEvent('WORKING_INPUT_SELECTED', {
+        selected: result.relativePath,
+        reason: result.reason,
+      });
+    }
 
     return result;
   }
@@ -133,10 +126,12 @@ export function getWorkingInput(options = {}) {
     reason: reset ? 'reset-working-copy requested' : 'no corrected version found',
   };
 
-  logVersionWorkflowEvent('WORKING_INPUT_SELECTED', {
-    selected: result.relativePath,
-    reason: result.reason,
-  });
+  if (shouldLog) {
+    logWorkflowEvent('WORKING_INPUT_SELECTED', {
+      selected: result.relativePath,
+      reason: result.reason,
+    });
+  }
 
   return result;
 }
@@ -153,7 +148,7 @@ export function getNextVersion() {
 
 export function getVersionWorkflowInfo(options = {}) {
   const manifest = loadManifest();
-  const workingInput = getWorkingInput(options);
+  const workingInput = getWorkingInput({ ...options, logEvent: false });
   const versions = listVersionNumbers();
   const currentVersion = manifest.currentVersion || (versions.length ? Math.max(...versions) : 0);
 
@@ -212,12 +207,11 @@ export function publishVersion({ source, correctedFile, version, step, metadata 
     output: toRelative(versionDir),
   };
 
-  logVersionWorkflowEvent('VERSION_CREATED', payload);
-  logVersionWorkflowEvent('CURRENT_UPDATED', {
+  logWorkflowEvent('VERSION_CREATED', payload);
+  logWorkflowEvent('CURRENT_UPDATED', {
     path: toRelative(currentDir),
     version: `v${version}`,
   });
-  logWorkflowEvent('VERSION_CREATED', payload);
 
   return {
     version,
@@ -234,7 +228,7 @@ export function getVersionInput(version) {
 }
 
 export function logReauditTarget(target) {
-  logVersionWorkflowEvent('REAUDIT_TARGET', {
+  logWorkflowEvent('REAUDIT_TARGET', {
     target: toRelative(target),
   });
 }
