@@ -24,16 +24,24 @@ function loadOpfPath() {
   return rootfile.replace(/\\/g, "/");
 }
 
+function loadOpfTitle(opfPath) {
+  const opfContent = readZipText(opfPath);
+  const $ = cheerio.load(opfContent, { xmlMode: true });
+  const title = $("dc\\:title, title").first().text();
+  return String(title || "").trim();
+}
+
 function loadSpineItems(opfPath) {
   const opfDir = path.dirname(opfPath);
   const opfContent = readZipText(opfPath);
   const $ = cheerio.load(opfContent, { xmlMode: true });
   
   const manifestMap = new Map();
-  $("manifest item").each((_, item) => {
-    const id = $(item).attr("id");
-    const href = $(item).attr("href");
-    const mediaType = $(item).attr("media-type");
+  $("manifest item, opf\\:manifest opf\\:item").each((_, item) => {
+    const el = $(item);
+    const id = el.attr("id");
+    const href = el.attr("href");
+    const mediaType = el.attr("media-type");
     if (id && href) {
       manifestMap.set(id, { href, mediaType });
     }
@@ -42,8 +50,9 @@ function loadSpineItems(opfPath) {
   const spineItems = [];
   let position = 0;
   
-  $("spine itemref").each((_, itemref) => {
-    const idref = $(itemref).attr("idref");
+  $("spine itemref, opf\\:spine opf\\:itemref").each((_, itemref) => {
+    const el = $(itemref);
+    const idref = el.attr("idref");
     if (!idref) return;
     
     const manifestItem = manifestMap.get(idref);
@@ -133,6 +142,7 @@ module.exports = {
   setZip,
   readZipText,
   loadOpfPath,
+  loadOpfTitle,
   loadSpineItems,
   loadTocItems,
   mergeTocMetadataIntoSpineItems,

@@ -171,12 +171,31 @@ function formatGroupRangeByPosition(group, total) {
   return `${pad(first)}-${pad(last)}`;
 }
 
-function getWorkTitleFromToc(items, fallbackPath) {
+function isGenericTocTitle(title) {
+  if (!title) return false;
+  const normalized = title.trim().toLowerCase();
+  return [
+    "table of contents",
+    "contents",
+    "sumário",
+    "índice",
+    "toc",
+    "índice geral",
+  ].some((generic) => normalized === generic);
+}
+
+function getWorkTitleFromToc(items, fallbackPath, opfTitle = "") {
   const { parseChapterMetaFromTocTitle } = require('./chapter-parser.cjs');
   const firstTitle = items.find((item) => item.title)?.title;
-  if (firstTitle && !parseChapterMetaFromTocTitle(firstTitle)) {
+
+  if (firstTitle && !parseChapterMetaFromTocTitle(firstTitle) && !isGenericTocTitle(firstTitle)) {
     return firstTitle;
   }
+
+  if (opfTitle && !isGenericTocTitle(opfTitle)) {
+    return opfTitle;
+  }
+
   return path.basename(fallbackPath, path.extname(fallbackPath));
 }
 

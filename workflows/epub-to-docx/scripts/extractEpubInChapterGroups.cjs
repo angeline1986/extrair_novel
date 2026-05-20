@@ -26,6 +26,7 @@ const {
 const { 
   setZip, 
   loadOpfPath, 
+  loadOpfTitle, 
   loadSpineItems, 
   loadTocItems, 
   mergeTocMetadataIntoSpineItems,
@@ -438,7 +439,9 @@ function writeValidationReports(report) {
 
 (async () => {
   const tocItems = loadTocItems();
-  const workTitle = getWorkTitleFromToc(tocItems, inputEpub);
+  const opfPath = loadOpfPath();
+  const opfTitle = loadOpfTitle(opfPath);
+  const workTitle = getWorkTitleFromToc(tocItems, inputEpub, opfTitle);
 
   if (!outputDir) {
     outputDir = path.join(workflowDir, "output", `${safeFileName(workTitle)}-${runTimestamp}`);
@@ -455,8 +458,8 @@ function writeValidationReports(report) {
   console.log(`Base de títulos: ${titleBasePath}`);
   console.log(`Tamanho-alvo por DOCX: ${TARGET_DOCX_KB} KB`);
 
-  const opfPath = loadOpfPath();
   console.log(`Arquivo OPF encontrado: ${opfPath}`);
+  console.log(`Título do OPF: ${opfTitle || "(não encontrado)"}`);
   
   const spineItems = loadSpineItems(opfPath);
   const spineItemsWithTitles = mergeTocMetadataIntoSpineItems(spineItems, tocItems);
