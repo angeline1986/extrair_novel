@@ -16,9 +16,8 @@ export async function step2FixGender(isVerbose) {
   log('\n📋 [PASSO 2] Normalizando entidades e corrigindo problemas de gênero...', 'cyan');
   console.log(`   📁 Próxima versão: v${nextVersion}`);
   console.log(`   📁 Origem da correção: ${workingInput.relativePath}`);
-  console.log(`   📁 Pré-normalização: output/normalized/v${nextVersion}/`);
-  console.log(`   📁 Destino (backup): output/fixed/v${nextVersion}/`);
   console.log(`   📁 Destino (versão): input-fixed/v${nextVersion}/`);
+  console.log(`   📁 Destino (final): output/`);
   
   const fixStartTime = new Date();
   const success = runCommand(fixCmd, 'Normalização e correção', { env: { AUDIT_CONCISE: '1' } });

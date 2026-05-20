@@ -10,6 +10,26 @@ function countOccurrences(text, term) {
   return [...text.matchAll(entityRegex(term))].length;
 }
 
+function collectExamples(text, term, limit = 8) {
+  const examples = [];
+
+  for (const match of text.matchAll(entityRegex(term))) {
+    const index = match.index || 0;
+    const start = Math.max(0, index - 90);
+    const end = Math.min(text.length, index + term.length + 90);
+
+    examples.push({
+      match: match[0],
+      context: text.slice(start, end).replace(/\s+/g, ' ').trim(),
+      index,
+    });
+
+    if (examples.length >= limit) break;
+  }
+
+  return examples;
+}
+
 export function auditEntities(translatedText, glossary) {
   const entityIssues = [];
   const canonicalPresence = [];
@@ -37,6 +57,7 @@ export function auditEntities(translatedText, glossary) {
         found: alias,
         occurrences,
         suggestion: canonical,
+        examples: collectExamples(translatedText, alias),
       });
 
       if (!aliasesByCanonical.has(canonical)) {

@@ -64,12 +64,12 @@ export async function runFullWorkflow() {
   log('\n📝 RESUMO DOS ARQUIVOS:', 'cyan');
   log('   📁 Original preservado: input/translatedGoogle/ (NÃO MODIFICADO)', 'green');
   log('   📁 Versões corrigidas: input-fixed/v1/, v2/, v3/...', 'cyan');
-  log('   📁 Última versão: input-fixed/current/', 'cyan');
+  log('   📁 Arquivo final: output/', 'cyan');
   log('   📁 Relatórios: logs/', 'cyan');
   
   // Mostrar caminho do arquivo final
   console.log(`\n   🎯 ARQUIVO FINAL CORRIGIDO:`);
-  console.log(`      📁 workflows/audit-translation-docx/input-fixed/current/`);
+  console.log(`      📁 workflows/audit-translation-docx/output/`);
   
   return true;
 }

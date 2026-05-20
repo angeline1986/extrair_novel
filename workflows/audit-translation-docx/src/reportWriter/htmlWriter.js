@@ -414,7 +414,6 @@ function getVersionInfo(report) {
   const nextLabel = `v${nextNumber}`;
 
   if (currentLabel && !flow.includes(currentLabel)) flow.push(currentLabel);
-  if (workflow.workingInput?.includes('current') && !flow.includes('current')) flow.push('current');
   if (nextLabel && !flow.includes(nextLabel)) flow.push(nextLabel);
 
   return {
@@ -458,20 +457,19 @@ function versionLabel(event) {
 function originSourceLabel(sourcePath = '', step) {
   const source = shortPath(sourcePath);
 
-  if (source.includes('input-fixed/current') && step > 1) return `input-fixed/v${step - 1}`;
   return dirname(source);
 }
 
 function stageFromEvent(event, firstSource, sourceStep) {
-  if (event.event === 'NORMALIZED_FILE_CREATED') {
+  if (event.event === 'ENTITIES_PREPROCESSED') {
     const version = versionLabel(event);
 
     return {
       className: 'normalize',
-      title: '⚙️ Normalização',
-      meta: `${version} · intermediário${event.aliasesReplaced !== undefined ? ` · ${formatNumber(event.aliasesReplaced)} aliases` : ''}`,
-      file: 'output/normalized',
-      chain: 'output/normalized',
+      title: '⚙️ Pré-processamento',
+      meta: `${version}${event.aliasesReplaced !== undefined ? ` · ${formatNumber(event.aliasesReplaced)} aliases` : ''}`,
+      file: 'normalização em memória',
+      chain: 'normalização',
     };
   }
 
@@ -479,9 +477,9 @@ function stageFromEvent(event, firstSource, sourceStep) {
     return {
       className: 'gender',
       title: '🏳️ Correção de gênero',
-      meta: `${versionLabel(event)} · intermediário`,
-      file: 'output/fixed',
-      chain: 'output/fixed',
+      meta: `${versionLabel(event)} · temporário interno`,
+      file: 'correção temporária',
+      chain: 'correção',
     };
   }
 
@@ -495,11 +493,11 @@ function stageFromEvent(event, firstSource, sourceStep) {
     };
   }
 
-  if (event.event === 'CURRENT_FILE_UPDATED') {
+  if (event.event === 'FINAL_OUTPUT_UPDATED') {
     return {
       className: 'current',
-      title: '🔄 Current',
-      meta: 'arquivo final atual',
+      title: '📤 Output final',
+      meta: 'arquivo final para leitura',
       file: dirname(event.destination),
       chain: dirname(event.destination),
     };
@@ -584,8 +582,8 @@ function buildDiagnostics(report, previousReport, normalization) {
       : 'Auditoria ainda parece usar a origem inicial.',
     detail: `Alvo registrado: ${workingInput || 'desconhecido'}.`,
     actions: workingInput.includes('input-fixed')
-      ? ['Continuar reauditorias usando input-fixed/current.']
-      : ['Verificar getWorkingInput e garantir que a reauditoria use input-fixed/current.'],
+      ? ['Continuar reauditorias usando a versão mais recente em input-fixed/vN.']
+      : ['Gerar uma versão corrigida para que a reauditoria use input-fixed/vN.'],
   });
 
   const previousAliases = previousReport?.entityConsistency?.totalAliasOccurrences;
@@ -844,7 +842,7 @@ export function writeHtmlDashboard(report, htmlPath, {
   const previousReport = logsDir ? getLatestJsonReport(logsDir, report.stats?.timestamp) : null;
   const normalization = logsDir ? getLatestNormalization(logsDir) : null;
   const sourceReport = logsDir ? getLatestJsonReportByWorkingInput(logsDir, 'input/translatedGoogle', report) : null;
-  const currentReport = logsDir ? getLatestJsonReportByWorkingInput(logsDir, 'input-fixed/current', report) : null;
+  const currentReport = logsDir ? getLatestJsonReportByWorkingInput(logsDir, 'input-fixed/v', report) : null;
   const version = getVersionInfo(report);
   const fileLabel = report.files?.map((file) => file.filename).filter(Boolean).join(', ') || 'sem arquivo';
   const rawJson = JSON.stringify({
@@ -897,7 +895,7 @@ export function writeHtmlDashboard(report, htmlPath, {
 
       <div class="card">
         <div class="metric-label">Arquivo final</div>
-        <div class="metric-value" style="font-size:20px">input-fixed/current</div>
+        <div class="metric-value" style="font-size:20px">output/</div>
         <div class="metric-note">${formatNumber(report.entityConsistency?.totalAliasOccurrences || 0)} entidades pendentes.</div>
       </div>
     </div>

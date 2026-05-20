@@ -267,7 +267,7 @@ export function renderTechnicalTrace(report) {
             ],
             interpretation: 'Use este bloco quando o resultado parecer ter usado a origem errada ou quando houver dúvida sobre sobrescrita de versão.',
             actions: [
-              'Se a origem auditada estiver errada, revisar working input/current antes da próxima auditoria.',
+              'Se a origem auditada estiver errada, revisar a versão mais recente em input-fixed/vN antes da próxima auditoria.',
               'Se houver sobrescrita inesperada, conferir os eventos FILE_WRITE.',
             ],
             raw: { versionWorkflow: workflow, workflowTrace: trace },

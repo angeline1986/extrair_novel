@@ -45,6 +45,26 @@ export const corrections = [
 ];
 
 export const additionalFixes = [
+  {
+    pattern: /Seu corpo precisa ser congelado\./giu,
+    replace: 'Você deve estar congelando.',
+    description: 'corrige tradução literal: corpo precisa ser congelado'
+  },
+  {
+    pattern: /Depois de sair do metrô, o Duque reassumiu a liderança\./giu,
+    replace: 'Depois de sair do subterrâneo, o Duque reassumiu a liderança.',
+    description: 'corrige incoerência de ambientação: metrô'
+  },
+  {
+    pattern: /Parece uma piada típica do Sul dos Estados Unidos\./giu,
+    replace: 'Parece uma piada típica do Sul.',
+    description: 'adapta expressão cultural ao worldbuilding'
+  },
+  {
+    pattern: /\s*OceanofPDF\.com\s*/giu,
+    replace: ' ',
+    description: 'remove artefato OceanofPDF.com'
+  },
   { 
     pattern: /[ ]{3,}/g,
     replace: '  ',

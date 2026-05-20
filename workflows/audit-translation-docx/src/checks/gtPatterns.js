@@ -11,7 +11,7 @@ export function detectGoogleTranslateIssues(text, originalText = null) {
   
   // 1. Problemas de gênero
   for (const pattern of patterns.genderIssues) {
-    const regex = new RegExp(pattern.pattern, 'gi');
+    const regex = ensureGlobalRegex(pattern.pattern);
     const matches = text.match(regex);
     if (matches && matches.length > 3) { // Mínimo 3 ocorrências para reportar
       issues.push({
@@ -64,6 +64,38 @@ export function detectGoogleTranslateIssues(text, originalText = null) {
         type: 'auto_translate_mark',
         description: pattern.description,
         severity: 'WARN',
+      });
+    }
+  }
+
+  // 4.1 Artefatos de sites/rodapés que não pertencem ao capítulo.
+  for (const pattern of patterns.sourceArtifacts || []) {
+    const regex = ensureGlobalRegex(pattern.pattern);
+    const matches = text.match(regex);
+    if (matches && matches.length > 0) {
+      warnings.push({
+        type: 'source_artifact',
+        pattern: pattern.pattern,
+        description: pattern.description,
+        occurrences: matches.length,
+        severity: 'WARN',
+        examples: collectPatternExamples(text, regex),
+      });
+    }
+  }
+
+  // 4.2 Traduções literais/incoerências semânticas conhecidas.
+  for (const pattern of patterns.semanticIssues || []) {
+    const regex = ensureGlobalRegex(pattern.pattern);
+    const matches = text.match(regex);
+    if (matches && matches.length > 0) {
+      warnings.push({
+        type: 'semantic_issue',
+        pattern: pattern.pattern,
+        description: pattern.description,
+        occurrences: matches.length,
+        severity: 'WARN',
+        examples: collectPatternExamples(text, regex),
       });
     }
   }

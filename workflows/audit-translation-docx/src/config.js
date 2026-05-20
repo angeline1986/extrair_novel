@@ -18,8 +18,8 @@ export default {
   
   gtPatterns: {
     genderIssues: [
-      { pattern: /o [a-z]+amente\b/i, description: "advérbio feminino com artigo masculino" },
-      { pattern: /a [a-z]+or\b/i, description: "substantivo masculino com artigo feminino" },
+      { pattern: /(?<![\p{L}\p{N}])o\s+[\p{L}]+amente\b/iu, description: "advérbio feminino com artigo masculino" },
+      { pattern: /(?<![\p{L}\p{N}])a\s+(computador|sistema|problema|programa|documento|texto|capítulo|parágrafo|processo|método|resultado|dado|arquivo|código|teste|exemplo|caso|tempo|espaço|valor|número|nome|lugar|mundo|ano|dia|mês|trabalho|livro|artigo|site|link|botão|menu|backup|servidor|cliente|usuário)\b/iu, description: "substantivo masculino com artigo feminino" },
     ],
     brokenSentences: [
       { pattern: /\.\s*[a-z]/g, description: "ponto seguido de minúscula (possível quebra)" },
@@ -30,6 +30,23 @@ export default {
     ],
     autoTranslateMarks: [
       { pattern: /\[Traduzido automaticamente\]/i, description: "marca do Google Tradutor" },
+    ],
+    sourceArtifacts: [
+      { pattern: /OceanofPDF\.com/iu, description: "artefato de site externo no texto" },
+    ],
+    semanticIssues: [
+      {
+        pattern: /Seu corpo precisa ser congelado\./iu,
+        description: "tradução literal estranha: corpo precisa ser congelado",
+      },
+      {
+        pattern: /Depois de sair do metrô, o Duque reassumiu a liderança\./iu,
+        description: "incoerência de ambientação: metrô em fantasia medieval",
+      },
+      {
+        pattern: /Parece uma piada típica do Sul dos Estados Unidos\./iu,
+        description: "expressão cultural inadequada ao worldbuilding",
+      },
     ],
   },
   

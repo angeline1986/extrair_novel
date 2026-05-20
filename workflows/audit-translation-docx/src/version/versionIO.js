@@ -11,6 +11,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '../..');
 const translatedDir = path.join(projectRoot, 'input', 'translatedGoogle');
 const inputFixedDir = path.join(projectRoot, 'input-fixed');
+const outputDir = path.join(projectRoot, 'output');
 
 export function restoreVersion(step, filename) {
   const versionPath = getVersionPath(step, filename);
@@ -65,16 +66,16 @@ export function gotoVersion(targetStep, filename) {
 }
 
 export function createVersionFromCurrent(filename, step) {
-  const currentPath = path.join(inputFixedDir, 'current', filename);
+  const currentPath = path.join(outputDir, filename);
   if (!fs.existsSync(currentPath)) {
-    console.error(`❌ Arquivo current não encontrado: ${currentPath}`);
+    console.error(`❌ Arquivo final não encontrado: ${currentPath}`);
     return false;
   }
 
   const versionDir = ensureVersionDir(step);
   const destPath = path.join(versionDir, filename);
   fs.copyFileSync(currentPath, destPath);
-  console.log(`  📁 Versão v${step} criada a partir de current: ${destPath}`);
+  console.log(`  📁 Versão v${step} criada a partir de output: ${destPath}`);
   return true;
 }
 

@@ -12,7 +12,7 @@ import {
 export async function step4Reaudit(isVerbose) {
   const workflowInfo = getVersionWorkflowInfo();
   const currentLabel = workflowInfo.currentVersion
-    ? `v${workflowInfo.currentVersion} (input-fixed/current)`
+    ? `v${workflowInfo.currentVersion} (input-fixed/v${workflowInfo.currentVersion})`
     : 'input/translatedGoogle';
   const target = getWorkingInput().path;
   const auditCmd = isVerbose

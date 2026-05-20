@@ -7,7 +7,7 @@ const projectRoot = path.resolve(__dirname, '../../..');
 const isolatedRoot = path.join(projectRoot, 'output', 'test-version-workflow-root');
 const translatedGoogleDir = path.join(isolatedRoot, 'input', 'translatedGoogle');
 const inputFixedDir = path.join(isolatedRoot, 'input-fixed');
-const currentDir = path.join(inputFixedDir, 'current');
+const finalOutputDir = path.join(isolatedRoot, 'output');
 const manifestPath = path.join(inputFixedDir, 'manifest.json');
 const tempDir = path.join(isolatedRoot, 'output', 'test-version-workflow');
 const testFilename = 'version-workflow-test.docx';
@@ -53,23 +53,23 @@ describe('versionWorkflow', () => {
     expect(workingInput.source).toBe('original');
   });
 
-  test('uses input-fixed/current once a corrected docx exists', () => {
-    writeFile(path.join(currentDir, testFilename), 'current');
+  test('uses latest input-fixed version once a corrected docx exists', () => {
+    writeFile(path.join(inputFixedDir, 'v1', testFilename), 'current');
     const workingInput = getWorkingInput();
 
-    expect(workingInput.relativePath).toBe('input-fixed/current');
-    expect(workingInput.source).toBe('current');
+    expect(workingInput.relativePath).toBe('input-fixed/v1');
+    expect(workingInput.source).toBe('latest_version');
   });
 
-  test('reset-working-copy forces translatedGoogle even when current exists', () => {
-    writeFile(path.join(currentDir, testFilename), 'current');
+  test('reset-working-copy forces translatedGoogle even when a version exists', () => {
+    writeFile(path.join(inputFixedDir, 'v1', testFilename), 'current');
     const workingInput = getWorkingInput({ resetWorkingCopy: true });
 
     expect(workingInput.relativePath).toBe('input/translatedGoogle');
     expect(workingInput.source).toBe('reset_original');
   });
 
-  test('publishes next version and updates current plus manifest', () => {
+  test('publishes next version and updates output plus manifest', () => {
     writeFile(path.join(inputFixedDir, 'v98', testFilename), 'old');
     const correctedFile = path.join(tempDir, testFilename);
     writeFile(correctedFile, 'corrected');
@@ -85,10 +85,12 @@ describe('versionWorkflow', () => {
     });
 
     expect(fs.readFileSync(published.versionDest, 'utf8')).toBe('corrected');
-    expect(fs.readFileSync(published.currentDest, 'utf8')).toBe('corrected');
+    expect(fs.readFileSync(published.finalOutputDest, 'utf8')).toBe('corrected');
+    expect(published.finalOutputDir).toBe(finalOutputDir);
 
     const manifest = loadManifest();
     expect(manifest.currentVersion).toBe(99);
+    expect(manifest.currentPath).toBe('output');
     expect(manifest.versions.at(-1)).toMatchObject({
       version: 99,
       source: 'input-fixed/v98',

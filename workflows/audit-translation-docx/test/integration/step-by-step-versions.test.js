@@ -34,11 +34,6 @@ function cleanupTestState() {
       fs.rmSync(vdir, { recursive: true, force: true });
     }
   });
-  // Remove current pointer
-  const currentDir = path.join(inputFixedDir, 'current');
-  if (fs.existsSync(currentDir)) {
-    fs.rmSync(currentDir, { recursive: true, force: true });
-  }
   // Clean output dir
   if (fs.existsSync(outputDir)) {
     fs.rmSync(outputDir, { recursive: true, force: true });

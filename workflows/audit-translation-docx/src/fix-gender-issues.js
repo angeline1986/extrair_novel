@@ -15,7 +15,9 @@
 import { main } from './fix-gender/fixGenderOrchestrator.js';
 
 // Executar o orquestrador principal
-main().catch(error => {
+main().then((success) => {
+  if (success === false) process.exit(1);
+}).catch(error => {
   console.error('\n❌ Erro fatal no corretor de gênero:');
   console.error(`   ${error.message}`);
   if (process.argv.includes('--verbose') || process.argv.includes('-v')) {

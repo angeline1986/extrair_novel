@@ -133,6 +133,7 @@ async function main() {
           suggestion: issue.suggestion,
         },
         occurrences: issue.occurrences,
+        examples: issue.examples || [],
       });
     }
     

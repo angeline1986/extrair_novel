@@ -25,6 +25,13 @@ function looksLikeUsefulName(candidate) {
   return parts.length >= 2 && parts.length <= 3;
 }
 
+function contextAround(text, index, length, radius = 90) {
+  const start = Math.max(0, index - radius);
+  const end = Math.min(text.length, index + length + radius);
+
+  return text.slice(start, end).replace(/\s+/g, ' ').trim();
+}
+
 export function extractEntitiesFromSource(sourceDocxPath) {
   const sourceDoc = readDocxFile(sourceDocxPath);
   const text = sourceDoc.rawText;
@@ -37,11 +44,20 @@ export function extractEntitiesFromSource(sourceDocxPath) {
 
     if (!looksLikeUsefulName(name)) continue;
 
-    counts.set(name, (counts.get(name) || 0) + 1);
+    const current = counts.get(name) || { count: 0, examples: [] };
+    current.count += 1;
+    if (current.examples.length < 8) {
+      current.examples.push({
+        match: name,
+        context: contextAround(text, match.index, name.length),
+        index: match.index,
+      });
+    }
+    counts.set(name, current);
   }
 
   return [...counts.entries()]
-    .map(([name, count]) => ({ name, count }))
+    .map(([name, data]) => ({ name, count: data.count, examples: data.examples }))
     .filter((entity) => entity.count >= 2)
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 }

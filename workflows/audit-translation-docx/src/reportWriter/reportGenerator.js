@@ -13,6 +13,7 @@ import { writeIssuesCsv } from './csvWriter.js';
 import { writeTextSummary } from './textWriter.js';
 import { writeProblematicChaptersReport } from './detailsWriter.js';
 import { writeHtmlDashboard } from './htmlWriter.js';
+import { writeValidationTabsDashboard } from './validationTabsWriter.js';
 
 function toProjectRelative(filePath) {
   if (!filePath) return null;
@@ -93,10 +94,10 @@ export function generateReports({
     const deletes = runEvents.filter((e) => e.event === 'FILE_DELETE');
     const fileFlowEvents = runEvents.filter((e) => [
       'CORRECTION_SOURCE',
-      'NORMALIZED_FILE_CREATED',
+      'ENTITIES_PREPROCESSED',
       'FIXED_FILE_CREATED',
       'VERSION_FILE_PUBLISHED',
-      'CURRENT_FILE_UPDATED',
+      'FINAL_OUTPUT_UPDATED',
     ].includes(e.event));
     const fileFlowsByFile = new Map();
 
@@ -158,6 +159,10 @@ export function generateReports({
       alignedDocs,
     });
     console.log(`🧭 Dashboard: ${displayPath(htmlPath)}`);
+
+    const validationTabsPath = path.join(logsDir, 'validation-report-latest.html');
+    writeValidationTabsDashboard(report, validationTabsPath, { logsDir });
+    console.log(`🧪 Dashboard experimental: ${displayPath(validationTabsPath)}`);
   }
 
   if (outputs.issuesCsv && (allIssues.length > 0 || allWarnings.length > 0)) {
@@ -209,6 +214,7 @@ function buildEntityConsistency(entityResults) {
       found: issue.found,
       occurrences: issue.occurrences,
       suggestion: issue.suggestion,
+      examples: issue.examples || [],
     }))
   );
 

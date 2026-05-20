@@ -6,7 +6,7 @@ import { logWorkflowEvent } from '../observability/workflowLog.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = process.env.AUDIT_TRANSLATION_WORKFLOW_ROOT || path.resolve(__dirname, '../..');
 const inputFixedDir = path.join(projectRoot, 'input-fixed');
-const currentDir = path.join(inputFixedDir, 'current');
+const finalOutputDir = path.join(projectRoot, 'output');
 const originalTranslatedDir = path.join(projectRoot, 'input', 'translatedGoogle');
 const manifestPath = path.join(inputFixedDir, 'manifest.json');
 
@@ -24,12 +24,19 @@ function hasDocxFiles(dir) {
   );
 }
 
+function latestVersionDir() {
+  const versions = readVersionNumbers();
+  if (!versions.length) return null;
+  return path.join(inputFixedDir, `v${Math.max(...versions)}`);
+}
+
 function readVersionNumbers() {
   if (!fs.existsSync(inputFixedDir)) return [];
 
   return fs.readdirSync(inputFixedDir)
     .filter((name) => /^v\d+$/.test(name))
     .map((name) => Number(name.slice(1)))
+    .filter((version) => hasDocxFiles(path.join(inputFixedDir, `v${version}`)))
     .filter(Number.isInteger)
     .sort((a, b) => a - b);
 }
@@ -57,7 +64,12 @@ function buildVersionEntryFromExistingDir(version) {
 
 function reconcileManifestWithExistingVersions(manifest) {
   const existingVersions = readVersionNumbers();
-  const known = new Map((manifest.versions || []).map((item) => [item.version, item]));
+  const existingVersionSet = new Set(existingVersions);
+  const known = new Map(
+    (manifest.versions || [])
+      .filter((item) => existingVersionSet.has(item.version))
+      .map((item) => [item.version, item])
+  );
 
   for (const version of existingVersions) {
     if (!known.has(version)) {
@@ -66,12 +78,12 @@ function reconcileManifestWithExistingVersions(manifest) {
   }
 
   const versions = [...known.values()].sort((a, b) => a.version - b.version);
-  const currentVersion = manifest.currentVersion || (existingVersions.length ? Math.max(...existingVersions) : 0);
+  const currentVersion = existingVersions.length ? Math.max(...existingVersions) : 0;
 
   return {
     ...manifest,
     currentVersion,
-    currentPath: manifest.currentPath || toRelative(currentDir),
+    currentPath: manifest.currentPath || toRelative(finalOutputDir),
     origin: manifest.origin || toRelative(originalTranslatedDir),
     versions,
   };
@@ -81,7 +93,7 @@ export function loadManifest() {
   if (!fs.existsSync(manifestPath)) {
     return reconcileManifestWithExistingVersions({
       currentVersion: 0,
-      currentPath: toRelative(currentDir),
+      currentPath: toRelative(finalOutputDir),
       origin: toRelative(originalTranslatedDir),
       versions: [],
     });
@@ -101,11 +113,13 @@ export function getWorkingInput(options = {}) {
   const reset = Boolean(options.resetWorkingCopy);
   const shouldLog = options.logEvent !== false;
 
-  if (!reset && hasDocxFiles(currentDir)) {
+  const latestDir = latestVersionDir();
+
+  if (!reset && latestDir && hasDocxFiles(latestDir)) {
     const result = {
-      path: currentDir,
-      relativePath: toRelative(currentDir),
-      source: 'current',
+      path: latestDir,
+      relativePath: toRelative(latestDir),
+      source: 'latest_version',
       reason: 'existing corrected version found',
     };
 
@@ -157,9 +171,11 @@ export function getVersionWorkflowInfo(options = {}) {
     currentVersion,
     nextVersion: getNextVersion(),
     origin: toRelative(originalTranslatedDir),
+    finalOutput: toRelative(finalOutputDir),
     flow: [
       'translatedGoogle',
       ...versions.map((version) => `v${version}`),
+      'output',
     ],
     manifest,
   };
@@ -169,16 +185,14 @@ export function publishVersion({ source, correctedFile, version, step, metadata 
   const versionDir = path.join(inputFixedDir, `v${version}`);
   const fileName = path.basename(correctedFile).replace(/_fixed\.docx$/i, '.docx');
   const versionDest = path.join(versionDir, fileName);
-  const currentDest = path.join(currentDir, fileName);
-  const sourceRelative = path.resolve(source) === currentDir && version > 1
-    ? `input-fixed/v${version - 1}`
-    : toRelative(source);
+  const finalOutputDest = path.join(finalOutputDir, fileName);
+  const sourceRelative = toRelative(source);
 
   ensureDir(versionDir);
-  ensureDir(currentDir);
+  ensureDir(finalOutputDir);
 
   fs.copyFileSync(correctedFile, versionDest);
-  fs.copyFileSync(correctedFile, currentDest);
+  fs.copyFileSync(correctedFile, finalOutputDest);
 
   const manifest = loadManifest();
   const versionEntry = {
@@ -192,7 +206,8 @@ export function publishVersion({ source, correctedFile, version, step, metadata 
   };
 
   manifest.currentVersion = version;
-  manifest.currentPath = toRelative(currentDir);
+  manifest.currentPath = toRelative(finalOutputDir);
+  manifest.finalOutput = toRelative(finalOutputDir);
   manifest.origin = toRelative(originalTranslatedDir);
   manifest.versions = [
     ...(manifest.versions || []).filter((item) => item.version !== version),
@@ -208,8 +223,12 @@ export function publishVersion({ source, correctedFile, version, step, metadata 
   };
 
   logWorkflowEvent('VERSION_CREATED', payload);
-  logWorkflowEvent('CURRENT_UPDATED', {
-    path: toRelative(currentDir),
+  logWorkflowEvent('FINAL_OUTPUT_UPDATED', {
+    file: fileName,
+    stage: 'atualização output final',
+    source: correctedFile,
+    destination: finalOutputDest,
+    path: toRelative(finalOutputDir),
     version: `v${version}`,
   });
 
@@ -217,8 +236,8 @@ export function publishVersion({ source, correctedFile, version, step, metadata 
     version,
     versionDir,
     versionDest,
-    currentDir,
-    currentDest,
+    finalOutputDir,
+    finalOutputDest,
     manifest,
   };
 }
