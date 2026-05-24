@@ -490,7 +490,7 @@ function renderTabs() {
     </div>`;
 }
 
-const styles = `*{margin:0;padding:0;box-sizing:border-box}
+export const validationTabStyles = `*{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:linear-gradient(135deg,#216AC4 0%,#61acf7 100%);padding:20px;min-height:100vh;color:#1f2937}
 .container{max-width:1200px;margin:0 auto;background:white;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.18);overflow:hidden}
 .header{background:linear-gradient(135deg,#216AC4 0%,#0A66C2 100%);color:white;padding:30px}
@@ -509,7 +509,7 @@ details.expandable{border:1px solid #d8e2ef;border-radius:8px;margin-bottom:18px
 .details-content{padding:18px}.example-title{font-weight:700;color:#216AC4;margin-bottom:8px;font-size:12px}.example-table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}.example-table th,.example-table td{border:1px solid #d8e2ef;padding:10px 12px;text-align:left}.example-table th:first-child,.example-table td:first-child{text-align:center;width:62px}.example-table th{background:#eef4fb;color:#1f2937;font-weight:700}.example-table td.example-col{vertical-align:top}.problem-highlight{background:#d9eeff;color:#0A66C2;border-radius:3px;padding:0 3px}.master-checkbox,.example-checkbox input[type=checkbox]{accent-color:#216AC4;cursor:pointer}.empty-state{padding:14px;border:1px dashed #d8e2ef;border-radius:6px;color:#52657c;background:#f7fbff}.entity-candidate-list{display:grid;gap:10px}.entity-candidate{border:1px solid #d8e2ef;border-radius:8px;background:white;overflow:hidden}.entity-candidate summary{cursor:pointer;display:flex;gap:12px;align-items:center;padding:13px 14px}.entity-candidate summary small{display:block;color:#52657c;margin-top:3px}.entity-candidate[open] summary{background:#eef8ff;border-bottom:1px solid #d8e2ef}
 @media(max-width:760px){body{padding:10px}.content{padding:18px}.header{padding:22px}.detail-row{display:grid}.detail-value{text-align:left}.tab-btn{min-width:210px}}`;
 
-const script = `function showTab(event,tabName){document.querySelectorAll('.content').forEach(content=>content.classList.remove('active'));document.querySelectorAll('.tab-btn').forEach(btn=>btn.classList.remove('active'));document.getElementById(tabName).classList.add('active');event.target.classList.add('active')}
+export const validationTabScript = `function showTab(event,tabName){document.querySelectorAll('.content').forEach(content=>content.classList.remove('active'));document.querySelectorAll('.tab-btn').forEach(btn=>btn.classList.remove('active'));document.getElementById(tabName).classList.add('active');event.target.classList.add('active')}
 function wrapValidationSections(){document.querySelectorAll('.validation-section').forEach(section=>{if(section.querySelector('details.expandable'))return;const title=section.querySelector('.validation-title');if(!title)return;const details=document.createElement('details');details.className='expandable';details.open=true;const summary=document.createElement('summary');summary.className='validation-title';summary.innerHTML=title.innerHTML;const contentWrapper=document.createElement('div');contentWrapper.className='details-content';while(section.children.length>1)contentWrapper.appendChild(section.children[1]);details.appendChild(summary);details.appendChild(contentWrapper);section.insertBefore(details,title);title.remove()})}
 function updateMasterCheckboxState(container){const master=container.querySelector('.master-checkbox');if(!master)return;const checkboxes=Array.from(container.querySelectorAll('.example-checkbox input[type=checkbox]'));const allChecked=checkboxes.length>0&&checkboxes.every(checkbox=>checkbox.checked);const noneChecked=checkboxes.length>0&&checkboxes.every(checkbox=>!checkbox.checked);master.checked=allChecked;master.indeterminate=!allChecked&&!noneChecked}
 function bindExampleCheckboxControls(){document.querySelectorAll('.details-content').forEach(content=>{const master=content.querySelector('.master-checkbox');const checkboxes=content.querySelectorAll('.example-checkbox input[type=checkbox]');if(master)master.addEventListener('change',()=>{checkboxes.forEach(checkbox=>{checkbox.checked=master.checked});updateMasterCheckboxState(content)});checkboxes.forEach(checkbox=>checkbox.addEventListener('change',()=>updateMasterCheckboxState(content)));updateMasterCheckboxState(content)})}
@@ -527,7 +527,7 @@ export function writeValidationTabsDashboard(report, htmlPath, { logsDir } = {})
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Relatório de Validações por Tipo</title>
-  <style>${styles}</style>
+  <style>${validationTabStyles}</style>
 </head>
 <body>
   <div class="container">
@@ -543,7 +543,7 @@ export function writeValidationTabsDashboard(report, htmlPath, { logsDir } = {})
     ${renderOllamaTab(activeReport)}
     ${renderVersioningTab(activeReport)}
   </div>
-  <script>${script}</script>
+  <script>${validationTabScript}</script>
 </body>
 </html>`;
 

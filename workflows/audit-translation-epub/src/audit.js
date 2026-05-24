@@ -1,0 +1,482 @@
+#!/usr/bin/env node
+
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { readEpubFile, readFirstEpubFromDir } from './epubReader.js';
+import { readFirstTxtFromDir, readTranslationLog, auditLogAgainstTranslation } from './logReader.js';
+import {
+  runEpubContentChecks,
+  runEpubLanguageChecks,
+  runEpubStructuralChecks,
+} from './checks.js';
+import {
+  buildEpubVersionWorkflow,
+  buildEpubWorkflowTrace,
+  loadEpubManifest,
+  writeEpubHtmlDashboard,
+} from './epubDashboardWriter.js';
+import { writeEpubValidationTabsDashboard } from './epubValidationWriter.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const workflowRoot = path.resolve(__dirname, '..');
+
+const paths = {
+  sourceDir: path.join(workflowRoot, 'input/source'),
+  translatedDir: path.join(workflowRoot, 'input/translated'),
+  logsInputDir: path.join(workflowRoot, 'input/logs'),
+  logsDir: path.join(workflowRoot, 'logs'),
+  logsTxtDir: path.join(workflowRoot, 'logs/txt'),
+  logsJsonDir: path.join(workflowRoot, 'logs/json'),
+  logsHtmlDir: path.join(workflowRoot, 'logs/html'),
+  outputDir: path.join(workflowRoot, 'output'),
+  workflowEventsPath: path.join(workflowRoot, 'logs/workflow-events.jsonl'),
+};
+
+function parseArgs(argv) {
+  const args = { source: null, translated: null, log: null, verbose: false };
+
+  for (const arg of argv) {
+    if (arg === '--verbose') args.verbose = true;
+    else if (arg.startsWith('--source=')) args.source = path.resolve(arg.slice('--source='.length));
+    else if (arg.startsWith('--translated=')) args.translated = path.resolve(arg.slice('--translated='.length));
+    else if (arg.startsWith('--log=')) args.log = path.resolve(arg.slice('--log='.length));
+  }
+
+  return args;
+}
+
+function ensureDirs() {
+  const dirs = [
+    paths.sourceDir,
+    paths.translatedDir,
+    paths.logsInputDir,
+    paths.logsDir,
+    paths.logsTxtDir,
+    paths.logsJsonDir,
+    paths.logsHtmlDir,
+    paths.outputDir,
+  ];
+
+  for (const dir of dirs) {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  }
+}
+
+function alignSections(sourceDoc, translationDoc) {
+  const aligned = [];
+  const sourceSections = sourceDoc.sections.filter((section) => section.charCount > 0);
+  const translationSections = translationDoc.sections.filter((section) => section.charCount > 0);
+  const max = Math.max(sourceSections.length, translationSections.length);
+
+  for (let index = 0; index < max; index++) {
+    const source = sourceSections[index];
+    const translation = translationSections[index];
+
+    if (source && translation) {
+      const ratio = translation.charCount / Math.max(source.charCount, 1);
+      aligned.push({
+        sourceIndex: source.index,
+        sourceTitle: source.title,
+        sourceParagraphs: source.paragraphCount,
+        sourceCharCount: source.charCount,
+        translationIndex: translation.index,
+        translationTitle: translation.title,
+        translationParagraphs: translation.paragraphCount,
+        translationCharCount: translation.charCount,
+        matchType: 'matched',
+        confidence: Math.max(0.1, Math.min(1, Math.min(ratio, 1 / Math.max(ratio, 0.01)))),
+      });
+    } else if (source) {
+      aligned.push({
+        sourceIndex: source.index,
+        sourceTitle: source.title,
+        sourceParagraphs: source.paragraphCount,
+        sourceCharCount: source.charCount,
+        matchType: 'missing',
+        confidence: 0,
+      });
+    } else if (translation) {
+      aligned.push({
+        translationIndex: translation.index,
+        translationTitle: translation.title,
+        translationParagraphs: translation.paragraphCount,
+        translationCharCount: translation.charCount,
+        matchType: 'extra',
+        confidence: 0,
+      });
+    }
+  }
+
+  return aligned;
+}
+
+function statusFromIssues(issues, warnings) {
+  if (issues.some((issue) => issue.severity === 'FAIL')) return 'FAIL';
+  if (issues.length || warnings.length) return 'WARN';
+  return 'OK';
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function formatDetails(item) {
+  if (item.description) return item.description;
+  if (item.details) return JSON.stringify(item.details);
+  return '-';
+}
+
+function statusClass(status) {
+  const normalized = String(status || '').toLowerCase();
+  if (normalized === 'fail') return 'fail';
+  if (normalized === 'warn' || normalized === 'warning') return 'warn';
+  if (normalized === 'info') return 'info';
+  return 'ok';
+}
+
+function statusBadge(status, label = status) {
+  const kind = statusClass(status);
+  return `<span class="status ${kind}">${escapeHtml(label || status || 'OK')}</span>`;
+}
+
+function formatNumber(value) {
+  return Number(value || 0).toLocaleString('pt-BR');
+}
+
+function formatTimestampForFile(date = new Date()) {
+  const pad = (value) => String(value).padStart(2, '0');
+  return `${pad(date.getDate())}-${pad(date.getMonth() + 1)}-${date.getFullYear()}_${pad(date.getHours())}-${pad(date.getMinutes())}-${pad(date.getSeconds())}`;
+}
+
+function appendWorkflowEvent(event, payload = {}) {
+  if (fs.existsSync(paths.workflowEventsPath) && fs.statSync(paths.workflowEventsPath).isDirectory()) {
+    fs.rmSync(paths.workflowEventsPath, { recursive: true, force: true });
+  }
+
+  const entry = {
+    time: new Date().toISOString(),
+    event,
+    ...payload,
+  };
+  fs.appendFileSync(paths.workflowEventsPath, `${JSON.stringify(entry)}\n`, 'utf8');
+}
+
+function pruneOldAuditReports(keepPath) {
+  if (!fs.existsSync(paths.logsJsonDir)) return;
+
+  for (const file of fs.readdirSync(paths.logsJsonDir)) {
+    if (!/^audit-report-\d{2}-\d{2}-\d{4}_\d{2}-\d{2}-\d{2}\.json$/i.test(file)) continue;
+
+    const filePath = path.join(paths.logsJsonDir, file);
+    if (filePath !== keepPath) fs.unlinkSync(filePath);
+  }
+}
+
+function serializeFinding(item) {
+  return {
+    type: item.type,
+    severity: item.severity,
+    description: item.description || item.type,
+    details: item.details || null,
+    occurrences: item.occurrences || item.count || null,
+    examples: item.examples || null,
+  };
+}
+
+function generateSummary(alignedDoc, issues, warnings) {
+  const missingSections = [];
+  const sizeIssues = [];
+
+  for (const section of alignedDoc.chapters || []) {
+    if (section.matchType === 'missing') {
+      missingSections.push({
+        file: alignedDoc.source?.filename || 'unknown',
+        index: section.sourceIndex,
+        title: section.sourceTitle,
+      });
+    }
+
+    if (section.matchType === 'matched') {
+      const ratio = section.translationCharCount / Math.max(section.sourceCharCount, 1);
+      if (ratio < 0.5) {
+        sizeIssues.push({
+          file: alignedDoc.source?.filename || 'unknown',
+          section: section.sourceTitle || `Seção ${section.sourceIndex + 1}`,
+          ratio: ratio.toFixed(2),
+        });
+      }
+    }
+  }
+
+  return {
+    missingChapters: missingSections.length,
+    sizeIssues: sizeIssues.length,
+    totalIssues: issues.length,
+    totalWarnings: warnings.length,
+    ollamaIssues: 0,
+    firstMissingChapters: missingSections.slice(0, 5),
+    firstSizeIssues: sizeIssues.slice(0, 5),
+    epubSpecific: {
+      missingSections: missingSections.length,
+      sizeIssues: sizeIssues.length,
+    },
+  };
+}
+
+function serializeFile(alignedDoc) {
+  return {
+    filename: alignedDoc.source.filename,
+    translationFilename: alignedDoc.translation.filename,
+    alignment: alignedDoc.alignment,
+    severity: alignedDoc.severity || null,
+    sourceChars: alignedDoc.source.charCount,
+    sourceParagraphs: alignedDoc.source.paragraphCount,
+    translationChars: alignedDoc.translation.charCount,
+    translationParagraphs: alignedDoc.translation.paragraphCount,
+    chapterCount: alignedDoc.stats.sourceChapters,
+    matchedChapters: alignedDoc.stats.matchedChapters,
+    chapterIssues: alignedDoc.chapters.filter((chapter) => chapter.matchType !== 'matched').length,
+    epub: {
+      sourceSections: alignedDoc.source.sections.length,
+      translationSections: alignedDoc.translation.sections.length,
+      sectionCountDiff: alignedDoc.stats.chapterCountDiff,
+      sections: alignedDoc.chapters,
+    },
+  };
+}
+
+function relativeWorkflowPath(filePath) {
+  if (!filePath) return '-';
+  const relative = path.relative(workflowRoot, filePath).replaceAll('\\', '/');
+  return relative && !relative.startsWith('..') ? relative : filePath;
+}
+
+function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, warnings }) {
+  const runDate = new Date();
+  const timestamp = formatTimestampForFile(runDate);
+  const isoTimestamp = runDate.toISOString();
+  const status = statusFromIssues(issues, warnings);
+  const serializedIssues = issues.map(serializeFinding);
+  const serializedWarnings = warnings.map(serializeFinding);
+  const manifest = loadEpubManifest(workflowRoot);
+  const versionWorkflow = buildEpubVersionWorkflow(manifest, translationDoc.filePath);
+  const workflowTrace = buildEpubWorkflowTrace(workflowRoot, manifest, translationDoc.filename);
+  const report = {
+    status,
+    timestamp,
+    stats: {
+      timestamp,
+      sourceFiles: 1,
+      translatedFiles: 1,
+      matchedFiles: 1,
+      missingFiles: 0,
+      totalIssues: issues.length,
+      totalWarnings: warnings.length,
+      failIssues: issues.filter((issue) => issue.severity === 'FAIL').length,
+      warnIssues: issues.filter((issue) => issue.severity === 'WARN').length,
+      ollamaReviews: 0,
+      ollamaFails: 0,
+      ollamaWarnings: 0,
+      entityWarnings: 0,
+      sourceFile: sourceDoc.filename,
+      translatedFile: translationDoc.filename,
+      sourceSections: sourceDoc.sections.length,
+      translatedSections: translationDoc.sections.length,
+      sourceParagraphs: sourceDoc.paragraphCount,
+      translatedParagraphs: translationDoc.paragraphCount,
+      sourceChars: sourceDoc.charCount,
+      translatedChars: translationDoc.charCount,
+      issues: issues.length,
+      warnings: warnings.length,
+      logTerms: logInfo.terms.length,
+      logReplacements: logInfo.replacements.length,
+    },
+    summary: generateSummary(alignedDoc, issues, warnings),
+    logInput: {
+      file: logInfo.filePath,
+      exists: logInfo.exists,
+      terms: logInfo.terms,
+      replacements: logInfo.replacements,
+      notes: logInfo.notes.slice(0, 50),
+      warnings: logInfo.warnings,
+    },
+    issues: serializedIssues,
+    warnings: serializedWarnings,
+    ollamaResults: [],
+    entityConsistency: {
+      status: 'OK',
+      aliasesFound: [],
+      totalAliasOccurrences: 0,
+      files: [],
+      issues: [],
+    },
+    versionWorkflow,
+    files: [serializeFile(alignedDoc)],
+    epubAudit: {
+      logInput: {
+        file: logInfo.filePath,
+        exists: logInfo.exists,
+        terms: logInfo.terms,
+        replacements: logInfo.replacements,
+        warnings: logInfo.warnings,
+      },
+      source: sourceDoc,
+      translation: translationDoc,
+      alignment: alignedDoc.chapters,
+    },
+    config: {
+      thresholds: {
+        minSectionRatio: 0.4,
+        warnSectionRatio: 0.55,
+        maxSectionCountDiffWarning: 2,
+      },
+      ollamaModel: null,
+      workflow: 'audit-translation-epub',
+    },
+    workflowTrace,
+  };
+
+  const jsonPath = path.join(paths.logsJsonDir, `audit-report-${timestamp}.json`);
+  fs.writeFileSync(jsonPath, JSON.stringify(report, null, 2), 'utf8');
+  pruneOldAuditReports(jsonPath);
+  appendWorkflowEvent('AUDIT_REPORT_CREATED', {
+    status,
+    issues: issues.length,
+    warnings: warnings.length,
+    report: path.relative(workflowRoot, jsonPath).replaceAll('\\', '/'),
+    source: sourceDoc.filename,
+    translation: translationDoc.filename,
+    timestamp: isoTimestamp,
+  });
+  const dashboardHtmlPath = path.join(paths.logsHtmlDir, 'audit-dashboard-latest.html');
+  const validationHtmlPath = path.join(paths.logsHtmlDir, 'validation-report-latest.html');
+  writeEpubHtmlDashboard(report, dashboardHtmlPath, {
+    logsDir: paths.logsJsonDir,
+    sourceDocs: [sourceDoc],
+    translatedDocs: [translationDoc],
+    alignedDocs: [alignedDoc],
+    relativeWorkflowPath,
+  });
+  writeEpubValidationTabsDashboard(report, validationHtmlPath, {
+    logsDir: paths.logsJsonDir,
+    relativeWorkflowPath,
+  });
+
+  const findings = issues
+    .concat(warnings)
+    .slice(0, 80)
+    .map((item) => `- [${item.severity}] ${item.type}: ${item.description || JSON.stringify(item.details || {})}`);
+
+  const summaryLines = [
+    'AUDITORIA DE TRADUCAO EPUB',
+    `Status: ${status}`,
+    `Original: ${sourceDoc.filename}`,
+    `Traducao: ${translationDoc.filename}`,
+    `Log TXT: ${logInfo.exists ? logInfo.filename : 'nao encontrado'}`,
+    `Issues: ${issues.length}`,
+    `Warnings: ${warnings.length}`,
+    '',
+    'INSUMOS DO LOG',
+    `Termos: ${logInfo.terms.join(', ') || '-'}`,
+    `Trocas: ${logInfo.replacements.map((r) => `${r.from} -> ${r.to}`).join('; ') || '-'}`,
+    '',
+    'PRINCIPAIS ACHADOS',
+    ...(findings.length ? findings : ['- Nenhum achado.']),
+    '',
+    `JSON completo: ${jsonPath}`,
+    `Dashboard HTML: ${dashboardHtmlPath}`,
+    `Validacao: ${validationHtmlPath}`,
+  ];
+
+  const summaryPath = path.join(paths.logsTxtDir, 'epub-audit-summary-latest.txt');
+  fs.writeFileSync(summaryPath, summaryLines.join('\n'), 'utf8');
+
+  return {
+    report,
+    jsonPath,
+    dashboardHtmlPath,
+    validationHtmlPath,
+    summaryPath,
+  };
+}
+
+async function main() {
+  ensureDirs();
+  const args = parseArgs(process.argv.slice(2));
+
+  const sourceDoc = args.source ? readEpubFile(args.source) : readFirstEpubFromDir(paths.sourceDir);
+  const translationDoc = args.translated ? readEpubFile(args.translated) : readFirstEpubFromDir(paths.translatedDir);
+  const logInfo = readTranslationLog(args.log || readFirstTxtFromDir(paths.logsInputDir));
+
+  if (!sourceDoc) throw new Error(`Nenhum EPUB original encontrado em ${paths.sourceDir}`);
+  if (!translationDoc) throw new Error(`Nenhum EPUB traduzido encontrado em ${paths.translatedDir}`);
+
+  console.log('=== INICIANDO AUDITORIA DE TRADUCAO EPUB ===');
+  console.log(`Original: ${sourceDoc.filePath}`);
+  console.log(`Traducao: ${translationDoc.filePath}`);
+  console.log(`Log TXT: ${logInfo.exists ? logInfo.filePath : 'nao encontrado'}`);
+
+  const chapters = alignSections(sourceDoc, translationDoc);
+  const alignedDoc = {
+    source: sourceDoc,
+    translation: translationDoc,
+    alignment: 'matched',
+    chapters,
+    stats: {
+      sourceChapters: sourceDoc.sections.length,
+      translationChapters: translationDoc.sections.length,
+      chapterCountDiff: Math.abs(sourceDoc.sections.length - translationDoc.sections.length),
+      matchedChapters: chapters.filter((chapter) => chapter.matchType === 'matched').length,
+    },
+  };
+
+  const allIssues = [];
+  const allWarnings = [];
+
+  const structural = runEpubStructuralChecks(sourceDoc, translationDoc, chapters);
+  allIssues.push(...structural.issues);
+  allWarnings.push(...structural.warnings);
+
+  const content = runEpubContentChecks(sourceDoc, translationDoc);
+  allIssues.push(...content.issues);
+  allWarnings.push(...content.warnings);
+
+  const language = runEpubLanguageChecks(translationDoc.rawText);
+  allIssues.push(...language.issues);
+  allWarnings.push(...language.warnings);
+
+  const logAudit = auditLogAgainstTranslation(logInfo, sourceDoc, translationDoc);
+  allIssues.push(...logAudit.issues);
+  allWarnings.push(...logAudit.warnings);
+
+  const { report, jsonPath, dashboardHtmlPath, validationHtmlPath, summaryPath } = writeReports({
+    sourceDoc,
+    translationDoc,
+    logInfo,
+    alignedDoc,
+    issues: allIssues,
+    warnings: allWarnings,
+  });
+
+  console.log('=== AUDITORIA EPUB CONCLUIDA ===');
+  console.log(`Status: ${report.status}`);
+  console.log(`Issues: ${allIssues.length} | Warnings: ${allWarnings.length}`);
+  console.log(`Resumo: ${summaryPath}`);
+  console.log(`JSON: ${jsonPath}`);
+  console.log(`Dashboard: ${dashboardHtmlPath}`);
+  console.log(`Validação: ${validationHtmlPath}`);
+
+  process.exit(report.status === 'FAIL' ? 1 : 0);
+}
+
+main().catch((error) => {
+  console.error(`Erro fatal: ${error.message}`);
+  if (process.argv.includes('--verbose')) console.error(error);
+  process.exit(1);
+});

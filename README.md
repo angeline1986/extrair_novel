@@ -36,6 +36,10 @@ npm run extract:epub -- caminho/livro.epub caminho/saida caminho/chapter_titles.
 npm run build:epub
 npm run analyze:translation -- analisar --project=nome_do_projeto
 npm run analyze:translation -- corrigir --project=nome_do_projeto
+npm run audit:translation:epub
+npm run audit:translation:epub:run
+npm run audit:translation:epub:menu
+npm run fix:translation:epub
 npm test
 ```
 
@@ -45,6 +49,11 @@ Os scripts executáveis ficam em `workflows/`. Cada workflow concentra seus scri
 
 ```txt
 workflows/
+├── audit-translation-epub/
+│   ├── input/source/
+│   ├── input/translated/
+│   ├── input/logs/
+│   └── logs/
 ├── epub-to-docx/
 │   ├── input/
 │   ├── output/

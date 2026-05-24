@@ -24,6 +24,12 @@
     
     "audit:translation": "node workflows/audit-translation-docx/src/audit.js",
     "audit:translation:verbose": "node workflows/audit-translation-docx/src/audit.js --verbose",
+    "audit:translation:epub": "node workflows/audit-translation-epub/src/menu.js",
+    "audit:translation:epub:run": "node workflows/audit-translation-epub/src/audit.js",
+    "audit:translation:epub:verbose": "node workflows/audit-translation-epub/src/audit.js --verbose",
+    "audit:translation:epub:menu": "node workflows/audit-translation-epub/src/menu.js",
+    "audit:epub:menu": "node workflows/audit-translation-epub/src/menu.js",
+    "fix:translation:epub": "node workflows/audit-translation-epub/src/fixEpub.js",
     
     "fix:gender": "node workflows/audit-translation-docx/src/fix-gender-issues.js",
     "fix:gender:verbose": "node workflows/audit-translation-docx/src/fix-gender-issues.js --verbose",

@@ -1,0 +1,134 @@
+{
+  "currentVersion": 1,
+  "currentPath": "output",
+  "origin": "input/translated",
+  "versions": [
+    {
+      "version": 1,
+      "source": "input/translated/Show Me Your Stats ptbr.epub",
+      "output": "input-fixed/v1",
+      "file": "Show Me Your Stats ptbr_v1_fixed.epub",
+      "finalFile": "Show Me Your Stats ptbr_v1_fixed.epub",
+      "createdAt": "2026-05-24T22:37:39.170Z",
+      "step": 1,
+      "metadata": {
+        "replacementsApplied": 0,
+        "changedEntries": 0,
+        "packageValidation": {
+          "mimetypeFirst": true,
+          "mimetypeValid": true,
+          "hasContainer": true
+        }
+      }
+    },
+    {
+      "version": 2,
+      "source": "input/translated/Show Me Your Stats ptbr.epub",
+      "output": "input-fixed/v2",
+      "file": "Show Me Your Stats ptbr_v2_fixed.epub",
+      "finalFile": "Show Me Your Stats ptbr_v2_fixed.epub",
+      "createdAt": "2026-05-24T21:27:18.511Z",
+      "step": 2,
+      "metadata": {
+        "replacementsApplied": 0,
+        "changedEntries": 0,
+        "packageValidation": {
+          "mimetypeFirst": true,
+          "mimetypeValid": true,
+          "hasContainer": true
+        }
+      }
+    },
+    {
+      "version": 3,
+      "source": "input/translated/Show Me Your Stats ptbr.epub",
+      "output": "input-fixed/v3",
+      "file": "Show Me Your Stats ptbr_v3_fixed.epub",
+      "finalFile": "Show Me Your Stats ptbr_v3_fixed.epub",
+      "createdAt": "2026-05-24T21:28:35.383Z",
+      "step": 3,
+      "metadata": {
+        "replacementsApplied": 0,
+        "changedEntries": 0,
+        "packageValidation": {
+          "mimetypeFirst": true,
+          "mimetypeValid": true,
+          "hasContainer": true
+        }
+      }
+    },
+    {
+      "version": 4,
+      "source": "input/translated/Show Me Your Stats ptbr.epub",
+      "output": "input-fixed/v4",
+      "file": "Show Me Your Stats ptbr_v4_fixed.epub",
+      "finalFile": "Show Me Your Stats ptbr_v4_fixed.epub",
+      "createdAt": "2026-05-24T21:31:26.686Z",
+      "step": 4,
+      "metadata": {
+        "replacementsApplied": 0,
+        "changedEntries": 0,
+        "packageValidation": {
+          "mimetypeFirst": true,
+          "mimetypeValid": true,
+          "hasContainer": true
+        }
+      }
+    },
+    {
+      "version": 5,
+      "source": "input/translated/Show Me Your Stats ptbr.epub",
+      "output": "input-fixed/v5",
+      "file": "Show Me Your Stats ptbr_v5_fixed.epub",
+      "finalFile": "Show Me Your Stats ptbr_v5_fixed.epub",
+      "createdAt": "2026-05-24T21:34:31.604Z",
+      "step": 5,
+      "metadata": {
+        "replacementsApplied": 0,
+        "changedEntries": 0,
+        "packageValidation": {
+          "mimetypeFirst": true,
+          "mimetypeValid": true,
+          "hasContainer": true
+        }
+      }
+    },
+    {
+      "version": 6,
+      "source": "input/translated/Show Me Your Stats ptbr.epub",
+      "output": "input-fixed/v6",
+      "file": "Show Me Your Stats ptbr_v6_fixed.epub",
+      "finalFile": "Show Me Your Stats ptbr_v6_fixed.epub",
+      "createdAt": "2026-05-24T22:16:57.986Z",
+      "step": 6,
+      "metadata": {
+        "replacementsApplied": 0,
+        "changedEntries": 0,
+        "packageValidation": {
+          "mimetypeFirst": true,
+          "mimetypeValid": true,
+          "hasContainer": true
+        }
+      }
+    },
+    {
+      "version": 7,
+      "source": "input/translated/Show Me Your Stats ptbr.epub",
+      "output": "input-fixed/v7",
+      "file": "Show Me Your Stats ptbr_v7_fixed.epub",
+      "finalFile": "Show Me Your Stats ptbr_v7_fixed.epub",
+      "createdAt": "2026-05-24T22:35:51.650Z",
+      "step": 7,
+      "metadata": {
+        "replacementsApplied": 0,
+        "changedEntries": 0,
+        "packageValidation": {
+          "mimetypeFirst": true,
+          "mimetypeValid": true,
+          "hasContainer": true
+        }
+      }
+    }
+  ],
+  "finalOutput": "output"
+}
