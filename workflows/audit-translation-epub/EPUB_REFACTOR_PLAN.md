@@ -1,6 +1,6 @@
 # Plano Tecnico de Refactor - audit-translation-epub
 
-Atualizado em: 2026-05-24T23:57:13Z
+Atualizado em: 2026-05-25T01:08:39Z
 
 ## 1. Visao Geral
 
@@ -748,3 +748,256 @@ xhtmlCorrectionEngine.js sem aplicacao automatica final
 ```
 
 O proximo passo deve criar a capacidade de simular ou preparar aplicacao de acoes em XHTML, ainda sem ativar correcao automatica completa no fluxo principal.
+
+## 27. Estado Da Milestone m3-safe-terminology-application
+
+Implementado em: 2026-05-25T00:03:42Z
+
+A milestone `m3-safe-terminology-application` foi concluida com escopo restrito: aplicar apenas correcoes `auto_safe` de alta confianca em nos XHTML mapeados.
+
+Entregas:
+
+- `src/correction/xhtmlCorrectionEngine.js`;
+- `fixEpub.js` consumindo `logs/json/correction-plan.json`;
+- filtro de aplicacao restrito a:
+  - `mode === "auto_safe"`;
+  - `confidence >= 0.9`;
+  - `before` e `after` presentes;
+- edicao somente de nos de texto mapeados;
+- preservacao de tags XHTML;
+- registro de correcoes em `logs/json/correction-report.json`;
+- registro de acoes ignoradas quando `mode` e `auto_review` ou `manual_only`;
+- geracao de EPUB corrigido em `output/`;
+- atualizacao de `input-fixed/manifest.json`.
+
+Schema resumido do correction report:
+
+```json
+{
+  "schemaVersion": "1.0",
+  "appliedCorrections": [
+    {
+      "actionId": "cp-0001",
+      "candidateId": "cand-0001",
+      "type": "terminology_replace",
+      "mode": "auto_safe",
+      "filePath": "1/OEBPS/Text/0001.xhtml",
+      "nodeId": "s0001-p0002-t0000",
+      "before": "...",
+      "after": "...",
+      "replacements": 1
+    }
+  ],
+  "skippedActions": [],
+  "summary": {
+    "totalActions": 2,
+    "autoSafeActions": 0,
+    "appliedCorrections": 0,
+    "skippedActions": 2,
+    "changedEntries": 0,
+    "replacements": 0
+  }
+}
+```
+
+Validacao com o plano atual:
+
+```json
+{
+  "totalActions": 2,
+  "autoSafeActions": 0,
+  "appliedCorrections": 0,
+  "skippedActions": 2,
+  "changedEntries": 0,
+  "replacements": 0
+}
+```
+
+O resultado esperado neste momento foi `0` correcoes aplicadas porque o plano atual contem somente actions `auto_review`. Isso confirma que o engine nao aplica correcoes contextuais prematuramente.
+
+Proxima milestone recomendada:
+
+```txt
+relatorio visual de correction-report + normalizacao terminologica mais abrangente
+```
+
+## 28. Estado Da Milestone m4-terminology-glossary
+
+Implementado em: 2026-05-25T00:15:38Z
+
+A milestone `m4-terminology-glossary` foi concluida com glossarios locais por obra e geracao real de actions `auto_safe`.
+
+Entregas:
+
+- `input/glossary/terms.json`;
+- `input/glossary/entities.json`;
+- `src/correction/terminologyNormalizer.js`;
+- `src/correction/entityNormalizer.js`;
+- `correctionPlanner.js` gerando actions `auto_safe` para correspondencias exatas com glossario seguro;
+- `correctionPlanner.js` mantendo `auto_review` para entradas ambiguas;
+- `xhtmlCorrectionEngine.js` aplicando somente os casos seguros;
+- `correction-report.json` registrando `before`, `after`, `filePath`, `nodeId` e tipo da correcao.
+
+Glossario inicial:
+
+```json
+{
+  "from": "T/N:",
+  "to": "N/T:",
+  "mode": "auto_safe",
+  "confidence": 0.99
+}
+```
+
+Resultado validado:
+
+```json
+{
+  "totalActions": 3,
+  "autoSafeActions": 1,
+  "appliedCorrections": 4,
+  "skippedActions": 2,
+  "changedEntries": 4,
+  "replacements": 4
+}
+```
+
+As 2 actions ignoradas eram `auto_review`, mantendo a regra de seguranca do milestone.
+
+Proxima milestone recomendada:
+
+```txt
+correction-report nos dashboards + reauditoria comparativa antes/depois
+```
+
+## 29. Estado Da Milestone m5-post-correction-validation
+
+Implementado em: 2026-05-25T00:43:09Z
+
+A milestone `m5-post-correction-validation` foi concluida com validacao automatica ao final de `fixEpub.js`.
+
+Entregas:
+
+- `src/correction/postCorrectionValidator.js`;
+- validacao de ZIP/EPUB basico;
+- validacao de `mimetype`;
+- validacao de `META-INF/container.xml`;
+- validacao de OPF;
+- validacao de manifest e spine;
+- reextracao de texto da versao corrigida;
+- comparacao entre EPUB traduzido base e EPUB corrigido;
+- deteccao de mudanca textual real;
+- confirmacao de correcoes aplicadas no texto final;
+- geracao de `logs/json/post-correction-validation.json`;
+- integracao da validacao ao final de `fixEpub.js`.
+
+Resultado validado:
+
+```json
+{
+  "status": "OK",
+  "packageValidation": {
+    "zipReadable": true,
+    "mimetypePresent": true,
+    "mimetypeFirst": true,
+    "mimetypeValid": true,
+    "containerPresent": true,
+    "opfPresent": true,
+    "manifestValid": true,
+    "spineValid": true,
+    "manifestItems": 256,
+    "spineItems": 249
+  },
+  "textComparison": {
+    "textChanged": true,
+    "beforeParagraphs": 17042,
+    "afterParagraphs": 17042
+  },
+  "correctionValidation": {
+    "appliedCorrections": 4,
+    "confirmedCorrections": 4,
+    "unconfirmedCorrections": 0
+  }
+}
+```
+
+Esta milestone ainda nao executa a reauditoria completa do conteudo corrigido contra o original. Ela garante que a correcao produziu um EPUB tecnicamente valido, com mudanca textual real e correcoes confirmadas.
+
+Proxima milestone recomendada:
+
+```txt
+reauditoria automatica completa + comparativo issues/warnings antes/depois
+```
+
+## 30. Estado Da Milestone m6-automatic-reaudit
+
+Implementado em: 2026-05-25T01:08:39Z
+
+A milestone `m6-automatic-reaudit` foi concluida com reauditoria automatica ao final de `fixEpub.js`.
+
+Entregas:
+
+- `fixEpub.js` executando `audit.js --translated=<EPUB corrigido>`;
+- geracao de `logs/json/reaudit-report.json`;
+- geracao de `logs/json/reauditoria-summary.json`;
+- comparacao entre audit report anterior e reauditoria;
+- resumo com:
+  - `issuesBefore`;
+  - `issuesAfter`;
+  - `warningsBefore`;
+  - `warningsAfter`;
+  - `correctionCandidatesBefore`;
+  - `correctionCandidatesAfter`;
+  - `appliedCorrections`;
+  - `validationStatus`;
+  - `result`.
+
+Resultado validado:
+
+```json
+{
+  "issuesBefore": 0,
+  "issuesAfter": 0,
+  "warningsBefore": 3,
+  "warningsAfter": 3,
+  "correctionCandidatesBefore": 3,
+  "correctionCandidatesAfter": 2,
+  "appliedCorrections": 4,
+  "validationStatus": "OK",
+  "result": "improvement"
+}
+```
+
+O resultado foi classificado como `improvement` porque a quantidade de correction candidates caiu de 3 para 2 sem aumento de issues ou warnings.
+
+Proxima milestone recomendada:
+
+```txt
+exibir correction-report, post-correction-validation e reauditoria-summary nos dashboards HTML
+```
+
+## 31. Estado Da Milestone m7-correction-report-dashboard
+
+Implementado em: 2026-05-25T01:32:18Z
+
+A milestone `m7-correction-report-dashboard` foi concluida como camada de rastreabilidade e visualizacao, sem ampliar o escopo de correcao automatica.
+
+Entregas:
+
+- secao de correcoes em `logs/html/audit-dashboard-latest.html`;
+- aba `Correcoes` em `logs/html/validation-report-latest.html`;
+- leitura integrada de `logs/json/correction-report.json`;
+- leitura integrada de `logs/json/post-correction-validation.json`;
+- leitura integrada de `logs/json/reauditoria-summary.json`;
+- listagem de correcoes aplicadas com `type`, `before`, `after`, `filePath`, `nodeId` e `confidence`;
+- listagem de actions ignoradas por `auto_review` ou `manual_only`;
+- status final `improvement`, `regression`, `neutral` ou `unknown`;
+- resumo Markdown em `logs/txt/correction-report-latest.md`.
+
+Esta milestone nao implementa Ollama, reescrita semantica, genero/concordancia ampla ou aplicacao de actions ambiguas. Ela apenas torna visivel o que o pipeline seguro ja decidiu, aplicou, ignorou e validou.
+
+Proxima milestone recomendada:
+
+```txt
+iniciar correcoes contextuais controladas para casos auto_review, com aprovacao ou regras conservadoras
+```

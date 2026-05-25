@@ -20,6 +20,7 @@ import { writeEpubValidationTabsDashboard } from './epubValidationWriter.js';
 import {
   buildCorrectionCandidates,
   buildCorrectionPlan,
+  loadCorrectionGlossary,
 } from './correction/correctionPlanner.js';
 import { buildXhtmlMap } from './xhtmlMapper.js';
 
@@ -30,6 +31,9 @@ const paths = {
   sourceDir: path.join(workflowRoot, 'input/source'),
   translatedDir: path.join(workflowRoot, 'input/translated'),
   logsInputDir: path.join(workflowRoot, 'input/logs'),
+  glossaryDir: path.join(workflowRoot, 'input/glossary'),
+  termsGlossaryPath: path.join(workflowRoot, 'input/glossary/terms.json'),
+  entitiesGlossaryPath: path.join(workflowRoot, 'input/glossary/entities.json'),
   logsDir: path.join(workflowRoot, 'logs'),
   logsTxtDir: path.join(workflowRoot, 'logs/txt'),
   logsJsonDir: path.join(workflowRoot, 'logs/json'),
@@ -56,6 +60,7 @@ function ensureDirs() {
     paths.sourceDir,
     paths.translatedDir,
     paths.logsInputDir,
+    paths.glossaryDir,
     paths.logsDir,
     paths.logsTxtDir,
     paths.logsJsonDir,
@@ -262,7 +267,62 @@ function relativeWorkflowPath(filePath) {
   return relative && !relative.startsWith('..') ? relative : filePath;
 }
 
-function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, warnings, correctionCandidates, xhtmlMap }) {
+function readJsonIfExists(filePath) {
+  if (!fs.existsSync(filePath)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function writeCorrectionMarkdownReport(outputPath) {
+  const correctionReport = readJsonIfExists(path.join(paths.logsJsonDir, 'correction-report.json'));
+  const postValidation = readJsonIfExists(path.join(paths.logsJsonDir, 'post-correction-validation.json'));
+  const reauditoriaSummary = readJsonIfExists(path.join(paths.logsJsonDir, 'reauditoria-summary.json'));
+  const applied = correctionReport?.appliedCorrections || [];
+  const skipped = correctionReport?.skippedActions || [];
+  const correctionValidation = postValidation?.correctionValidation || {};
+  const textComparison = postValidation?.textComparison || {};
+
+  const lines = [
+    '# Relatorio de Correcoes EPUB',
+    '',
+    `Status final: ${reauditoriaSummary?.result || 'unknown'}`,
+    `Validacao pos-correcao: ${postValidation?.status || 'unknown'}`,
+    `Correcoes aplicadas: ${applied.length}`,
+    `Acoes ignoradas: ${skipped.length}`,
+    `Mudanca textual real: ${textComparison.textChanged ? 'sim' : 'nao'}`,
+    `Correcoes confirmadas: ${correctionValidation.confirmedCorrections || 0}/${correctionValidation.appliedCorrections || 0}`,
+    '',
+    '## Reauditoria',
+    '',
+    `- Issues: ${reauditoriaSummary?.issuesBefore ?? '-'} -> ${reauditoriaSummary?.issuesAfter ?? '-'}`,
+    `- Warnings: ${reauditoriaSummary?.warningsBefore ?? '-'} -> ${reauditoriaSummary?.warningsAfter ?? '-'}`,
+    `- Correction candidates: ${reauditoriaSummary?.correctionCandidatesBefore ?? '-'} -> ${reauditoriaSummary?.correctionCandidatesAfter ?? '-'}`,
+    '',
+    '## Correcoes Aplicadas',
+    '',
+    '| Tipo | Before | After | Arquivo | Node | Confidence |',
+    '| --- | --- | --- | --- | --- | --- |',
+    ...(applied.length
+      ? applied.slice(0, 80).map((item) => `| ${item.type || '-'} | ${String(item.before || '-').replaceAll('|', '\\|')} | ${String(item.after || '-').replaceAll('|', '\\|')} | ${item.filePath || '-'} | ${item.nodeId || '-'} | ${item.confidence ?? '-'} |`)
+      : ['| - | Nenhuma correcao aplicada | - | - | - | - |']),
+    '',
+    '## Acoes Ignoradas',
+    '',
+    '| Action | Tipo | Modo | Motivo | Candidate |',
+    '| --- | --- | --- | --- | --- |',
+    ...(skipped.length
+      ? skipped.slice(0, 80).map((item) => `| ${item.actionId || '-'} | ${item.type || '-'} | ${item.mode || '-'} | ${item.reason || '-'} | ${item.candidateId || '-'} |`)
+      : ['| - | Nenhuma acao ignorada | - | - | - |']),
+    '',
+  ];
+
+  fs.writeFileSync(outputPath, lines.join('\n'), 'utf8');
+}
+
+function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, warnings, correctionCandidates, xhtmlMap, glossary }) {
   const runDate = new Date();
   const timestamp = formatTimestampForFile(runDate);
   const isoTimestamp = runDate.toISOString();
@@ -319,6 +379,12 @@ function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, 
       notes: logInfo.notes.slice(0, 50),
       warnings: logInfo.warnings,
     },
+    glossaryInput: {
+      termsFile: paths.termsGlossaryPath,
+      entitiesFile: paths.entitiesGlossaryPath,
+      terms: glossary.terms.terms.length,
+      entities: glossary.entities.entities.length,
+    },
     correctionCandidates,
     correctionPlanSummary: correctionPlan.summary,
     issues: serializedIssues,
@@ -340,6 +406,12 @@ function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, 
         terms: logInfo.terms,
         replacements: logInfo.replacements,
         warnings: logInfo.warnings,
+      },
+      glossaryInput: {
+        termsFile: paths.termsGlossaryPath,
+        entitiesFile: paths.entitiesGlossaryPath,
+        terms: glossary.terms.terms.length,
+        entities: glossary.entities.entities.length,
       },
       source: sourceDoc,
       translation: translationDoc,
@@ -428,6 +500,8 @@ function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, 
 
   const summaryPath = path.join(paths.logsTxtDir, 'epub-audit-summary-latest.txt');
   fs.writeFileSync(summaryPath, summaryLines.join('\n'), 'utf8');
+  const correctionMarkdownPath = path.join(paths.logsTxtDir, 'correction-report-latest.md');
+  writeCorrectionMarkdownReport(correctionMarkdownPath);
 
   return {
     report,
@@ -436,6 +510,7 @@ function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, 
     dashboardHtmlPath,
     validationHtmlPath,
     summaryPath,
+    correctionMarkdownPath,
   };
 }
 
@@ -489,12 +564,17 @@ async function main() {
   allWarnings.push(...logAudit.warnings);
 
   const xhtmlMap = buildXhtmlMap(translationDoc.filePath);
+  const glossary = loadCorrectionGlossary({
+    termsPath: paths.termsGlossaryPath,
+    entitiesPath: paths.entitiesGlossaryPath,
+  });
   const correctionCandidates = buildCorrectionCandidates({
     issues: allIssues,
     warnings: allWarnings,
     logInfo,
     translationDoc,
     xhtmlMap,
+    glossary,
   });
 
   const { report, jsonPath, dashboardHtmlPath, validationHtmlPath, summaryPath } = writeReports({
@@ -506,6 +586,7 @@ async function main() {
     warnings: allWarnings,
     correctionCandidates,
     xhtmlMap,
+    glossary,
   });
 
   console.log('=== AUDITORIA EPUB CONCLUIDA ===');

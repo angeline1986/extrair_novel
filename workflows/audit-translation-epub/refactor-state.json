@@ -1,16 +1,16 @@
 {
   "schemaVersion": "1.0",
-  "refactorVersion": "0.3.0",
+  "refactorVersion": "0.8.0",
   "workflow": "audit-translation-epub",
   "currentPhase": {
-    "id": "phase-2",
-    "name": "Mapeamento XHTML implementado",
+    "id": "phase-7",
+    "name": "Dashboard de correcoes implementado",
     "status": "active",
-    "description": "O audit-report e correction-plan agora incluem referencias precisas a filePath, spineIndex, paragraphIndex, textNodeIndex e textPreview quando ha localizacao XHTML disponivel."
+    "description": "Os dashboards EPUB agora exibem correcoes aplicadas, acoes ignoradas, validacao pos-correcao e reauditoria antes/depois."
   },
   "timestamps": {
     "createdAt": "2026-05-24T23:37:47Z",
-    "updatedAt": "2026-05-24T23:57:13Z"
+    "updatedAt": "2026-05-25T01:32:18Z"
   },
   "completedTasks": [
     {
@@ -57,49 +57,40 @@
       "id": "xhtml-mapper",
       "title": "Criar mapeamento estavel de arquivos XHTML, paragrafos e text nodes",
       "status": "done"
-    }
-  ],
-  "inProgressTasks": [
+    },
     {
       "id": "xhtml-correction-engine",
-      "title": "Criar motor de preparacao/aplicacao controlada de correctionPlan em XHTML",
-      "status": "in_progress",
-      "priority": "high"
-    }
-  ],
-  "pendingTasks": [
+      "title": "Criar motor de aplicacao segura de correctionPlan em XHTML",
+      "status": "done"
+    },
     {
       "id": "terminology-normalizer",
-      "title": "Implementar normalizacao terminologica segura",
-      "priority": "high",
-      "dependsOn": [
-        "correction-planner"
-      ]
+      "title": "Implementar normalizacao terminologica segura baseada em glossario",
+      "status": "done"
     },
     {
       "id": "entity-normalizer",
-      "title": "Implementar normalizacao de entidades por obra",
-      "priority": "high",
-      "dependsOn": [
-        "terminology-normalizer"
-      ]
+      "title": "Implementar normalizacao de aliases seguros de entidades",
+      "status": "done"
     },
     {
-      "id": "fix-epub-orchestrator",
-      "title": "Refatorar fixEpub.js para consumir correctionPlan",
-      "priority": "high",
-      "dependsOn": [
-        "xhtml-correction-engine"
-      ]
+      "id": "post-correction-validation",
+      "title": "Validar EPUB corrigido e confirmar correcoes aplicadas",
+      "status": "done"
     },
     {
-      "id": "post-correction-reaudit",
-      "title": "Implementar reauditoria automatica e comparativo antes/depois",
-      "priority": "high",
-      "dependsOn": [
-        "fix-epub-orchestrator"
-      ]
+      "id": "post-correction-reaudit-full",
+      "title": "Implementar reauditoria automatica completa e comparativo issues/warnings",
+      "status": "done"
     },
+    {
+      "id": "dashboard-correction-visibility",
+      "title": "Exibir correction report, validacao pos-correcao e reauditoria nos dashboards",
+      "status": "done"
+    }
+  ],
+  "inProgressTasks": [],
+  "pendingTasks": [
     {
       "id": "gender-agreement-fixer",
       "title": "Implementar correcao contextual inicial de genero e concordancia",
@@ -148,9 +139,34 @@
       ]
     },
     {
+      "id": "m3-safe-terminology-application",
+      "name": "Aplicacao segura de terminologia",
+      "status": "done",
+      "deliverables": [
+        "xhtmlCorrectionEngine.js",
+        "aplicacao apenas de actions auto_safe com confidence >= 0.9",
+        "correction-report.json",
+        "EPUB corrigido em output",
+        "auto_review e manual_only ignoradas"
+      ]
+    },
+    {
+      "id": "m4-terminology-glossary",
+      "name": "Glossario terminologico seguro",
+      "status": "done",
+      "deliverables": [
+        "input/glossary/terms.json",
+        "input/glossary/entities.json",
+        "terminologyNormalizer.js",
+        "entityNormalizer.js",
+        "actions auto_safe a partir de glossario",
+        "correction-report com before/after"
+      ]
+    },
+    {
       "id": "m2-safe-normalization",
       "name": "Normalizacao segura",
-      "status": "pending",
+      "status": "done",
       "deliverables": [
         "terminologyNormalizer",
         "entityNormalizer",
@@ -158,9 +174,45 @@
       ]
     },
     {
+      "id": "m5-post-correction-validation",
+      "name": "Validacao pos-correcao",
+      "status": "done",
+      "deliverables": [
+        "postCorrectionValidator.js",
+        "validacao tecnica EPUB",
+        "comparacao textual traduzido vs corrigido",
+        "confirmacao de correcoes no texto final",
+        "post-correction-validation.json"
+      ]
+    },
+    {
+      "id": "m6-automatic-reaudit",
+      "name": "Reauditoria automatica",
+      "status": "done",
+      "deliverables": [
+        "reaudit-report.json",
+        "reauditoria-summary.json",
+        "comparativo issues/warnings antes/depois",
+        "classificacao improvement/regression/neutral"
+      ]
+    },
+    {
+      "id": "m7-correction-report-dashboard",
+      "name": "Dashboard de correcoes",
+      "status": "done",
+      "deliverables": [
+        "secao de correcoes no audit-dashboard-latest.html",
+        "aba Correcoes no validation-report-latest.html",
+        "exibicao de correcoes aplicadas com before/after/filePath/nodeId/confidence",
+        "exibicao de acoes ignoradas auto_review/manual_only",
+        "resumo de validacao pos-correcao e reauditoria",
+        "correction-report-latest.md"
+      ]
+    },
+    {
       "id": "m3-reaudit",
       "name": "Reauditoria comparativa",
-      "status": "pending",
+      "status": "done",
       "deliverables": [
         "auditoria antes/depois",
         "relatorio de correcoes",
@@ -220,14 +272,17 @@
     "checks.js": "existing_can_feed_candidates",
     "epubReader.js": "existing_text_extractor",
     "xhtmlMapper.js": "implemented_maps_spine_paragraphs_text_nodes",
-    "fixEpub.js": "existing_needs_orchestrator_refactor",
+    "fixEpub.js": "consumes_correction_plan_runs_validation_and_reaudit",
     "logReader.js": "existing_can_feed_normalization",
     "menu.js": "existing_operational",
     "correctionTypes.js": "implemented",
     "correctionPlanner.js": "implemented_generates_plan_without_applying",
-    "xhtmlCorrectionEngine.js": "missing",
-    "terminologyNormalizer.js": "missing",
-    "entityNormalizer.js": "missing",
+    "xhtmlCorrectionEngine.js": "implemented_applies_auto_safe_only",
+    "terminologyNormalizer.js": "implemented_glossary_terms",
+    "entityNormalizer.js": "implemented_safe_aliases_only",
+    "postCorrectionValidator.js": "implemented_validates_epub_and_text_changes",
+    "epubDashboardWriter.js": "implemented_correction_visibility",
+    "epubValidationWriter.js": "implemented_corrections_tab",
     "genderAgreementFixer.js": "missing",
     "residualEnglishFixer.js": "missing",
     "epubValidator.js": "missing",

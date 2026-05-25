@@ -1,5 +1,5 @@
 {
-  "currentVersion": 1,
+  "currentVersion": 6,
   "currentPath": "output",
   "origin": "input/translated",
   "versions": [
@@ -27,7 +27,7 @@
       "output": "input-fixed/v2",
       "file": "Show Me Your Stats ptbr_v2_fixed.epub",
       "finalFile": "Show Me Your Stats ptbr_v2_fixed.epub",
-      "createdAt": "2026-05-24T21:27:18.511Z",
+      "createdAt": "2026-05-25T00:03:24.160Z",
       "step": 2,
       "metadata": {
         "replacementsApplied": 0,
@@ -45,11 +45,11 @@
       "output": "input-fixed/v3",
       "file": "Show Me Your Stats ptbr_v3_fixed.epub",
       "finalFile": "Show Me Your Stats ptbr_v3_fixed.epub",
-      "createdAt": "2026-05-24T21:28:35.383Z",
+      "createdAt": "2026-05-25T00:15:18.640Z",
       "step": 3,
       "metadata": {
-        "replacementsApplied": 0,
-        "changedEntries": 0,
+        "replacementsApplied": 4,
+        "changedEntries": 4,
         "packageValidation": {
           "mimetypeFirst": true,
           "mimetypeValid": true,
@@ -63,15 +63,20 @@
       "output": "input-fixed/v4",
       "file": "Show Me Your Stats ptbr_v4_fixed.epub",
       "finalFile": "Show Me Your Stats ptbr_v4_fixed.epub",
-      "createdAt": "2026-05-24T21:31:26.686Z",
+      "createdAt": "2026-05-25T00:42:56.131Z",
       "step": 4,
       "metadata": {
-        "replacementsApplied": 0,
-        "changedEntries": 0,
+        "replacementsApplied": 4,
+        "changedEntries": 4,
         "packageValidation": {
           "mimetypeFirst": true,
           "mimetypeValid": true,
           "hasContainer": true
+        },
+        "postCorrectionValidation": {
+          "status": "OK",
+          "textChanged": true,
+          "confirmedCorrections": 4
         }
       }
     },
@@ -81,15 +86,20 @@
       "output": "input-fixed/v5",
       "file": "Show Me Your Stats ptbr_v5_fixed.epub",
       "finalFile": "Show Me Your Stats ptbr_v5_fixed.epub",
-      "createdAt": "2026-05-24T21:34:31.604Z",
+      "createdAt": "2026-05-25T01:08:22.784Z",
       "step": 5,
       "metadata": {
-        "replacementsApplied": 0,
-        "changedEntries": 0,
+        "replacementsApplied": 4,
+        "changedEntries": 4,
         "packageValidation": {
           "mimetypeFirst": true,
           "mimetypeValid": true,
           "hasContainer": true
+        },
+        "postCorrectionValidation": {
+          "status": "OK",
+          "textChanged": true,
+          "confirmedCorrections": 4
         }
       }
     },
@@ -99,15 +109,20 @@
       "output": "input-fixed/v6",
       "file": "Show Me Your Stats ptbr_v6_fixed.epub",
       "finalFile": "Show Me Your Stats ptbr_v6_fixed.epub",
-      "createdAt": "2026-05-24T22:16:57.986Z",
+      "createdAt": "2026-05-25T01:16:07.789Z",
       "step": 6,
       "metadata": {
-        "replacementsApplied": 0,
-        "changedEntries": 0,
+        "replacementsApplied": 4,
+        "changedEntries": 4,
         "packageValidation": {
           "mimetypeFirst": true,
           "mimetypeValid": true,
           "hasContainer": true
+        },
+        "postCorrectionValidation": {
+          "status": "OK",
+          "textChanged": true,
+          "confirmedCorrections": 4
         }
       }
     },

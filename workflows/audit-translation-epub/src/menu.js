@@ -70,7 +70,7 @@ function printHeader() {
 
   log('  ┌───────────── FLUXO PRINCIPAL ─────────────┐', 'dim');
   log('  1. 🚀 Gerar versao revisada da traducao', 'green');
-  log('     Audita + aplica trocas seguras do log + publica em output + reaudita', 'dim');
+  log('     Audita + aplica correcoes seguras + valida + reaudita', 'dim');
   console.log();
 
   log('  ┌───────────── AUDITORIA ─────────────┐', 'dim');
@@ -124,11 +124,11 @@ function runAuditForFile(filePath, { verbose = false } = {}) {
 
 async function runRevisionWorkflow() {
   console.log();
-  log('1/3 Auditoria da traducao atual', 'cyan');
+  log('1/2 Auditoria da traducao atual', 'cyan');
   runAudit();
 
   console.log();
-  log('2/3 Gerando EPUB revisado com correcoes seguras', 'cyan');
+  log('2/2 Gerando EPUB revisado, validando e reauditando', 'cyan');
   const report = await fixEpub();
   log(`Versao criada: ${report.version}`, 'green');
   log(`Substituicoes aplicadas: ${report.totalReplacements}`, 'green');
@@ -137,10 +137,12 @@ async function runRevisionWorkflow() {
     report.packageValidation.mimetypeFirst && report.packageValidation.hasContainer ? 'green' : 'yellow'
   );
   log(`Arquivo final: ${displayPath(report.finalPath)}`, 'cyan');
-
-  console.log();
-  log('3/3 Reauditoria da versao revisada', 'cyan');
-  runAuditForFile(report.finalPath);
+  if (report.reauditoria) {
+    log(
+      `Reauditoria: ${report.reauditoria.result} | issues ${report.reauditoria.issuesBefore} -> ${report.reauditoria.issuesAfter} | warnings ${report.reauditoria.warningsBefore} -> ${report.reauditoria.warningsAfter}`,
+      report.reauditoria.result === 'regression' ? 'yellow' : 'green'
+    );
+  }
 }
 
 function viewSummary() {

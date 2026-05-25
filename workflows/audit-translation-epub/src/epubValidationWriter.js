@@ -1,6 +1,7 @@
 // Relatório de validação por abas (padrão audit-translation-docx).
 
 import fs from 'fs';
+import path from 'path';
 import {
   validationTabScript,
   validationTabStyles,
@@ -71,6 +72,26 @@ function validationSection(status, title, content) {
       </div>
       ${content}
     </div>`;
+}
+
+function readJsonIfExists(logsDir, filename) {
+  if (!logsDir) return null;
+  const filePath = path.join(logsDir, filename);
+  if (!fs.existsSync(filePath)) return null;
+
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function loadCorrectionArtifacts(logsDir) {
+  return {
+    correctionReport: readJsonIfExists(logsDir, 'correction-report.json'),
+    postValidation: readJsonIfExists(logsDir, 'post-correction-validation.json'),
+    reauditoriaSummary: readJsonIfExists(logsDir, 'reauditoria-summary.json'),
+  };
 }
 
 function detailsBlock(rows) {
@@ -469,6 +490,102 @@ function renderVersioningTab(report) {
     </div>`;
 }
 
+function correctionRows(corrections = []) {
+  if (!corrections.length) return '<div class="empty-state">Nenhuma correção aplicada registrada.</div>';
+
+  return `
+    <table class="example-table">
+      <thead>
+        <tr>
+          <th>Tipo</th>
+          <th>Before</th>
+          <th>After</th>
+          <th>Arquivo</th>
+          <th>Node</th>
+          <th>Confiança</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${corrections.slice(0, 80).map((item) => `
+          <tr>
+            <td class="example-col">${escapeHtml(item.type || '-')}</td>
+            <td class="example-col">${escapeHtml(item.before || '-')}</td>
+            <td class="example-col">${escapeHtml(item.after || '-')}</td>
+            <td class="example-col">${escapeHtml(item.filePath || '-')}</td>
+            <td class="example-col">${escapeHtml(item.nodeId || '-')}</td>
+            <td class="example-col">${escapeHtml(String(item.confidence ?? '-'))}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+function skippedRows(actions = []) {
+  if (!actions.length) return '<div class="empty-state">Nenhuma ação ignorada registrada.</div>';
+
+  return `
+    <table class="example-table">
+      <thead>
+        <tr>
+          <th>Action</th>
+          <th>Tipo</th>
+          <th>Modo</th>
+          <th>Motivo</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${actions.slice(0, 80).map((item) => `
+          <tr>
+            <td class="example-col">${escapeHtml(item.actionId || '-')}</td>
+            <td class="example-col">${escapeHtml(item.type || '-')}</td>
+            <td class="example-col">${escapeHtml(item.mode || '-')}</td>
+            <td class="example-col">${escapeHtml(item.reason || '-')}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+function renderCorrectionsTab(artifacts) {
+  const correctionReport = artifacts.correctionReport || {};
+  const postValidation = artifacts.postValidation || {};
+  const reauditoriaSummary = artifacts.reauditoriaSummary || {};
+  const applied = correctionReport.appliedCorrections || [];
+  const skipped = correctionReport.skippedActions || [];
+  const correctionValidation = postValidation.correctionValidation || {};
+  const textComparison = postValidation.textComparison || {};
+  const packageValidation = postValidation.packageValidation || {};
+  const result = reauditoriaSummary.result || 'unknown';
+  const resultStatus = result === 'regression' ? 'FAIL' : result === 'unknown' ? 'WARN' : 'OK';
+
+  return `
+    <div id="corrections" class="content">
+      <div class="summary-grid">
+        ${summaryCard('Status final', result, resultStatus)}
+        ${summaryCard('Correções aplicadas', formatNumber(applied.length), applied.length ? 'OK' : 'WARN')}
+        ${summaryCard('Ações ignoradas', formatNumber(skipped.length), skipped.length ? 'WARN' : 'OK')}
+        ${summaryCard('Validação EPUB', postValidation.status || 'unknown', postValidation.status || 'WARN')}
+      </div>
+      ${validationSection(applied.length ? 'OK' : 'WARN', '6.1 Correções aplicadas no XHTML', correctionRows(applied))}
+      ${validationSection(skipped.length ? 'WARN' : 'OK', '6.2 Ações pendentes ou ignoradas', skippedRows(skipped))}
+      ${validationSection(postValidation.status || 'WARN', '6.3 Validação pós-correção', detailsBlock([
+        detailRow('ZIP legível', packageValidation.zipReadable ? 'sim' : 'não', packageValidation.zipReadable ? 'OK' : 'FAIL'),
+        detailRow('mimetype/container/OPF', packageValidation.mimetypePresent && packageValidation.containerPresent && packageValidation.opfPresent ? 'OK' : 'incompleto', packageValidation.mimetypePresent && packageValidation.containerPresent && packageValidation.opfPresent ? 'OK' : 'FAIL'),
+        detailRow('Manifest/spine', packageValidation.manifestValid && packageValidation.spineValid ? 'OK' : 'incompleto', packageValidation.manifestValid && packageValidation.spineValid ? 'OK' : 'FAIL'),
+        detailRow('Mudança textual real', textComparison.textChanged ? 'sim' : 'não', textComparison.textChanged ? 'OK' : 'WARN'),
+        detailRow('Correções confirmadas', `${formatNumber(correctionValidation.confirmedCorrections || 0)} / ${formatNumber(correctionValidation.appliedCorrections || 0)}`, correctionValidation.unconfirmedCorrections ? 'WARN' : 'OK'),
+      ]))}
+      ${validationSection(resultStatus, '6.4 Reauditoria automática', detailsBlock([
+        detailRow('Resultado', result, resultStatus),
+        detailRow('Issues antes/depois', `${formatNumber(reauditoriaSummary.issuesBefore || 0)} -> ${formatNumber(reauditoriaSummary.issuesAfter || 0)}`),
+        detailRow('Warnings antes/depois', `${formatNumber(reauditoriaSummary.warningsBefore || 0)} -> ${formatNumber(reauditoriaSummary.warningsAfter || 0)}`),
+        detailRow('Candidates antes/depois', `${formatNumber(reauditoriaSummary.correctionCandidatesBefore || 0)} -> ${formatNumber(reauditoriaSummary.correctionCandidatesAfter || 0)}`),
+        detailRow('Correções aplicadas', formatNumber(reauditoriaSummary.appliedCorrections || 0)),
+      ]))}
+      ${actionList('Próximas ações', skipped.length
+        ? ['Revisar ações auto_review/manual_only antes de liberar correções contextuais.', 'Manter aplicação automática restrita a auto_safe até a próxima milestone.']
+        : ['Nenhuma ação pendente registrada no correction-report atual.'])}
+    </div>`;
+}
+
 function renderTabs() {
   return `
     <div class="tabs">
@@ -477,6 +594,7 @@ function renderTabs() {
       <button class="tab-btn" onclick="showTab(event, 'patterns')">Padrões de Tradução</button>
       <button class="tab-btn" onclick="showTab(event, 'log')">Insumos do Log</button>
       <button class="tab-btn" onclick="showTab(event, 'versioning')">Versionamento</button>
+      <button class="tab-btn" onclick="showTab(event, 'corrections')">Correções</button>
     </div>`;
 }
 
@@ -489,6 +607,7 @@ export function writeEpubValidationTabsDashboard(report, htmlPath, {
     : null;
   const activeReport = report || sourceReport;
   const fileLabel = getFileLabel(activeReport);
+  const correctionArtifacts = loadCorrectionArtifacts(logsDir);
 
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -510,6 +629,7 @@ export function writeEpubValidationTabsDashboard(report, htmlPath, {
     ${renderPatternsTab(activeReport, sourceReport)}
     ${renderLogTab(activeReport)}
     ${renderVersioningTab(activeReport)}
+    ${renderCorrectionsTab(correctionArtifacts)}
   </div>
   <script>${validationTabScript}</script>
 </body>

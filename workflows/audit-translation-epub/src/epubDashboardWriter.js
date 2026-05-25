@@ -762,6 +762,201 @@ function renderNotApplicableSection(title, description) {
     </section>`;
 }
 
+function readJsonIfExists(logsDir, filename) {
+  if (!logsDir) return null;
+  const filePath = path.join(logsDir, filename);
+  if (!fs.existsSync(filePath)) return null;
+
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function loadCorrectionArtifacts(logsDir) {
+  return {
+    correctionReport: readJsonIfExists(logsDir, 'correction-report.json'),
+    postValidation: readJsonIfExists(logsDir, 'post-correction-validation.json'),
+    reauditoriaSummary: readJsonIfExists(logsDir, 'reauditoria-summary.json'),
+  };
+}
+
+function renderCorrectionRows(corrections = []) {
+  if (!corrections.length) {
+    return '<tr><td colspan="7">Nenhuma correção aplicada registrada.</td></tr>';
+  }
+
+  return corrections.slice(0, 80).map((item) => `
+    <tr>
+      <td>${escapeHtml(item.type || '-')}</td>
+      <td><code>${escapeHtml(item.before || '-')}</code></td>
+      <td><code>${escapeHtml(item.after || '-')}</code></td>
+      <td>${escapeHtml(item.filePath || '-')}</td>
+      <td>${escapeHtml(item.nodeId || '-')}</td>
+      <td>${escapeHtml(String(item.confidence ?? '-'))}</td>
+      <td>${formatNumber(item.replacements || 0)}</td>
+    </tr>`).join('');
+}
+
+function renderSkippedActionRows(actions = []) {
+  if (!actions.length) {
+    return '<tr><td colspan="5">Nenhuma ação ignorada registrada.</td></tr>';
+  }
+
+  return actions.slice(0, 80).map((item) => `
+    <tr>
+      <td>${escapeHtml(item.actionId || '-')}</td>
+      <td>${escapeHtml(item.type || '-')}</td>
+      <td>${escapeHtml(item.mode || '-')}</td>
+      <td>${escapeHtml(item.reason || '-')}</td>
+      <td>${escapeHtml(item.candidateId || '-')}</td>
+    </tr>`).join('');
+}
+
+function renderValidationSummary(postValidation) {
+  if (!postValidation) {
+    return '<div class="small">Sem validação pós-correção registrada.</div>';
+  }
+
+  const packageValidation = postValidation.packageValidation || {};
+  const textComparison = postValidation.textComparison || {};
+  const correctionValidation = postValidation.correctionValidation || {};
+
+  return `
+    <div class="grid grid-4">
+      <div class="card">
+        <div class="metric-label">Validação EPUB</div>
+        <div class="metric-value">${statusBadge(postValidation.status || 'UNKNOWN')}</div>
+        <div class="metric-note">ZIP, mimetype, container, OPF, manifest e spine.</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Mudança textual</div>
+        <div class="metric-value">${textComparison.textChanged ? 'sim' : 'não'}</div>
+        <div class="metric-note">Delta chars: ${formatNumber(textComparison.charDelta || 0)}.</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Correções confirmadas</div>
+        <div class="metric-value">${formatNumber(correctionValidation.confirmedCorrections || 0)} / ${formatNumber(correctionValidation.appliedCorrections || 0)}</div>
+        <div class="metric-note">Presença confirmada no texto final.</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Spine/manifest</div>
+        <div class="metric-value">${packageValidation.manifestValid && packageValidation.spineValid ? 'OK' : 'WARN'}</div>
+        <div class="metric-note">${formatNumber(packageValidation.manifestItems || 0)} itens manifest · ${formatNumber(packageValidation.spineItems || 0)} spine.</div>
+      </div>
+    </div>`;
+}
+
+function renderReauditSummary(reauditoriaSummary) {
+  if (!reauditoriaSummary) {
+    return '<div class="small">Sem reauditoria automática registrada.</div>';
+  }
+
+  return `
+    <div class="grid grid-4">
+      <div class="card">
+        <div class="metric-label">Status final</div>
+        <div class="metric-value">${escapeHtml(reauditoriaSummary.result || 'unknown')}</div>
+        <div class="metric-note">improvement/regression/neutral/unknown.</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Issues</div>
+        <div class="metric-value">${formatNumber(reauditoriaSummary.issuesBefore || 0)} → ${formatNumber(reauditoriaSummary.issuesAfter || 0)}</div>
+        <div class="metric-note">Antes/depois da correção.</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Warnings</div>
+        <div class="metric-value">${formatNumber(reauditoriaSummary.warningsBefore || 0)} → ${formatNumber(reauditoriaSummary.warningsAfter || 0)}</div>
+        <div class="metric-note">Antes/depois da correção.</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Candidates</div>
+        <div class="metric-value">${formatNumber(reauditoriaSummary.correctionCandidatesBefore || 0)} → ${formatNumber(reauditoriaSummary.correctionCandidatesAfter || 0)}</div>
+        <div class="metric-note">${formatNumber(reauditoriaSummary.appliedCorrections || 0)} correções aplicadas.</div>
+      </div>
+    </div>`;
+}
+
+function renderCorrectionsSection(artifacts) {
+  const correctionReport = artifacts.correctionReport || {};
+  const applied = correctionReport.appliedCorrections || [];
+  const skipped = correctionReport.skippedActions || [];
+
+  return `
+    <section>
+      <div class="section-title">
+        <div>
+          <h2>Correções aplicadas e pendentes</h2>
+          <p>Rastreabilidade do correction-report, validação pós-correção e reauditoria automática.</p>
+        </div>
+      </div>
+
+      <div class="grid grid-4">
+        <div class="card">
+          <div class="metric-label">Aplicadas</div>
+          <div class="metric-value">${formatNumber(applied.length)}</div>
+          <div class="metric-note">Somente actions auto_safe.</div>
+        </div>
+        <div class="card">
+          <div class="metric-label">Ignoradas</div>
+          <div class="metric-value">${formatNumber(skipped.length)}</div>
+          <div class="metric-note">auto_review/manual_only não aplicadas.</div>
+        </div>
+        <div class="card">
+          <div class="metric-label">Validação</div>
+          <div class="metric-value">${statusBadge(artifacts.postValidation?.status || 'UNKNOWN')}</div>
+          <div class="metric-note">post-correction-validation.json.</div>
+        </div>
+        <div class="card">
+          <div class="metric-label">Resultado final</div>
+          <div class="metric-value">${escapeHtml(artifacts.reauditoriaSummary?.result || 'unknown')}</div>
+          <div class="metric-note">reauditoria-summary.json.</div>
+        </div>
+      </div>
+
+      <h3>Correções aplicadas</h3>
+      <div class="card compact-table-card">
+        <table>
+          <thead>
+            <tr>
+              <th>Tipo</th>
+              <th>Before</th>
+              <th>After</th>
+              <th>Arquivo</th>
+              <th>Node</th>
+              <th>Confiança</th>
+              <th>Trocas</th>
+            </tr>
+          </thead>
+          <tbody>${renderCorrectionRows(applied)}</tbody>
+        </table>
+      </div>
+
+      <h3>Ações ignoradas</h3>
+      <div class="card compact-table-card">
+        <table>
+          <thead>
+            <tr>
+              <th>Action</th>
+              <th>Tipo</th>
+              <th>Modo</th>
+              <th>Motivo</th>
+              <th>Candidate</th>
+            </tr>
+          </thead>
+          <tbody>${renderSkippedActionRows(skipped)}</tbody>
+        </table>
+      </div>
+
+      <h3>Validação pós-correção</h3>
+      ${renderValidationSummary(artifacts.postValidation)}
+
+      <h3>Reauditoria antes/depois</h3>
+      ${renderReauditSummary(artifacts.reauditoriaSummary)}
+    </section>`;
+}
+
 function getEpubTabReports(logsDir, report) {
   const sourceReport = logsDir
     ? getLatestJsonReportByWorkingInput(logsDir, 'input/translated', report)
@@ -782,6 +977,7 @@ export function writeEpubHtmlDashboard(report, htmlPath, {
 } = {}) {
   const previousReport = logsDir ? getLatestJsonReport(logsDir, report.stats?.timestamp) : null;
   const { sourceReport, currentReport } = getEpubTabReports(logsDir, report);
+  const correctionArtifacts = loadCorrectionArtifacts(logsDir);
   const version = getVersionInfo(report);
   const fileLabel = [
     report.stats?.sourceFile,
@@ -887,7 +1083,7 @@ export function writeEpubHtmlDashboard(report, htmlPath, {
     ${renderLogInputs(report, relativeWorkflowPath)}
     ${renderSectionInventory(report)}
     ${renderNotApplicableSection('Consistência de entidades', 'Workflow EPUB não executa normalização de entidades DOCX.')}
-    ${renderNotApplicableSection('Correções aplicadas', 'Substituições de entidade não se aplicam; use o fluxo fixEpub para correções de pacote EPUB.')}
+    ${renderCorrectionsSection(correctionArtifacts)}
 
     <section>
       <div class="section-title">

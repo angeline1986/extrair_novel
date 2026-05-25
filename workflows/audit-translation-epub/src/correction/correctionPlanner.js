@@ -11,6 +11,14 @@ import {
   CorrectionRisk,
   CorrectionStatus,
 } from './correctionTypes.js';
+import {
+  loadTermsGlossary,
+  normalizeTermEntries,
+} from './terminologyNormalizer.js';
+import {
+  loadEntitiesGlossary,
+  normalizeEntityAliasEntries,
+} from './entityNormalizer.js';
 
 function escapedRegex(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -109,6 +117,37 @@ function buildLogReplacementCandidates(candidates, { logInfo, translationDoc, xh
   }
 }
 
+function buildGlossaryCandidates(candidates, { glossaryEntries, translationDoc, xhtmlMap }) {
+  for (const entry of glossaryEntries || []) {
+    const occurrences = countOccurrences(translationDoc.rawText, entry.from);
+    if (occurrences <= 0) continue;
+    const locations = findTextLocations(xhtmlMap, entry.from);
+    const primaryLocation = locations[0] || null;
+    const autoSafe = entry.mode === CorrectionMode.AUTO_SAFE && entry.confidence >= 0.9;
+
+    pushCandidate(candidates, {
+      type: entry.source === 'glossary:entities' ? 'entity_alias_replace' : 'terminology_replace',
+      severity: autoSafe ? 'INFO' : 'WARN',
+      mode: autoSafe ? CorrectionMode.AUTO_SAFE : CorrectionMode.AUTO_REVIEW,
+      source: entry.source,
+      confidence: entry.confidence,
+      risk: autoSafe ? CorrectionRisk.LOW : CorrectionRisk.MEDIUM,
+      from: entry.from,
+      to: entry.to,
+      occurrences,
+      reason: autoSafe
+        ? 'Correspondencia exata com glossario seguro.'
+        : 'Correspondencia com glossario exige revisao antes da aplicacao.',
+      details: {
+        note: entry.note,
+        entity: entry.entity || null,
+      },
+      target: targetFromLocation(primaryLocation),
+      locations,
+    });
+  }
+}
+
 function buildFindingCandidates(candidates, findings, xhtmlMap) {
   for (const finding of findings) {
     if (finding.type === 'epub_residual_english_block') {
@@ -180,11 +219,33 @@ function buildFindingCandidates(candidates, findings, xhtmlMap) {
   }
 }
 
-export function buildCorrectionCandidates({ issues = [], warnings = [], logInfo, translationDoc, xhtmlMap }) {
+export function buildCorrectionCandidates({
+  issues = [],
+  warnings = [],
+  logInfo,
+  translationDoc,
+  xhtmlMap,
+  glossary = {},
+}) {
   const candidates = [];
   buildLogReplacementCandidates(candidates, { logInfo, translationDoc, xhtmlMap });
+  buildGlossaryCandidates(candidates, {
+    glossaryEntries: [
+      ...normalizeTermEntries(glossary.terms),
+      ...normalizeEntityAliasEntries(glossary.entities),
+    ],
+    translationDoc,
+    xhtmlMap,
+  });
   buildFindingCandidates(candidates, [...issues, ...warnings], xhtmlMap);
   return candidates;
+}
+
+export function loadCorrectionGlossary({ termsPath, entitiesPath }) {
+  return {
+    terms: loadTermsGlossary(termsPath),
+    entities: loadEntitiesGlossary(entitiesPath),
+  };
 }
 
 function actionStatusForMode(mode) {

@@ -80,8 +80,21 @@ O auditor usa esse arquivo para:
 logs/workflow-events.jsonl
 logs/json/audit-report-*.json
 logs/json/correction-plan.json
+logs/json/correction-report.json
+logs/json/post-correction-validation.json
+logs/json/reaudit-report.json
+logs/json/reauditoria-summary.json
 logs/txt/epub-audit-summary-latest.txt
+logs/txt/correction-report-latest.md
 logs/html/audit-dashboard-latest.html
 logs/html/validation-report-latest.html
 input-fixed/manifest.json
 ```
+
+Os relatorios HTML exibem uma secao de correcoes com:
+
+- correcoes aplicadas em XHTML, com before/after, arquivo, nodeId e confianca;
+- acoes ignoradas por `auto_review` ou `manual_only`;
+- validacao tecnica pos-correcao;
+- comparativo da reauditoria antes/depois;
+- status final `improvement`, `regression`, `neutral` ou `unknown`.

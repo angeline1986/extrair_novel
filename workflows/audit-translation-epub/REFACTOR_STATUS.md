@@ -1,12 +1,12 @@
 # Status Do Refactor - audit-translation-epub
 
-Atualizado em: 2026-05-24T23:57:13Z
+Atualizado em: 2026-05-25T01:08:39Z
 
 ## Fase Atual
 
-Fase 2 - Mapeamento XHTML implementado.
+Fase 6 - Reauditoria automatica implementada.
 
-O workflow EPUB agora possui o primeiro contrato funcional entre auditoria e correcao e uma camada de mapeamento XHTML. `correctionCandidates` e `correctionPlan` passam a referenciar localizacoes precisas no EPUB quando ha contexto suficiente.
+O workflow EPUB agora possui contrato de correcao, mapeamento XHTML, motor inicial para aplicar `auto_safe`, glossarios locais por obra, validacao automatica pos-correcao e reauditoria automatica da versao corrigida. Apos gerar o EPUB corrigido, o fluxo valida o pacote, reextrai texto, confirma correcoes, roda nova auditoria e compara antes/depois.
 
 ## Funcionalidades Concluidas
 
@@ -42,24 +42,45 @@ O workflow EPUB agora possui o primeiro contrato funcional entre auditoria e cor
 - Mapeamento de arquivo XHTML, blocos/paragrafos e nos de texto.
 - IDs estaveis para nos textuais.
 - Enriquecimento de candidates e actions com `filePath`, `spineIndex`, `paragraphIndex`, `textNodeIndex` e `textPreview`.
+- `src/correction/xhtmlCorrectionEngine.js`.
+- Aplicacao exclusiva de actions `auto_safe` com confianca minima de 0.9.
+- Edicao restrita a nos de texto XHTML mapeados.
+- Geracao de `logs/json/correction-report.json`.
+- Registro de `before`, `after`, `filePath`, `nodeId` e tipo de correcao para cada aplicacao.
+- Garantia inicial de que `auto_review` e `manual_only` nao sao aplicadas.
+- `input/glossary/terms.json`.
+- `input/glossary/entities.json`.
+- `src/correction/terminologyNormalizer.js`.
+- `src/correction/entityNormalizer.js`.
+- Geracao de actions `auto_safe` a partir de correspondencia exata com glossario seguro.
+- Geracao de `auto_review` para entradas de glossario ambiguas.
+- Aplicacao validada de normalizacao terminologica real em XHTML.
+- `src/correction/postCorrectionValidator.js`.
+- Validacao basica de ZIP/EPUB.
+- Validacao de `mimetype`, `META-INF/container.xml`, OPF, manifest e spine.
+- Reextracao de texto da versao corrigida.
+- Comparacao textual entre traducao de entrada e EPUB corrigido.
+- Confirmacao de correcoes aplicadas no texto final.
+- Geracao de `logs/json/post-correction-validation.json`.
+- Reauditoria automatica usando o EPUB corrigido como `translated`.
+- Geracao de `logs/json/reaudit-report.json`.
+- Geracao de `logs/json/reauditoria-summary.json`.
+- Classificacao do resultado como `improvement`, `regression`, `neutral` ou `unknown`.
 
 ## Funcionalidades Em Andamento
 
 - Alinhamento conceitual com `audit-translation-docx`.
 - Separacao entre inteligencia compartilhavel e adaptadores EPUB/XHTML.
-- Preparacao da proxima fase: aplicacao controlada de plano em XHTML.
+- Preparacao da proxima fase: relatorio visual consolidando correction report, validacao e reauditoria.
 
 ## Pendencias
 
 - Refatorar `fixEpub.js` para aplicar plano de correcao.
-- Criar `xhtmlCorrectionEngine.js`.
-- Criar `terminologyNormalizer.js`.
 - Criar `entityNormalizer.js`.
 - Criar `genderAgreementFixer.js`.
 - Criar `residualEnglishFixer.js`.
 - Criar `epubValidator.js`.
 - Criar `xhtmlMapper.js`.
-- Criar reauditoria comparativa antes/depois.
 - Criar relatorio de correcoes aplicadas/ignoradas.
 - Criar `input/glossary/entities.json`.
 - Criar `input/glossary/terms.json`.
@@ -96,14 +117,19 @@ Possiveis bloqueios futuros:
 - Acoes `manual_only` entram com status `manual_only`.
 - `xhtmlMapper.js` e somente leitura; nao altera o EPUB.
 - Localizacoes de candidates podem conter varias ocorrencias em `locations`, com uma ocorrencia primaria em `target`.
+- `xhtmlCorrectionEngine.js` aplica apenas actions `auto_safe`; nao executa revisao contextual.
+- `correction-report.json` e a fonte de verdade das correcoes efetivamente aplicadas.
+- Glossarios ficam escopados ao workflow/obra em `input/glossary`.
+- `entities.json` aplica apenas aliases declarados como seguros; aliases ambiguos viram `auto_review`.
+- `post-correction-validation.json` valida tecnica EPUB e confirmacao textual, mas ainda nao substitui a reauditoria completa.
+- `reauditoria-summary.json` e a fonte de verdade do comparativo antes/depois.
 
 ## Proximos Passos Recomendados
 
-1. Atualizar relatorios HTML para exibir resumo de candidates/plano e localizacoes XHTML.
-2. Criar `xhtmlCorrectionEngine.js` sem integrar ainda ao `fixEpub.js`.
-3. Refatorar `fixEpub.js` para consumir `correctionPlan`.
-4. Implementar normalizacao terminologica segura para acoes `auto_safe`.
-5. Rodar reauditoria automatica e medir mudanca textual real.
+1. Atualizar relatorios HTML para exibir correction report, post-correction validation e reauditoria.
+2. Criar relatorio comparativo visual antes/depois.
+3. Expandir glossarios por obra com termos e aliases validados.
+4. Iniciar tratamento de candidates `auto_review` sem aplicar automaticamente.
 
 ## Riscos Conhecidos
 
@@ -163,3 +189,49 @@ Em 2026-05-24T23:57:13Z foi implementada a milestone `m2-xhtml-mapping`:
 - enriquecimento de `correctionCandidates` com localizacao XHTML;
 - enriquecimento de `correction-plan.json` com as mesmas referencias;
 - validacao com EPUB real: 249 itens de spine, 16876 paragrafos e 17232 nos textuais mapeados.
+
+Em 2026-05-25T00:03:42Z foi implementada a milestone `m3-safe-terminology-application`:
+
+- criacao de `src/correction/xhtmlCorrectionEngine.js`;
+- integracao do `fixEpub.js` com `logs/json/correction-plan.json`;
+- aplicacao restrita a actions `auto_safe` com confianca minima 0.9;
+- geracao de `logs/json/correction-report.json`;
+- geracao de EPUB corrigido em `output/`;
+- validacao com o plano atual: 2 actions totais, 0 auto_safe, 0 correcoes aplicadas, 2 actions `auto_review` ignoradas corretamente.
+
+Em 2026-05-25T00:15:38Z foi implementada a milestone `m4-terminology-glossary`:
+
+- criacao de `input/glossary/terms.json`;
+- criacao de `input/glossary/entities.json`;
+- criacao de `src/correction/terminologyNormalizer.js`;
+- criacao de `src/correction/entityNormalizer.js`;
+- `correctionPlanner.js` passou a gerar actions `auto_safe` a partir do glossario;
+- validacao real: 1 action `auto_safe` gerada para `T/N:` -> `N/T:`;
+- `xhtmlCorrectionEngine.js` aplicou 4 correcoes em 4 arquivos XHTML;
+- 2 actions `auto_review` continuaram ignoradas corretamente.
+
+Em 2026-05-25T00:43:09Z foi implementada a milestone `m5-post-correction-validation`:
+
+- criacao de `src/correction/postCorrectionValidator.js`;
+- integracao ao final de `fixEpub.js`;
+- geracao de `logs/json/post-correction-validation.json`;
+- validacao tecnica do EPUB corrigido;
+- comparacao textual entre traducao base e output corrigido;
+- confirmacao das correcoes aplicadas no texto final;
+- validacao real: status `OK`, EPUB tecnico valido, mudanca textual real detectada, 4 de 4 correcoes confirmadas.
+
+Em 2026-05-25T01:08:39Z foi implementada a milestone `m6-automatic-reaudit`:
+
+- `fixEpub.js` passou a executar reauditoria automatica com o EPUB corrigido como `translated`;
+- geracao de `logs/json/reaudit-report.json`;
+- geracao de `logs/json/reauditoria-summary.json`;
+- comparativo antes/depois com issues, warnings e correction candidates;
+- validacao real: issues 0 -> 0, warnings 3 -> 3, candidates 3 -> 2, resultado `improvement`.
+
+Em 2026-05-25T01:32:18Z foi implementada a milestone `m7-correction-report-dashboard`:
+
+- `audit-dashboard-latest.html` passou a exibir correcoes aplicadas, acoes ignoradas, validacao pos-correcao e reauditoria;
+- `validation-report-latest.html` ganhou aba `Correcoes` com o mesmo rastreamento operacional;
+- geracao de `logs/txt/correction-report-latest.md` como resumo Markdown das correcoes;
+- README atualizado com as novas saidas e informacoes exibidas;
+- a milestone manteve o escopo restrito a visualizacao/rastreabilidade, sem aplicar correcao contextual ampla.

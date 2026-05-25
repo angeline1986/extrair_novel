@@ -3,14 +3,17 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { spawnSync } from 'child_process';
 import AdmZip from 'adm-zip';
 import * as cheerio from 'cheerio';
 import archiver from 'archiver';
 import { readFirstEpubFromDir } from './epubReader.js';
-import { readFirstTxtFromDir, readTranslationLog } from './logReader.js';
+import { applySafeCorrectionsToZip } from './correction/xhtmlCorrectionEngine.js';
+import { validatePostCorrection } from './correction/postCorrectionValidator.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workflowRoot = path.resolve(__dirname, '..');
+const projectRoot = path.resolve(workflowRoot, '../..');
 
 const paths = {
   translatedDir: path.join(workflowRoot, 'input/translated'),
@@ -18,8 +21,14 @@ const paths = {
   inputFixedDir: path.join(workflowRoot, 'input-fixed'),
   outputDir: path.join(workflowRoot, 'output'),
   logsDir: path.join(workflowRoot, 'logs'),
+  logsJsonDir: path.join(workflowRoot, 'logs/json'),
   workflowEventsPath: path.join(workflowRoot, 'logs/workflow-events.jsonl'),
   manifestPath: path.join(workflowRoot, 'input-fixed/manifest.json'),
+  correctionPlanPath: path.join(workflowRoot, 'logs/json/correction-plan.json'),
+  correctionReportPath: path.join(workflowRoot, 'logs/json/correction-report.json'),
+  postCorrectionValidationPath: path.join(workflowRoot, 'logs/json/post-correction-validation.json'),
+  reauditReportPath: path.join(workflowRoot, 'logs/json/reaudit-report.json'),
+  reauditoriaSummaryPath: path.join(workflowRoot, 'logs/json/reauditoria-summary.json'),
 };
 
 function parseArgs(argv) {
@@ -40,6 +49,7 @@ function ensureDirs() {
     paths.inputFixedDir,
     paths.outputDir,
     paths.logsDir,
+    paths.logsJsonDir,
   ];
 
   for (const dir of dirs) {
@@ -115,6 +125,11 @@ function updateManifest({ version, translated, versionPath, finalPath, report })
         replacementsApplied: report.totalReplacements,
         changedEntries: report.changedEntries.length,
         packageValidation: report.packageValidation,
+        postCorrectionValidation: {
+          status: report.postCorrectionValidation?.status,
+          textChanged: report.postCorrectionValidation?.textComparison?.textChanged,
+          confirmedCorrections: report.postCorrectionValidation?.correctionValidation?.confirmedCorrections,
+        },
       },
     },
   ].sort((a, b) => a.version - b.version);
@@ -245,6 +260,133 @@ function validateEpubPackage(filePath) {
   };
 }
 
+function loadCorrectionPlan() {
+  if (!fs.existsSync(paths.correctionPlanPath)) {
+    return {
+      schemaVersion: '1.0',
+      workflow: 'audit-translation-epub',
+      createdAt: new Date().toISOString(),
+      source: {},
+      summary: {
+        totalCandidates: 0,
+        autoSafe: 0,
+        autoReview: 0,
+        manualOnly: 0,
+      },
+      actions: [],
+      warning: 'correction-plan.json nao encontrado; rode a auditoria antes da correcao.',
+    };
+  }
+
+  return JSON.parse(fs.readFileSync(paths.correctionPlanPath, 'utf8'));
+}
+
+function latestAuditReportPath() {
+  if (!fs.existsSync(paths.logsJsonDir)) return null;
+  const reports = fs.readdirSync(paths.logsJsonDir)
+    .filter((file) => /^audit-report-\d{2}-\d{2}-\d{4}_\d{2}-\d{2}-\d{2}\.json$/i.test(file))
+    .map((file) => path.join(paths.logsJsonDir, file))
+    .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs);
+  return reports[0] || null;
+}
+
+function readJsonFile(filePath) {
+  if (!filePath || !fs.existsSync(filePath)) return null;
+  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
+
+function runAuditForCorrected(finalPath) {
+  const result = spawnSync(process.execPath, [
+    'workflows/audit-translation-epub/src/audit.js',
+    `--translated=${finalPath}`,
+  ], {
+    cwd: projectRoot,
+    stdio: 'pipe',
+    env: process.env,
+    encoding: 'utf8',
+  });
+
+  if (result.status !== 0 && result.status !== 1) {
+    throw new Error(`Reauditoria falhou: ${result.stderr || result.stdout || `exit ${result.status}`}`);
+  }
+
+  return {
+    status: result.status,
+    stdout: result.stdout,
+    stderr: result.stderr,
+  };
+}
+
+function classifyReaudit(beforeReport, afterReport) {
+  if (!beforeReport || !afterReport) return 'unknown';
+
+  const beforeIssues = beforeReport.stats?.totalIssues ?? beforeReport.issues?.length ?? 0;
+  const afterIssues = afterReport.stats?.totalIssues ?? afterReport.issues?.length ?? 0;
+  const beforeWarnings = beforeReport.stats?.totalWarnings ?? beforeReport.warnings?.length ?? 0;
+  const afterWarnings = afterReport.stats?.totalWarnings ?? afterReport.warnings?.length ?? 0;
+  const beforeCandidates = beforeReport.correctionCandidates?.length ?? 0;
+  const afterCandidates = afterReport.correctionCandidates?.length ?? 0;
+
+  if (
+    afterIssues < beforeIssues ||
+    (afterIssues === beforeIssues && afterWarnings < beforeWarnings) ||
+    (afterIssues === beforeIssues && afterWarnings === beforeWarnings && afterCandidates < beforeCandidates)
+  ) {
+    return 'improvement';
+  }
+
+  if (
+    afterIssues > beforeIssues ||
+    (afterIssues === beforeIssues && afterWarnings > beforeWarnings) ||
+    (afterIssues === beforeIssues && afterWarnings === beforeWarnings && afterCandidates > beforeCandidates)
+  ) {
+    return 'regression';
+  }
+
+  return 'neutral';
+}
+
+function buildReauditoriaSummary({ beforeReport, afterReport, correctionResult, postCorrectionValidation }) {
+  return {
+    schemaVersion: '1.0',
+    timestamp: new Date().toISOString(),
+    issuesBefore: beforeReport?.stats?.totalIssues ?? beforeReport?.issues?.length ?? null,
+    issuesAfter: afterReport?.stats?.totalIssues ?? afterReport?.issues?.length ?? null,
+    warningsBefore: beforeReport?.stats?.totalWarnings ?? beforeReport?.warnings?.length ?? null,
+    warningsAfter: afterReport?.stats?.totalWarnings ?? afterReport?.warnings?.length ?? null,
+    correctionCandidatesBefore: beforeReport?.correctionCandidates?.length ?? null,
+    correctionCandidatesAfter: afterReport?.correctionCandidates?.length ?? null,
+    appliedCorrections: correctionResult.summary.appliedCorrections,
+    validationStatus: postCorrectionValidation.status,
+    result: classifyReaudit(beforeReport, afterReport),
+  };
+}
+
+function runPostFixReaudit({ finalPath, beforeReport, correctionResult, postCorrectionValidation }) {
+  const auditRun = runAuditForCorrected(finalPath);
+  const afterPath = latestAuditReportPath();
+  const afterReport = readJsonFile(afterPath);
+
+  if (afterReport) {
+    fs.writeFileSync(paths.reauditReportPath, `${JSON.stringify(afterReport, null, 2)}\n`, 'utf8');
+  }
+
+  const summary = buildReauditoriaSummary({
+    beforeReport,
+    afterReport,
+    correctionResult,
+    postCorrectionValidation,
+  });
+  fs.writeFileSync(paths.reauditoriaSummaryPath, `${JSON.stringify(summary, null, 2)}\n`, 'utf8');
+
+  return {
+    auditRun,
+    reauditReportPath: paths.reauditReportPath,
+    reauditoriaSummaryPath: paths.reauditoriaSummaryPath,
+    summary,
+  };
+}
+
 export async function fixEpub({ translatedPath, logPath } = {}) {
   ensureDirs();
 
@@ -253,35 +395,25 @@ export async function fixEpub({ translatedPath, logPath } = {}) {
     : readFirstEpubFromDir(paths.translatedDir);
   if (!translated) throw new Error(`Nenhum EPUB traduzido encontrado em ${paths.translatedDir}`);
 
-  const logInfo = readTranslationLog(logPath || readFirstTxtFromDir(paths.logsInputDir));
-  const replacements = (logInfo.replacements || []).filter((item) => item.from && item.to);
-
+  const beforeReport = readJsonFile(latestAuditReportPath());
   const { version, dir } = nextVersionDir();
   const baseName = path.basename(translated.filePath, path.extname(translated.filePath));
   const outputName = `${baseName}_${version}_fixed.epub`;
   const versionPath = path.join(dir, outputName);
   const finalPath = path.join(paths.outputDir, outputName);
   const zip = new AdmZip(translated.filePath);
-  const changedEntries = [];
-
-  if (replacements.length > 0) {
-    for (const entry of zip.getEntries()) {
-      if (entry.isDirectory || !shouldEditEntry(entry.entryName)) continue;
-
-      const originalHtml = entry.getData().toString('utf8');
-      const result = updateHtmlText(originalHtml, replacements);
-      if (result.changes.length === 0) continue;
-
-      zip.updateFile(entry.entryName, Buffer.from(result.html, 'utf8'));
-      changedEntries.push({
-        entry: entry.entryName,
-        changes: mergeChanges(result.changes),
-      });
-    }
-  }
+  const correctionPlan = loadCorrectionPlan();
+  const correctionResult = applySafeCorrectionsToZip(zip, correctionPlan);
 
   await writeEpubZip(zip, versionPath);
   fs.copyFileSync(versionPath, finalPath);
+  const postCorrectionValidation = validatePostCorrection({
+    translatedPath: translated.filePath,
+    correctedPath: finalPath,
+    correctionResult,
+    correctionReportPath: paths.correctionReportPath,
+    outputPath: paths.postCorrectionValidationPath,
+  });
 
   const report = {
     timestamp: new Date().toISOString(),
@@ -289,16 +421,33 @@ export async function fixEpub({ translatedPath, logPath } = {}) {
     source: translated.filePath,
     versionPath,
     finalPath,
-    logFile: logInfo.filePath,
-    replacements,
-    changedEntries,
+    correctionPlanPath: paths.correctionPlanPath,
+    correctionReportPath: paths.correctionReportPath,
+    postCorrectionValidationPath: paths.postCorrectionValidationPath,
+    changedEntries: correctionResult.changedEntries,
+    appliedCorrections: correctionResult.appliedCorrections,
+    skippedActions: correctionResult.skippedActions,
     packageValidation: validateEpubPackage(versionPath),
-    totalReplacements: changedEntries.reduce(
-      (sum, entry) => sum + entry.changes.reduce((inner, change) => inner + change.count, 0),
-      0
-    ),
+    postCorrectionValidation,
+    totalReplacements: correctionResult.summary.replacements,
   };
   report.manifest = updateManifest({ version, translated, versionPath, finalPath, report });
+  fs.writeFileSync(paths.correctionReportPath, `${JSON.stringify({
+    ...correctionResult,
+    timestamp: report.timestamp,
+    version,
+    source: relativeWorkflowPath(translated.filePath),
+    versionPath: relativeWorkflowPath(versionPath),
+    finalPath: relativeWorkflowPath(finalPath),
+    correctionPlanPath: relativeWorkflowPath(paths.correctionPlanPath),
+  }, null, 2)}\n`, 'utf8');
+  const reauditoria = runPostFixReaudit({
+    finalPath,
+    beforeReport,
+    correctionResult,
+    postCorrectionValidation,
+  });
+  report.reauditoria = reauditoria.summary;
 
   appendWorkflowEvent('VERSION_CREATED', {
     version,
@@ -311,6 +460,16 @@ export async function fixEpub({ translatedPath, logPath } = {}) {
     destination: relativeWorkflowPath(finalPath),
     version,
     replacementsApplied: report.totalReplacements,
+    appliedCorrections: correctionResult.summary.appliedCorrections,
+    skippedActions: correctionResult.summary.skippedActions,
+    postCorrectionStatus: postCorrectionValidation.status,
+    textChanged: postCorrectionValidation.textComparison.textChanged,
+    confirmedCorrections: postCorrectionValidation.correctionValidation.confirmedCorrections,
+    reauditoriaResult: reauditoria.summary.result,
+    issuesBefore: reauditoria.summary.issuesBefore,
+    issuesAfter: reauditoria.summary.issuesAfter,
+    warningsBefore: reauditoria.summary.warningsBefore,
+    warningsAfter: reauditoria.summary.warningsAfter,
   });
 
   return report;
