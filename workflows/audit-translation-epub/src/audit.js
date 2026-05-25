@@ -33,6 +33,7 @@ import {
 import { createOllamaAdapter } from './correction/ollamaAdapter.js';
 import { buildXhtmlMap } from './xhtmlMapper.js';
 import { buildChapterAlignment } from './chapterAligner.js';
+import { buildSemanticConsistencyAudit } from './semanticConsistencyAudit.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workflowRoot = path.resolve(__dirname, '..');
@@ -380,7 +381,7 @@ async function writeAssistedReviewReports({ reviewQueue, createdAt }) {
   };
 }
 
-async function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, warnings, correctionCandidates, xhtmlMap, chapterAlignment, glossary }) {
+async function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, warnings, correctionCandidates, semanticAudit, xhtmlMap, chapterAlignment, glossary }) {
   const runDate = new Date();
   const timestamp = formatTimestampForFile(runDate);
   const isoTimestamp = runDate.toISOString();
@@ -444,6 +445,8 @@ async function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, is
       entities: glossary.entities.entities.length,
     },
     correctionCandidates,
+    semanticCandidates: semanticAudit.semanticCandidates,
+    semanticSummary: semanticAudit.summary,
     correctionPlanSummary: correctionPlan.summary,
     issues: serializedIssues,
     warnings: serializedWarnings,
@@ -500,6 +503,8 @@ async function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, is
   pruneOldAuditReports(jsonPath);
   const correctionPlanPath = path.join(paths.logsJsonDir, 'correction-plan.json');
   fs.writeFileSync(correctionPlanPath, JSON.stringify(correctionPlan, null, 2), 'utf8');
+  const semanticCandidatesPath = path.join(paths.logsJsonDir, 'semantic-candidates.json');
+  fs.writeFileSync(semanticCandidatesPath, JSON.stringify(semanticAudit, null, 2), 'utf8');
   const { reviewQueue, reviewQueuePath, reviewQueueMarkdownPath } = writeReviewQueueReports({
     correctionPlan,
     sourceDoc,
@@ -525,10 +530,12 @@ async function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, is
     warnings: warnings.length,
     report: path.relative(workflowRoot, jsonPath).replaceAll('\\', '/'),
     correctionPlan: path.relative(workflowRoot, correctionPlanPath).replaceAll('\\', '/'),
+    semanticCandidates: path.relative(workflowRoot, semanticCandidatesPath).replaceAll('\\', '/'),
     reviewQueue: path.relative(workflowRoot, reviewQueuePath).replaceAll('\\', '/'),
     assistedReview: path.relative(workflowRoot, assistedReviewPath).replaceAll('\\', '/'),
     assistedReviewModelTrace: path.relative(workflowRoot, assistedReviewModelTracePath).replaceAll('\\', '/'),
     correctionCandidates: correctionCandidates.length,
+    semanticCandidatesCount: semanticAudit.summary.total,
     reviewQueueItems: reviewQueue.summary.totalItems,
     assistedReviewSuggestions: assistedReview.summary.totalSuggestions,
     assistedReviewOllamaSuggestions: assistedReview.summary.ollamaSuggestions,
@@ -575,6 +582,13 @@ async function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, is
     `Auto-review: ${correctionPlan.summary.autoReview}`,
     `Manual-only: ${correctionPlan.summary.manualOnly}`,
     `Correction plan: ${correctionPlanPath}`,
+    '',
+    'SEMANTIC CANDIDATES',
+    `Total: ${semanticAudit.summary.total}`,
+    `High: ${semanticAudit.summary.severity.high}`,
+    `Medium: ${semanticAudit.summary.severity.medium}`,
+    `Low: ${semanticAudit.summary.severity.low}`,
+    `Semantic candidates: ${semanticCandidatesPath}`,
     `Review queue: ${reviewQueuePath}`,
     `Review queue items: ${reviewQueue.summary.totalItems}`,
     `Assisted review: ${assistedReviewPath}`,
@@ -599,6 +613,7 @@ async function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, is
     report,
     jsonPath,
     correctionPlanPath,
+    semanticCandidatesPath,
     reviewQueuePath,
     reviewQueueMarkdownPath,
     assistedReviewPath,
@@ -674,6 +689,13 @@ async function main() {
     xhtmlMap,
     glossary,
   });
+  const semanticAudit = buildSemanticConsistencyAudit({
+    sourceDoc,
+    translationDoc,
+    xhtmlMap,
+    chapterAlignment,
+    glossary,
+  });
 
   const { report, jsonPath, dashboardHtmlPath, validationHtmlPath, summaryPath } = await writeReports({
     sourceDoc,
@@ -683,6 +705,7 @@ async function main() {
     issues: allIssues,
     warnings: allWarnings,
     correctionCandidates,
+    semanticAudit,
     xhtmlMap,
     chapterAlignment,
     glossary,
@@ -692,6 +715,7 @@ async function main() {
   console.log(`Status: ${report.status}`);
   console.log(`Issues: ${allIssues.length} | Warnings: ${allWarnings.length}`);
   console.log(`Correction candidates: ${correctionCandidates.length}`);
+  console.log(`Semantic candidates: ${semanticAudit.summary.total}`);
   console.log(`Resumo: ${summaryPath}`);
   console.log(`JSON: ${jsonPath}`);
   console.log(`Dashboard: ${dashboardHtmlPath}`);

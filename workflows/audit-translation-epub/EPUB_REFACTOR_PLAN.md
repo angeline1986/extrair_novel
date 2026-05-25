@@ -1278,3 +1278,23 @@ Proxima milestone recomendada:
 ```txt
 criar fluxo assistido para converter sugestoes aprovadas em itens approved da review queue
 ```
+
+## 43. Estado Da Milestone m21-semantic-consistency-audit
+
+Implementado em: 2026-05-25T21:30:00Z
+
+A milestone `m21-semantic-consistency-audit` foi concluida como camada separada de auditoria semantica e consistencia textual.
+
+Entregas:
+
+- `src/semanticConsistencyAudit.js`;
+- `logs/json/semantic-candidates.json`;
+- `semanticCandidates` separados dos `correctionCandidates`;
+- nenhum `semanticCandidate` entra automaticamente no `correctionPlan`;
+- deteccao heuristica/deterministica de omissao/expansao, drift semantico, repeticao anormal, literalidade, inconsistencia terminologica e tratamento inconsistente;
+- uso de `originalAlignedText`, `currentParagraph`, contexto expandido, glossario e entidades;
+- severidade `low`, `medium` e `high`;
+- confianca `deterministic`, `heuristic` e `model_assisted`;
+- dashboard principal e relatorio de validacao com visualizacao dos candidatos semanticos.
+
+Esta milestone nao aplica correcoes automaticamente e nao altera EPUB.

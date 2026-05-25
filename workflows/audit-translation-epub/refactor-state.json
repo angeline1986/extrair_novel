@@ -1,16 +1,16 @@
 {
   "schemaVersion": "1.0",
-  "refactorVersion": "0.21.0",
+  "refactorVersion": "0.22.0",
   "workflow": "audit-translation-epub",
   "currentPhase": {
-    "id": "phase-20",
-    "name": "Teste operacional de aprovacao manual concluido",
+    "id": "phase-21",
+    "name": "Auditoria semantica e consistencia textual implementada",
     "status": "active",
-    "description": "Uma sugestao assistida do Ollama foi aprovada manualmente, aplicada pelo fixEpub, validada e reauditada sem aplicar itens pendentes."
+    "description": "O workflow EPUB gera semanticCandidates separados do correctionPlan para detectar riscos semanticos que exigem revisao humana."
   },
   "timestamps": {
     "createdAt": "2026-05-24T23:37:47Z",
-    "updatedAt": "2026-05-25T21:05:00Z"
+    "updatedAt": "2026-05-25T22:02:00Z"
   },
   "completedTasks": [
     {
@@ -151,6 +151,11 @@
     {
       "id": "manual-approved-suggestion-test",
       "title": "Testar aplicacao real de uma sugestao assistida aprovada manualmente",
+      "status": "done"
+    },
+    {
+      "id": "semantic-consistency-audit",
+      "title": "Criar auditoria semantica separada de correctionCandidates",
       "status": "done"
     }
   ],
@@ -454,6 +459,42 @@
         "reauditoria improvement",
         "manifest operacional restaurado apos teste"
       ]
+    },
+    {
+      "id": "m21-semantic-consistency-audit",
+      "name": "Auditoria semantica e consistencia textual",
+      "status": "done",
+      "deliverables": [
+        "semanticConsistencyAudit.js",
+        "semantic-candidates.json",
+        "semanticCandidates separados do correctionPlan",
+        "dashboard/relatorio com candidatos semanticos",
+        "sem aplicacao automatica"
+      ],
+      "calibration": {
+        "before": {
+          "total": 96,
+          "severity": {
+            "low": 32,
+            "medium": 43,
+            "high": 21
+          }
+        },
+        "after": {
+          "total": 40,
+          "severity": {
+            "low": 8,
+            "medium": 32,
+            "high": 0
+          }
+        },
+        "adjustedRules": [
+          "ignore single-digit footnote-like numbers",
+          "normalize thousands separators before number comparison",
+          "require direct-address treatment signals in quoted text",
+          "tighten repetition anomaly minimum size"
+        ]
+      }
     }
   ],
   "priorities": {
@@ -524,7 +565,11 @@
     "chapterAligner": "implemented_safe_chapter_and_paragraph_alignment",
     "validatePipeline": "implemented_contract_validation_script",
     "approvedCorrectionsReader": "validated_applies_assisted_review_approved_item",
-    "fixEpub": "validated_manual_approved_suggestion_application"
+    "fixEpub": "validated_manual_approved_suggestion_application",
+    "semanticConsistencyAudit": "implemented_generates_separate_semantic_candidates",
+    "audit_js": "emits_correction_and_semantic_candidates",
+    "epubDashboardWriter": "implemented_semantic_candidate_visibility",
+    "epubValidationWriter": "implemented_semantic_validation_tab"
   },
   "risks": [
     {

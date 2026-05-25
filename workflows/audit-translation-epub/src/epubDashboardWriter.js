@@ -782,6 +782,7 @@ function loadCorrectionArtifacts(logsDir) {
     reviewQueue: readJsonIfExists(logsDir, 'review-queue.json'),
     assistedReview: readJsonIfExists(logsDir, 'assisted-review-suggestions.json'),
     assistedReviewModelTrace: readJsonIfExists(logsDir, 'assisted-review-model-trace.json'),
+    semanticCandidates: readJsonIfExists(logsDir, 'semantic-candidates.json'),
   };
 }
 
@@ -1133,6 +1134,84 @@ function renderCorrectionsSection(artifacts) {
     </section>`;
 }
 
+function renderSemanticCandidateRows(semanticAudit) {
+  const candidates = semanticAudit?.semanticCandidates || [];
+  if (!candidates.length) {
+    return '<tr><td colspan="8">Nenhum candidato semântico registrado.</td></tr>';
+  }
+
+  return candidates.slice(0, 80).map((item) => `
+    <tr>
+      <td>${escapeHtml(item.severity || '-')}</td>
+      <td>${escapeHtml(item.type || '-')}</td>
+      <td>${escapeHtml(item.confidence || '-')}</td>
+      <td>${escapeHtml(String(item.confidenceScore ?? '-'))}</td>
+      <td>${escapeHtml(item.location?.filePath || '-')}</td>
+      <td>${escapeHtml(item.location?.nodeId || '-')}</td>
+      <td>${escapeHtml(item.reason || '-')}</td>
+      <td>${escapeHtml([
+        item.context?.currentParagraph ? `Atual: ${item.context.currentParagraph}` : null,
+        item.context?.originalAlignedText ? `Original: ${item.context.originalAlignedText}` : null,
+        item.evidence ? `Evidência: ${JSON.stringify(item.evidence)}` : null,
+      ].filter(Boolean).join(' | ') || '-')}</td>
+    </tr>`).join('');
+}
+
+function renderSemanticConsistencySection(semanticAudit) {
+  const summary = semanticAudit?.summary || {};
+  const severity = summary.severity || {};
+  const confidence = summary.confidence || {};
+
+  return `
+    <section>
+      <div class="section-title">
+        <div>
+          <h2>Auditoria semântica</h2>
+          <p>Candidatos separados para revisão humana; não entram automaticamente no correctionPlan.</p>
+        </div>
+      </div>
+      <div class="grid grid-4">
+        <div class="card">
+          <div class="metric-label">Semantic candidates</div>
+          <div class="metric-value">${formatNumber(summary.total || 0)}</div>
+          <div class="metric-note">Camada sem aplicação automática.</div>
+        </div>
+        <div class="card">
+          <div class="metric-label">High / medium / low</div>
+          <div class="metric-value">${formatNumber(severity.high || 0)} / ${formatNumber(severity.medium || 0)} / ${formatNumber(severity.low || 0)}</div>
+          <div class="metric-note">Severidade de revisão.</div>
+        </div>
+        <div class="card">
+          <div class="metric-label">Deterministic</div>
+          <div class="metric-value">${formatNumber(confidence.deterministic || 0)}</div>
+          <div class="metric-note">Sinais objetivos como glossário/números.</div>
+        </div>
+        <div class="card">
+          <div class="metric-label">Heuristic/model</div>
+          <div class="metric-value">${formatNumber(confidence.heuristic || 0)} / ${formatNumber(confidence.modelAssisted || 0)}</div>
+          <div class="metric-note">Sempre requer aprovação humana.</div>
+        </div>
+      </div>
+      <div class="card compact-table-card">
+        <table>
+          <thead>
+            <tr>
+              <th>Severidade</th>
+              <th>Tipo</th>
+              <th>Confiança</th>
+              <th>Score</th>
+              <th>Arquivo</th>
+              <th>Node</th>
+              <th>Motivo</th>
+              <th>Contexto</th>
+            </tr>
+          </thead>
+          <tbody>${renderSemanticCandidateRows(semanticAudit)}</tbody>
+        </table>
+      </div>
+    </section>`;
+}
+
 function getEpubTabReports(logsDir, report) {
   const sourceReport = logsDir
     ? getLatestJsonReportByWorkingInput(logsDir, 'input/translated', report)
@@ -1260,6 +1339,7 @@ export function writeEpubHtmlDashboard(report, htmlPath, {
     ${renderSectionInventory(report)}
     ${renderNotApplicableSection('Consistência de entidades', 'Workflow EPUB não executa normalização de entidades DOCX.')}
     ${renderCorrectionsSection(correctionArtifacts)}
+    ${renderSemanticConsistencySection(correctionArtifacts.semanticCandidates)}
 
     <section>
       <div class="section-title">

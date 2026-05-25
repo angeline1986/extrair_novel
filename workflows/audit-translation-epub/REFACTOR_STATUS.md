@@ -382,3 +382,22 @@ Em 2026-05-25T21:05:00Z foi executada a milestone operacional `m20-manual-approv
 - validacao pos-correcao retornou `OK`, EPUB tecnico valido e 5/5 correcoes confirmadas;
 - reauditoria retornou `improvement`, com candidates reduzidos de 3 para 2;
 - `input-fixed/manifest.json` foi restaurado apos o teste para evitar registrar estado operacional local como mudanca de codigo.
+
+Em 2026-05-25T21:30:00Z foi implementada a milestone `m21-semantic-consistency-audit`:
+
+- criado `src/semanticConsistencyAudit.js`;
+- geracao de `logs/json/semantic-candidates.json`;
+- `semanticCandidates` ficam separados de `correctionCandidates` e nao alimentam automaticamente o `correctionPlan`;
+- camada detecta sinais de omissao/expansao, drift semantico, repeticao anormal, literalidade, inconsistencia terminologica e tratamento inconsistente;
+- candidatos usam `originalAlignedText` quando o alinhamento e confiavel, `currentParagraph`, contexto expandido, glossario e entidades;
+- cada candidato recebe severidade `low`, `medium` ou `high`;
+- cada candidato recebe confianca `deterministic`, `heuristic` ou `model_assisted`;
+- dashboards HTML passaram a exibir a aba/secao de auditoria semantica;
+- nenhuma correcao e aplicada automaticamente e nenhum EPUB e alterado nesta milestone.
+
+Calibracao da m21:
+
+- distribuicao inicial: 96 semanticCandidates, com 21 high, 43 medium e 32 low;
+- falsos positivos reduzidos em numeros com separador PT-BR/EN, notas de rodape numericas, tratamento `Senhor` como titulo/lorde e repeticoes enfaticas curtas de dialogo;
+- distribuicao apos calibracao: 40 semanticCandidates, com 0 high, 32 medium e 8 low;
+- `high` passa a ficar reservado para riscos numericos realmente ausentes ou outras regras futuras de maior confianca.

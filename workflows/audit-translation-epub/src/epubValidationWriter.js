@@ -94,6 +94,7 @@ function loadCorrectionArtifacts(logsDir) {
     reviewQueue: readJsonIfExists(logsDir, 'review-queue.json'),
     assistedReview: readJsonIfExists(logsDir, 'assisted-review-suggestions.json'),
     assistedReviewModelTrace: readJsonIfExists(logsDir, 'assisted-review-model-trace.json'),
+    semanticCandidates: readJsonIfExists(logsDir, 'semantic-candidates.json'),
   };
 }
 
@@ -727,6 +728,69 @@ function renderCorrectionsTab(artifacts) {
     </div>`;
 }
 
+function semanticCandidateRows(semanticAudit) {
+  const candidates = semanticAudit?.semanticCandidates || [];
+  if (!candidates.length) return '<div class="empty-state">Nenhum candidato semântico registrado.</div>';
+
+  return `
+    <table class="example-table">
+      <thead>
+        <tr>
+          <th>Severidade</th>
+          <th>Tipo</th>
+          <th>Confiança</th>
+          <th>Score</th>
+          <th>Arquivo</th>
+          <th>Node</th>
+          <th>Motivo</th>
+          <th>Contexto</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${candidates.slice(0, 80).map((item) => `
+          <tr>
+            <td class="example-col">${escapeHtml(item.severity || '-')}</td>
+            <td class="example-col">${escapeHtml(item.type || '-')}</td>
+            <td class="example-col">${escapeHtml(item.confidence || '-')}</td>
+            <td class="example-col">${escapeHtml(String(item.confidenceScore ?? '-'))}</td>
+            <td class="example-col">${escapeHtml(item.location?.filePath || '-')}</td>
+            <td class="example-col">${escapeHtml(item.location?.nodeId || '-')}</td>
+            <td class="example-col">${escapeHtml(item.reason || '-')}</td>
+            <td class="example-col">${escapeHtml([
+              item.context?.currentParagraph ? `Atual: ${item.context.currentParagraph}` : null,
+              item.context?.originalAlignedText ? `Original: ${item.context.originalAlignedText}` : null,
+              item.evidence ? `Evidência: ${JSON.stringify(item.evidence)}` : null,
+            ].filter(Boolean).join(' | ') || '-')}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+function renderSemanticTab(artifacts) {
+  const semanticAudit = artifacts.semanticCandidates || {};
+  const summary = semanticAudit.summary || {};
+  const severity = summary.severity || {};
+  const confidence = summary.confidence || {};
+
+  return `
+    <div id="semantic" class="content">
+      <div class="summary-grid">
+        ${summaryCard('Semantic candidates', formatNumber(summary.total || 0), (summary.total || 0) ? 'WARN' : 'OK')}
+        ${summaryCard('High / medium / low', `${formatNumber(severity.high || 0)} / ${formatNumber(severity.medium || 0)} / ${formatNumber(severity.low || 0)}`, (severity.high || severity.medium) ? 'WARN' : 'OK')}
+        ${summaryCard('Deterministic', formatNumber(confidence.deterministic || 0))}
+        ${summaryCard('Heuristic / model', `${formatNumber(confidence.heuristic || 0)} / ${formatNumber(confidence.modelAssisted || 0)}`)}
+      </div>
+      ${validationSection((summary.total || 0) ? 'WARN' : 'OK', '7.1 Candidatos semânticos para revisão humana', `
+        ${detailsBlock([
+          detailRow('Não alimenta correctionPlan', semanticAudit.policy?.feedsCorrectionPlan === false ? 'sim' : 'verificar', semanticAudit.policy?.feedsCorrectionPlan === false ? 'OK' : 'WARN'),
+          detailRow('Não aplica correções', semanticAudit.policy?.appliesCorrections === false ? 'sim' : 'verificar', semanticAudit.policy?.appliesCorrections === false ? 'OK' : 'WARN'),
+          detailRow('Requer aprovação humana', semanticAudit.policy?.requiresHumanApproval ? 'sim' : 'verificar', semanticAudit.policy?.requiresHumanApproval ? 'OK' : 'WARN'),
+        ])}
+        ${semanticCandidateRows(semanticAudit)}
+      `)}
+    </div>`;
+}
+
 function renderTabs() {
   return `
     <div class="tabs">
@@ -736,6 +800,7 @@ function renderTabs() {
       <button class="tab-btn" onclick="showTab(event, 'log')">Insumos do Log</button>
       <button class="tab-btn" onclick="showTab(event, 'versioning')">Versionamento</button>
       <button class="tab-btn" onclick="showTab(event, 'corrections')">Correções</button>
+      <button class="tab-btn" onclick="showTab(event, 'semantic')">Semântica</button>
     </div>`;
 }
 
@@ -771,6 +836,7 @@ export function writeEpubValidationTabsDashboard(report, htmlPath, {
     ${renderLogTab(activeReport)}
     ${renderVersioningTab(activeReport)}
     ${renderCorrectionsTab(correctionArtifacts)}
+    ${renderSemanticTab(correctionArtifacts)}
   </div>
   <script>${validationTabScript}</script>
 </body>
