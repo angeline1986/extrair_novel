@@ -1,4 +1,5 @@
 const REVIEW_STATUSES = new Set(['pending', 'approved', 'rejected', 'needs_context']);
+const CONTEXT_PREVIEW_LIMIT = 520;
 
 function reviewItemId(index) {
   return `rq-${String(index + 1).padStart(4, '0')}`;
@@ -11,6 +12,60 @@ function actionNeedsReview(action) {
 function firstLocation(action) {
   const locations = Array.isArray(action?.locations) ? action.locations : [];
   return locations[0] || action?.target || {};
+}
+
+function preview(value, limit = CONTEXT_PREVIEW_LIMIT) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (!text) return null;
+  return text.length > limit ? `${text.slice(0, limit - 1)}…` : text;
+}
+
+function findMappedParagraph(xhtmlMap, location) {
+  if (!xhtmlMap || !location?.filePath || !Number.isInteger(location.paragraphIndex)) return null;
+  const file = (xhtmlMap.files || []).find((item) => item.filePath === location.filePath);
+  if (!file) return null;
+  return {
+    file,
+    paragraph: file.paragraphs?.[location.paragraphIndex] || null,
+    previous: file.paragraphs?.[location.paragraphIndex - 1] || null,
+    next: file.paragraphs?.[location.paragraphIndex + 1] || null,
+  };
+}
+
+function chapterNumberFromSection(section) {
+  const value = `${section?.title || ''} ${section?.path || ''}`;
+  const match = value.match(/(?:chapter|cap[ií]tulo|text\/)(?:_|\s|-)*0*(\d{1,4})/i) ||
+    value.match(/\/0*(\d{1,4})[_-]/);
+  return match ? Number(match[1]) : null;
+}
+
+function findOriginalAlignedText({ sourceDoc, translationDoc, location }) {
+  if (!sourceDoc || !translationDoc || !location?.filePath) return null;
+  const translationSection = (translationDoc.sections || []).find((section) => section.path === location.filePath);
+  if (!translationSection) return null;
+  const translationChapter = chapterNumberFromSection(translationSection);
+  const sourceSection = (sourceDoc.sections || []).find((section) =>
+    translationChapter !== null && chapterNumberFromSection(section) === translationChapter);
+  if (!sourceSection) return null;
+
+  return preview(
+    sourceSection.paragraphs?.[location.paragraphIndex] ||
+    sourceSection.rawText ||
+    null
+  );
+}
+
+function contextForAction(action, { xhtmlMap, sourceDoc, translationDoc } = {}) {
+  const location = firstLocation(action);
+  const mapped = findMappedParagraph(xhtmlMap, location);
+  const currentParagraph = preview(mapped?.paragraph?.text || location.textPreview);
+
+  return {
+    previousParagraph: preview(mapped?.previous?.text),
+    currentParagraph,
+    nextParagraph: preview(mapped?.next?.text),
+    originalAlignedText: findOriginalAlignedText({ sourceDoc, translationDoc, location }),
+  };
 }
 
 function stableKeyFromAction(action) {
@@ -58,6 +113,9 @@ function countByStatus(items, status) {
 export function buildReviewQueue({
   correctionPlan,
   existingQueue = null,
+  xhtmlMap = null,
+  sourceDoc = null,
+  translationDoc = null,
   createdAt = new Date().toISOString(),
 }) {
   const previousItems = previousItemByKey(existingQueue);
@@ -67,6 +125,7 @@ export function buildReviewQueue({
     const stableKey = stableKeyFromAction(action);
     const previousItem = previousItems.get(stableKey) || {};
     const previousStatus = REVIEW_STATUSES.has(previousItem.status) ? previousItem.status : 'pending';
+    const context = contextForAction(action, { xhtmlMap, sourceDoc, translationDoc });
 
     return {
       id: reviewItemId(index),
@@ -82,6 +141,10 @@ export function buildReviewQueue({
       paragraphIndex: location.paragraphIndex ?? action.target?.paragraphIndex ?? null,
       textNodeIndex: location.textNodeIndex ?? action.target?.textNodeIndex ?? null,
       textPreview: location.textPreview || action.target?.textPreview || null,
+      previousParagraph: context.previousParagraph,
+      currentParagraph: context.currentParagraph,
+      nextParagraph: context.nextParagraph,
+      originalAlignedText: context.originalAlignedText,
       reason: action.reason || null,
       notAppliedReason: notAppliedReason(action),
       confidence: action.confidence ?? null,
@@ -109,6 +172,7 @@ export function buildReviewQueue({
       totalItems: items.length,
       autoReview: items.filter((item) => item.mode === 'auto_review').length,
       manualOnly: items.filter((item) => item.mode === 'manual_only').length,
+      contextEnriched: items.filter((item) => item.currentParagraph || item.previousParagraph || item.nextParagraph || item.originalAlignedText).length,
       pending: countByStatus(items, 'pending'),
       approved: countByStatus(items, 'approved'),
       rejected: countByStatus(items, 'rejected'),

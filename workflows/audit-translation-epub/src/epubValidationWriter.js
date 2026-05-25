@@ -92,6 +92,7 @@ function loadCorrectionArtifacts(logsDir) {
     postValidation: readJsonIfExists(logsDir, 'post-correction-validation.json'),
     reauditoriaSummary: readJsonIfExists(logsDir, 'reauditoria-summary.json'),
     reviewQueue: readJsonIfExists(logsDir, 'review-queue.json'),
+    assistedReview: readJsonIfExists(logsDir, 'assisted-review-suggestions.json'),
   };
 }
 
@@ -565,6 +566,7 @@ function reviewQueueRows(reviewQueue) {
           <th>Node</th>
           <th>Confidence</th>
           <th>Motivo</th>
+          <th>Contexto</th>
           <th>Preview</th>
         </tr>
       </thead>
@@ -577,7 +579,56 @@ function reviewQueueRows(reviewQueue) {
             <td class="example-col">${escapeHtml(item.nodeId || '-')}</td>
             <td class="example-col">${escapeHtml(String(item.confidence ?? '-'))}</td>
             <td class="example-col">${escapeHtml(item.notAppliedReason || item.reason || '-')}</td>
+            <td class="example-col">${escapeHtml([
+              item.previousParagraph ? `Anterior: ${item.previousParagraph}` : null,
+              item.currentParagraph ? `Atual: ${item.currentParagraph}` : null,
+              item.nextParagraph ? `Posterior: ${item.nextParagraph}` : null,
+              item.originalAlignedText ? `Original: ${item.originalAlignedText}` : null,
+            ].filter(Boolean).join(' | ') || '-')}</td>
             <td class="example-col">${escapeHtml(item.textPreview || '-')}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+function assistedReviewRows(assistedReview) {
+  const suggestions = assistedReview?.suggestions || [];
+  if (!suggestions.length) return '<div class="empty-state">Nenhuma sugestão assistida gerada.</div>';
+
+  return `
+    <table class="example-table">
+      <thead>
+        <tr>
+          <th>Review item</th>
+          <th>Status</th>
+          <th>Tipo</th>
+          <th>Arquivo</th>
+          <th>Node</th>
+          <th>Confidence</th>
+          <th>Before</th>
+          <th>Suggested after</th>
+          <th>Contexto</th>
+          <th>Reason</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${suggestions.slice(0, 80).map((item) => `
+          <tr>
+            <td class="example-col">${escapeHtml(item.reviewQueueItemId || '-')}</td>
+            <td class="example-col">${escapeHtml(item.suggestionStatus || '-')}</td>
+            <td class="example-col">${escapeHtml(item.type || '-')}</td>
+            <td class="example-col">${escapeHtml(item.filePath || '-')}</td>
+            <td class="example-col">${escapeHtml(item.nodeId || '-')}</td>
+            <td class="example-col">${escapeHtml(String(item.confidence ?? '-'))}</td>
+            <td class="example-col">${escapeHtml(item.before || '-')}</td>
+            <td class="example-col">${escapeHtml(item.suggestedAfter || '-')}</td>
+            <td class="example-col">${escapeHtml([
+              item.previousParagraph ? `Anterior: ${item.previousParagraph}` : null,
+              item.currentParagraph ? `Atual: ${item.currentParagraph}` : null,
+              item.nextParagraph ? `Posterior: ${item.nextParagraph}` : null,
+              item.originalAlignedText ? `Original: ${item.originalAlignedText}` : null,
+            ].filter(Boolean).join(' | ') || '-')}</td>
+            <td class="example-col">${escapeHtml(item.reason || '-')}</td>
           </tr>`).join('')}
       </tbody>
     </table>`;
@@ -594,6 +645,8 @@ function renderCorrectionsTab(artifacts) {
   const packageValidation = postValidation.packageValidation || {};
   const reviewQueue = artifacts.reviewQueue || {};
   const reviewSummary = reviewQueue.summary || {};
+  const assistedReview = artifacts.assistedReview || {};
+  const assistedSummary = assistedReview.summary || {};
   const result = reauditoriaSummary.result || 'unknown';
   const resultStatus = result === 'regression' ? 'FAIL' : result === 'unknown' ? 'WARN' : 'OK';
 
@@ -611,20 +664,33 @@ function renderCorrectionsTab(artifacts) {
         ${detailsBlock([
           detailRow('Itens totais', formatNumber(reviewSummary.totalItems || 0), (reviewSummary.totalItems || 0) ? 'WARN' : 'OK'),
           detailRow('Pending', formatNumber(reviewSummary.pending || 0), (reviewSummary.pending || 0) ? 'WARN' : 'OK'),
+          detailRow('Com contexto expandido', formatNumber(reviewSummary.contextEnriched || 0)),
           detailRow('Approved', formatNumber(reviewSummary.approved || 0)),
           detailRow('Rejected', formatNumber(reviewSummary.rejected || 0)),
           detailRow('Needs context', formatNumber(reviewSummary.needsContext || 0), (reviewSummary.needsContext || 0) ? 'WARN' : 'OK'),
         ])}
         ${reviewQueueRows(reviewQueue)}
       `)}
-      ${validationSection(postValidation.status || 'WARN', '6.4 Validação pós-correção', detailsBlock([
+      ${validationSection((assistedSummary.totalSuggestions || 0) ? 'WARN' : 'OK', '6.4 Sugestões assistidas', `
+        ${detailsBlock([
+          detailRow('Sugestões geradas', formatNumber(assistedSummary.totalSuggestions || 0), (assistedSummary.totalSuggestions || 0) ? 'WARN' : 'OK'),
+          detailRow('Requer aprovação humana', formatNumber(assistedSummary.requiresHumanApproval || 0), (assistedSummary.requiresHumanApproval || 0) ? 'WARN' : 'OK'),
+          detailRow('Com contexto expandido', formatNumber(assistedSummary.contextEnriched || 0)),
+          detailRow('Com suggestedAfter', formatNumber(assistedSummary.withSuggestedAfter || 0)),
+          detailRow('Suggestion available', formatNumber(assistedSummary.suggestionAvailable || 0)),
+          detailRow('Needs human translation', formatNumber(assistedSummary.needsHumanTranslation || 0)),
+          detailRow('Insufficient context', formatNumber(assistedSummary.insufficientContext || 0), (assistedSummary.insufficientContext || 0) ? 'WARN' : 'OK'),
+        ])}
+        ${assistedReviewRows(assistedReview)}
+      `)}
+      ${validationSection(postValidation.status || 'WARN', '6.5 Validação pós-correção', detailsBlock([
         detailRow('ZIP legível', packageValidation.zipReadable ? 'sim' : 'não', packageValidation.zipReadable ? 'OK' : 'FAIL'),
         detailRow('mimetype/container/OPF', packageValidation.mimetypePresent && packageValidation.containerPresent && packageValidation.opfPresent ? 'OK' : 'incompleto', packageValidation.mimetypePresent && packageValidation.containerPresent && packageValidation.opfPresent ? 'OK' : 'FAIL'),
         detailRow('Manifest/spine', packageValidation.manifestValid && packageValidation.spineValid ? 'OK' : 'incompleto', packageValidation.manifestValid && packageValidation.spineValid ? 'OK' : 'FAIL'),
         detailRow('Mudança textual real', textComparison.textChanged ? 'sim' : 'não', textComparison.textChanged ? 'OK' : 'WARN'),
         detailRow('Correções confirmadas', `${formatNumber(correctionValidation.confirmedCorrections || 0)} / ${formatNumber(correctionValidation.appliedCorrections || 0)}`, correctionValidation.unconfirmedCorrections ? 'WARN' : 'OK'),
       ]))}
-      ${validationSection(resultStatus, '6.5 Reauditoria automática', detailsBlock([
+      ${validationSection(resultStatus, '6.6 Reauditoria automática', detailsBlock([
         detailRow('Resultado', result, resultStatus),
         detailRow('Issues antes/depois', `${formatNumber(reauditoriaSummary.issuesBefore || 0)} -> ${formatNumber(reauditoriaSummary.issuesAfter || 0)}`),
         detailRow('Warnings antes/depois', `${formatNumber(reauditoriaSummary.warningsBefore || 0)} -> ${formatNumber(reauditoriaSummary.warningsAfter || 0)}`),

@@ -1,16 +1,16 @@
 {
   "schemaVersion": "1.0",
-  "refactorVersion": "0.11.0",
+  "refactorVersion": "0.14.0",
   "workflow": "audit-translation-epub",
   "currentPhase": {
-    "id": "phase-10",
-    "name": "Fluxo manual da review queue documentado",
+    "id": "phase-13",
+    "name": "Contexto expandido de revisao implementado",
     "status": "active",
-    "description": "A review queue agora possui guia de edicao manual e validador executavel para bloquear approved invalido."
+    "description": "Review queue e sugestoes assistidas agora incluem paragrafo anterior, atual, posterior e original alinhado quando disponivel."
   },
   "timestamps": {
     "createdAt": "2026-05-24T23:37:47Z",
-    "updatedAt": "2026-05-25T02:49:11Z"
+    "updatedAt": "2026-05-25T04:08:33Z"
   },
   "completedTasks": [
     {
@@ -101,6 +101,21 @@
     {
       "id": "review-queue-workflow-docs",
       "title": "Documentar e validar fluxo manual da review queue",
+      "status": "done"
+    },
+    {
+      "id": "assisted-review-suggestions",
+      "title": "Gerar sugestoes assistidas para itens auto_review pendentes",
+      "status": "done"
+    },
+    {
+      "id": "assisted-review-suggestion-quality",
+      "title": "Melhorar qualidade e classificacao das sugestoes assistidas",
+      "status": "done"
+    },
+    {
+      "id": "review-context-enrichment",
+      "title": "Enriquecer review queue e assisted review com contexto expandido",
       "status": "done"
     }
   ],
@@ -263,6 +278,42 @@
       ]
     },
     {
+      "id": "m11-assisted-review-suggestions",
+      "name": "Sugestoes assistidas de revisao",
+      "status": "done",
+      "deliverables": [
+        "assistedReview.js",
+        "assisted-review-suggestions.json",
+        "assisted-review-suggestions-latest.md",
+        "dashboard com sugestoes assistidas",
+        "requiresHumanApproval true em todas as sugestoes"
+      ]
+    },
+    {
+      "id": "m12-assisted-review-suggestion-quality",
+      "name": "Qualidade das sugestoes assistidas",
+      "status": "done",
+      "deliverables": [
+        "suggestionStatus em assisted-review-suggestions.json",
+        "categorias suggestion_available/needs_human_translation/insufficient_context",
+        "reason detalhado",
+        "confidence conservadora",
+        "dashboard com classificacao de sugestoes"
+      ]
+    },
+    {
+      "id": "m13-review-context-enrichment",
+      "name": "Enriquecimento de contexto de revisao",
+      "status": "done",
+      "deliverables": [
+        "previousParagraph/currentParagraph/nextParagraph na review queue",
+        "originalAlignedText quando disponivel",
+        "contexto expandido nas sugestoes assistidas",
+        "dashboard com contexto expandido",
+        "previews limitados"
+      ]
+    },
+    {
       "id": "m3-reaudit",
       "name": "Reauditoria comparativa",
       "status": "done",
@@ -343,7 +394,9 @@
     "epubValidator.js": "missing",
     "epubVersionWorkflow.js": "missing",
     "reviewQueueValidator": "implemented_validates_manual_review_queue",
-    "validateReviewQueue.js": "implemented_cli_validation"
+    "validateReviewQueue.js": "implemented_cli_validation",
+    "assistedReview": "implemented_context_enriched_quality_suggestions",
+    "reviewQueue": "implemented_context_enriched_review_items"
   },
   "risks": [
     {

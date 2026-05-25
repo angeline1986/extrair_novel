@@ -780,6 +780,7 @@ function loadCorrectionArtifacts(logsDir) {
     postValidation: readJsonIfExists(logsDir, 'post-correction-validation.json'),
     reauditoriaSummary: readJsonIfExists(logsDir, 'reauditoria-summary.json'),
     reviewQueue: readJsonIfExists(logsDir, 'review-queue.json'),
+    assistedReview: readJsonIfExists(logsDir, 'assisted-review-suggestions.json'),
   };
 }
 
@@ -885,7 +886,7 @@ function renderReauditSummary(reauditoriaSummary) {
 function renderReviewQueueRows(reviewQueue) {
   const items = reviewQueue?.items || [];
   if (!items.length) {
-    return '<tr><td colspan="7">Nenhum item pendente de revisão.</td></tr>';
+    return '<tr><td colspan="8">Nenhum item pendente de revisão.</td></tr>';
   }
 
   return items.slice(0, 80).map((item) => `
@@ -896,6 +897,12 @@ function renderReviewQueueRows(reviewQueue) {
       <td>${escapeHtml(item.nodeId || '-')}</td>
       <td>${escapeHtml(String(item.confidence ?? '-'))}</td>
       <td>${escapeHtml(item.notAppliedReason || item.reason || '-')}</td>
+      <td>${escapeHtml([
+        item.previousParagraph ? `Anterior: ${item.previousParagraph}` : null,
+        item.currentParagraph ? `Atual: ${item.currentParagraph}` : null,
+        item.nextParagraph ? `Posterior: ${item.nextParagraph}` : null,
+        item.originalAlignedText ? `Original: ${item.originalAlignedText}` : null,
+      ].filter(Boolean).join(' | ') || '-')}</td>
       <td>${escapeHtml(item.textPreview || '-')}</td>
     </tr>`).join('');
 }
@@ -919,7 +926,7 @@ function renderReviewQueueSummary(reviewQueue) {
       <div class="card">
         <div class="metric-label">Needs context</div>
         <div class="metric-value">${formatNumber(summary.needsContext || 0)}</div>
-        <div class="metric-note">Requer mais contexto.</div>
+        <div class="metric-note">${formatNumber(summary.contextEnriched || 0)} com contexto expandido.</div>
       </div>
       <div class="card">
         <div class="metric-label">Approved / rejected</div>
@@ -937,10 +944,85 @@ function renderReviewQueueSummary(reviewQueue) {
             <th>Node</th>
             <th>Confiança</th>
             <th>Motivo</th>
+            <th>Contexto</th>
             <th>Preview</th>
           </tr>
         </thead>
         <tbody>${renderReviewQueueRows(reviewQueue)}</tbody>
+      </table>
+    </div>`;
+}
+
+function renderAssistedReviewRows(assistedReview) {
+  const suggestions = assistedReview?.suggestions || [];
+  if (!suggestions.length) {
+    return '<tr><td colspan="10">Nenhuma sugestão assistida gerada.</td></tr>';
+  }
+
+  return suggestions.slice(0, 80).map((item) => `
+    <tr>
+      <td>${escapeHtml(item.reviewQueueItemId || '-')}</td>
+      <td>${escapeHtml(item.suggestionStatus || '-')}</td>
+      <td>${escapeHtml(item.type || '-')}</td>
+      <td>${escapeHtml(item.filePath || '-')}</td>
+      <td>${escapeHtml(item.nodeId || '-')}</td>
+      <td>${escapeHtml(String(item.confidence ?? '-'))}</td>
+      <td>${escapeHtml(item.before || '-')}</td>
+      <td>${escapeHtml(item.suggestedAfter || '-')}</td>
+      <td>${escapeHtml([
+        item.previousParagraph ? `Anterior: ${item.previousParagraph}` : null,
+        item.currentParagraph ? `Atual: ${item.currentParagraph}` : null,
+        item.nextParagraph ? `Posterior: ${item.nextParagraph}` : null,
+        item.originalAlignedText ? `Original: ${item.originalAlignedText}` : null,
+      ].filter(Boolean).join(' | ') || '-')}</td>
+      <td>${escapeHtml(item.reason || '-')}</td>
+    </tr>`).join('');
+}
+
+function renderAssistedReviewSummary(assistedReview) {
+  const summary = assistedReview?.summary || {};
+
+  return `
+    <h3>Sugestões assistidas</h3>
+    <div class="grid grid-4">
+      <div class="card">
+        <div class="metric-label">Sugestões</div>
+        <div class="metric-value">${formatNumber(summary.totalSuggestions || 0)}</div>
+        <div class="metric-note">Apenas pending + auto_review.</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Aprovação humana</div>
+        <div class="metric-value">${formatNumber(summary.requiresHumanApproval || 0)}</div>
+        <div class="metric-note">${formatNumber(summary.contextEnriched || 0)} com contexto expandido.</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Com suggestedAfter</div>
+        <div class="metric-value">${formatNumber(summary.withSuggestedAfter || 0)}</div>
+        <div class="metric-note">${formatNumber(summary.suggestionAvailable || 0)} suggestion_available.</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Sem sugestão explícita</div>
+        <div class="metric-value">${formatNumber((summary.needsHumanTranslation || 0) + (summary.insufficientContext || 0))}</div>
+        <div class="metric-note">${formatNumber(summary.insufficientContext || 0)} insufficient_context.</div>
+      </div>
+    </div>
+    <div class="card compact-table-card">
+      <table>
+        <thead>
+          <tr>
+            <th>Review item</th>
+            <th>Status</th>
+            <th>Tipo</th>
+            <th>Arquivo</th>
+            <th>Node</th>
+            <th>Confiança</th>
+            <th>Before</th>
+            <th>Suggested after</th>
+            <th>Contexto</th>
+            <th>Motivo</th>
+          </tr>
+        </thead>
+        <tbody>${renderAssistedReviewRows(assistedReview)}</tbody>
       </table>
     </div>`;
 }
@@ -1020,6 +1102,7 @@ function renderCorrectionsSection(artifacts) {
       </div>
 
       ${renderReviewQueueSummary(artifacts.reviewQueue)}
+      ${renderAssistedReviewSummary(artifacts.assistedReview)}
 
       <h3>Validação pós-correção</h3>
       ${renderValidationSummary(artifacts.postValidation)}

@@ -26,6 +26,10 @@ import {
   buildReviewQueue,
   renderReviewQueueMarkdown,
 } from './correction/reviewQueue.js';
+import {
+  buildAssistedReviewSuggestions,
+  renderAssistedReviewMarkdown,
+} from './correction/assistedReview.js';
 import { buildXhtmlMap } from './xhtmlMapper.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -326,12 +330,15 @@ function writeCorrectionMarkdownReport(outputPath) {
   fs.writeFileSync(outputPath, lines.join('\n'), 'utf8');
 }
 
-function writeReviewQueueReports({ correctionPlan, createdAt }) {
+function writeReviewQueueReports({ correctionPlan, sourceDoc, translationDoc, xhtmlMap, createdAt }) {
   const reviewQueuePath = path.join(paths.logsJsonDir, 'review-queue.json');
   const existingQueue = readJsonIfExists(reviewQueuePath);
   const reviewQueue = buildReviewQueue({
     correctionPlan,
     existingQueue,
+    xhtmlMap,
+    sourceDoc,
+    translationDoc,
     createdAt,
   });
   fs.writeFileSync(reviewQueuePath, JSON.stringify(reviewQueue, null, 2), 'utf8');
@@ -343,6 +350,24 @@ function writeReviewQueueReports({ correctionPlan, createdAt }) {
     reviewQueue,
     reviewQueuePath,
     reviewQueueMarkdownPath,
+  };
+}
+
+function writeAssistedReviewReports({ reviewQueue, createdAt }) {
+  const assistedReview = buildAssistedReviewSuggestions({
+    reviewQueue,
+    createdAt,
+  });
+  const assistedReviewPath = path.join(paths.logsJsonDir, 'assisted-review-suggestions.json');
+  fs.writeFileSync(assistedReviewPath, JSON.stringify(assistedReview, null, 2), 'utf8');
+
+  const assistedReviewMarkdownPath = path.join(paths.logsTxtDir, 'assisted-review-suggestions-latest.md');
+  fs.writeFileSync(assistedReviewMarkdownPath, renderAssistedReviewMarkdown(assistedReview), 'utf8');
+
+  return {
+    assistedReview,
+    assistedReviewPath,
+    assistedReviewMarkdownPath,
   };
 }
 
@@ -466,6 +491,13 @@ function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, 
   fs.writeFileSync(correctionPlanPath, JSON.stringify(correctionPlan, null, 2), 'utf8');
   const { reviewQueue, reviewQueuePath, reviewQueueMarkdownPath } = writeReviewQueueReports({
     correctionPlan,
+    sourceDoc,
+    translationDoc,
+    xhtmlMap,
+    createdAt: isoTimestamp,
+  });
+  const { assistedReview, assistedReviewPath, assistedReviewMarkdownPath } = writeAssistedReviewReports({
+    reviewQueue,
     createdAt: isoTimestamp,
   });
   appendWorkflowEvent('AUDIT_REPORT_CREATED', {
@@ -475,8 +507,10 @@ function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, 
     report: path.relative(workflowRoot, jsonPath).replaceAll('\\', '/'),
     correctionPlan: path.relative(workflowRoot, correctionPlanPath).replaceAll('\\', '/'),
     reviewQueue: path.relative(workflowRoot, reviewQueuePath).replaceAll('\\', '/'),
+    assistedReview: path.relative(workflowRoot, assistedReviewPath).replaceAll('\\', '/'),
     correctionCandidates: correctionCandidates.length,
     reviewQueueItems: reviewQueue.summary.totalItems,
+    assistedReviewSuggestions: assistedReview.summary.totalSuggestions,
     source: sourceDoc.filename,
     translation: translationDoc.filename,
     timestamp: isoTimestamp,
@@ -541,6 +575,8 @@ function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, 
     correctionPlanPath,
     reviewQueuePath,
     reviewQueueMarkdownPath,
+    assistedReviewPath,
+    assistedReviewMarkdownPath,
     dashboardHtmlPath,
     validationHtmlPath,
     summaryPath,

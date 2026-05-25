@@ -268,3 +268,33 @@ Em 2026-05-25T02:49:11Z foi implementada a milestone `m10-review-queue-workflow-
 - inclusao do script `npm run review:translation:epub:validate`;
 - `fixEpub.js` passou a bloquear item `approved` invalido antes da aplicacao;
 - README atualizado com o comando de validacao e referencia ao guia.
+
+Em 2026-05-25T03:12:04Z foi implementada a milestone `m11-assisted-review-suggestions`:
+
+- criacao de `src/correction/assistedReview.js`;
+- geracao de `logs/json/assisted-review-suggestions.json`;
+- geracao de `logs/txt/assisted-review-suggestions-latest.md`;
+- processamento restrito a itens `pending` com `mode: auto_review`;
+- sugestoes estruturadas com `before`, `suggestedAfter`, `reason`, `confidence` e `requiresHumanApproval: true`;
+- fallback deterministico conservador, sem dependencia obrigatoria de modelo;
+- dashboards e relatorio de validacao passaram a exibir as sugestoes assistidas;
+- nenhuma sugestao e aplicada automaticamente.
+
+Em 2026-05-25T03:34:19Z foi implementada a milestone `m12-assisted-review-suggestion-quality`:
+
+- `assistedReview.js` passou a classificar sugestoes como `suggestion_available`, `needs_human_translation` ou `insufficient_context`;
+- `suggestedAfter` continua restrito a casos com `before/after` explicito ou heuristica segura;
+- falsos positivos provaveis de portugues natural, como `a tempo`, `a lugar nenhum` e cliticos antes de adverbio em `-mente`, sao tratados como `insufficient_context`;
+- `reason` ficou mais detalhado para explicar por que uma sugestao explicita foi ou nao gerada;
+- confidence ficou mais conservadora para casos sem sugestao explicita;
+- dashboards e Markdown passaram a exibir a classificacao de qualidade da sugestao;
+- nenhuma sugestao e aplicada automaticamente.
+
+Em 2026-05-25T04:08:33Z foi implementada a milestone `m13-review-context-enrichment`:
+
+- `reviewQueue.js` passou a enriquecer itens com `previousParagraph`, `currentParagraph`, `nextParagraph` e `originalAlignedText` quando disponivel;
+- `assistedReview.js` passou a propagar o contexto expandido para `assisted-review-suggestions.json`;
+- os previews sao limitados para evitar relatorios grandes;
+- dashboards e relatorio de validacao exibem o contexto expandido;
+- a classificacao `insufficient_context` foi mantida quando o contexto ainda nao permite uma sugestao segura;
+- nenhuma correcao automatica, Ollama obrigatorio ou reescrita ampla foi implementada.

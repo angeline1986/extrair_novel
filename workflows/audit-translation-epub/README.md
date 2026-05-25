@@ -87,6 +87,7 @@ logs/workflow-events.jsonl
 logs/json/audit-report-*.json
 logs/json/correction-plan.json
 logs/json/review-queue.json
+logs/json/assisted-review-suggestions.json
 logs/json/correction-report.json
 logs/json/post-correction-validation.json
 logs/json/reaudit-report.json
@@ -94,6 +95,7 @@ logs/json/reauditoria-summary.json
 logs/txt/epub-audit-summary-latest.txt
 logs/txt/correction-report-latest.md
 logs/txt/review-queue-latest.md
+logs/txt/assisted-review-suggestions-latest.md
 logs/html/audit-dashboard-latest.html
 logs/html/validation-report-latest.html
 input-fixed/manifest.json
@@ -110,5 +112,9 @@ Os relatorios HTML exibem uma secao de correcoes com:
 O arquivo `logs/json/review-queue.json` registra acoes `auto_review` e `manual_only` que ainda nao devem ser aplicadas automaticamente. Cada item nasce como `pending` e pode ser preparado futuramente para `approved`, `rejected` ou `needs_context`, sem alterar o EPUB nesta milestone.
 
 Quando um item da review queue for marcado manualmente como `approved`, ele so sera aplicado pelo `fixEpub` se tambem tiver `before` e `after` preenchidos e uma localizacao XHTML valida. Itens `pending`, `rejected` e `needs_context` continuam registrados, mas nao sao aplicados.
+
+O arquivo `logs/json/assisted-review-suggestions.json` traz sugestoes assistidas para itens `pending` + `auto_review`. Todas as sugestoes possuem `requiresHumanApproval: true` e nao sao aplicadas automaticamente. Cada sugestao e classificada como `suggestion_available`, `needs_human_translation` ou `insufficient_context`; `suggestedAfter` so e preenchido quando houver heuristica segura ou `before/after` explicito na review queue.
+
+Os itens de review e as sugestoes assistidas incluem contexto expandido limitado: `previousParagraph`, `currentParagraph`, `nextParagraph` e, quando houver pareamento simples disponivel, `originalAlignedText`. Esses campos sao previews curtos para apoiar revisao humana sem inflar os relatorios.
 
 O fluxo manual completo esta documentado em `REVIEW_QUEUE_WORKFLOW.md`, incluindo exemplos de item `approved` e `rejected`.

@@ -1078,3 +1078,76 @@ Proxima milestone recomendada:
 ```txt
 criar comando assistido para aprovar/rejeitar itens sem editar JSON manualmente
 ```
+
+## 35. Estado Da Milestone m11-assisted-review-suggestions
+
+Implementado em: 2026-05-25T03:12:04Z
+
+A milestone `m11-assisted-review-suggestions` foi concluida como camada de sugestao assistida sem aplicacao automatica.
+
+Entregas:
+
+- `src/correction/assistedReview.js`;
+- `logs/json/assisted-review-suggestions.json`;
+- `logs/txt/assisted-review-suggestions-latest.md`;
+- processamento apenas de itens `pending` e `auto_review` da review queue;
+- sugestoes com `before`, `suggestedAfter`, `reason`, `confidence` e `requiresHumanApproval: true`;
+- fallback deterministico conservador quando nao ha `before/after` confiavel;
+- visualizacao das sugestoes no dashboard principal;
+- visualizacao das sugestoes na aba `Correcoes` do relatorio de validacao.
+
+Esta milestone nao implementa Ollama obrigatorio, aprovacao automatica, aplicacao automatica ou reescrita ampla. A sugestao assistida e apenas insumo para decisao humana futura.
+
+Proxima milestone recomendada:
+
+```txt
+criar comando assistido para aprovar/rejeitar itens usando sugestoes assistidas como insumo
+```
+
+## 36. Estado Da Milestone m12-assisted-review-suggestion-quality
+
+Implementado em: 2026-05-25T03:34:19Z
+
+A milestone `m12-assisted-review-suggestion-quality` foi concluida como melhoria de qualidade das sugestoes assistidas.
+
+Entregas:
+
+- classificacao de sugestoes em `suggestion_available`, `needs_human_translation` e `insufficient_context`;
+- `suggestedAfter` explicito apenas para casos com `before/after` confiavel ou heuristica segura;
+- `reason` detalhado explicando a decisao da heuristica;
+- confidence conservadora para itens sem sugestao explicita;
+- tratamento de provaveis falsos positivos de portugues natural como `insufficient_context`;
+- atualizacao de `assisted-review-suggestions.json`;
+- atualizacao de `assisted-review-suggestions-latest.md`;
+- atualizacao do dashboard e relatorio de validacao com a classificacao das sugestoes.
+
+Esta milestone nao implementa Ollama obrigatorio, aplicacao automatica ou reescrita ampla. Todas as sugestoes continuam exigindo aprovacao humana.
+
+Proxima milestone recomendada:
+
+```txt
+criar comando assistido para aprovar/rejeitar itens usando suggestionStatus e suggestedAfter
+```
+
+## 37. Estado Da Milestone m13-review-context-enrichment
+
+Implementado em: 2026-05-25T04:08:33Z
+
+A milestone `m13-review-context-enrichment` foi concluida como enriquecimento de contexto para revisao humana e sugestoes futuras.
+
+Entregas:
+
+- `review-queue.json` enriquecido com `previousParagraph`, `currentParagraph`, `nextParagraph` e `originalAlignedText` quando disponivel;
+- `assisted-review-suggestions.json` enriquecido com os mesmos campos;
+- previews limitados para preservar tamanho dos relatorios;
+- contexto expandido exibido no dashboard principal;
+- contexto expandido exibido na aba `Correcoes` do relatorio de validacao;
+- preservacao de `insufficient_context` quando o contexto ainda nao sustenta sugestao segura.
+
+Esta milestone nao implementa aplicacao automatica, Ollama obrigatorio ou reescrita ampla. O objetivo e aumentar a qualidade dos insumos para revisao humana futura.
+
+Proxima milestone recomendada:
+
+```txt
+usar contexto expandido para comando assistido de aprovacao/rejeicao manual
+```
