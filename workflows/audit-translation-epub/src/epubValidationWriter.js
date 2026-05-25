@@ -91,6 +91,7 @@ function loadCorrectionArtifacts(logsDir) {
     correctionReport: readJsonIfExists(logsDir, 'correction-report.json'),
     postValidation: readJsonIfExists(logsDir, 'post-correction-validation.json'),
     reauditoriaSummary: readJsonIfExists(logsDir, 'reauditoria-summary.json'),
+    reviewQueue: readJsonIfExists(logsDir, 'review-queue.json'),
   };
 }
 
@@ -498,6 +499,7 @@ function correctionRows(corrections = []) {
       <thead>
         <tr>
           <th>Tipo</th>
+          <th>Origem</th>
           <th>Before</th>
           <th>After</th>
           <th>Arquivo</th>
@@ -509,6 +511,7 @@ function correctionRows(corrections = []) {
         ${corrections.slice(0, 80).map((item) => `
           <tr>
             <td class="example-col">${escapeHtml(item.type || '-')}</td>
+            <td class="example-col">${escapeHtml(item.source || '-')}</td>
             <td class="example-col">${escapeHtml(item.before || '-')}</td>
             <td class="example-col">${escapeHtml(item.after || '-')}</td>
             <td class="example-col">${escapeHtml(item.filePath || '-')}</td>
@@ -529,6 +532,8 @@ function skippedRows(actions = []) {
           <th>Action</th>
           <th>Tipo</th>
           <th>Modo</th>
+          <th>Origem</th>
+          <th>Status</th>
           <th>Motivo</th>
         </tr>
       </thead>
@@ -538,7 +543,41 @@ function skippedRows(actions = []) {
             <td class="example-col">${escapeHtml(item.actionId || '-')}</td>
             <td class="example-col">${escapeHtml(item.type || '-')}</td>
             <td class="example-col">${escapeHtml(item.mode || '-')}</td>
+            <td class="example-col">${escapeHtml(item.source || '-')}</td>
+            <td class="example-col">${escapeHtml(item.status || '-')}</td>
             <td class="example-col">${escapeHtml(item.reason || '-')}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+function reviewQueueRows(reviewQueue) {
+  const items = reviewQueue?.items || [];
+  if (!items.length) return '<div class="empty-state">Nenhum item pendente de revisão.</div>';
+
+  return `
+    <table class="example-table">
+      <thead>
+        <tr>
+          <th>Status</th>
+          <th>Tipo</th>
+          <th>Arquivo</th>
+          <th>Node</th>
+          <th>Confidence</th>
+          <th>Motivo</th>
+          <th>Preview</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${items.slice(0, 80).map((item) => `
+          <tr>
+            <td class="example-col">${escapeHtml(item.status || 'pending')}</td>
+            <td class="example-col">${escapeHtml(item.type || '-')}</td>
+            <td class="example-col">${escapeHtml(item.filePath || '-')}</td>
+            <td class="example-col">${escapeHtml(item.nodeId || '-')}</td>
+            <td class="example-col">${escapeHtml(String(item.confidence ?? '-'))}</td>
+            <td class="example-col">${escapeHtml(item.notAppliedReason || item.reason || '-')}</td>
+            <td class="example-col">${escapeHtml(item.textPreview || '-')}</td>
           </tr>`).join('')}
       </tbody>
     </table>`;
@@ -553,6 +592,8 @@ function renderCorrectionsTab(artifacts) {
   const correctionValidation = postValidation.correctionValidation || {};
   const textComparison = postValidation.textComparison || {};
   const packageValidation = postValidation.packageValidation || {};
+  const reviewQueue = artifacts.reviewQueue || {};
+  const reviewSummary = reviewQueue.summary || {};
   const result = reauditoriaSummary.result || 'unknown';
   const resultStatus = result === 'regression' ? 'FAIL' : result === 'unknown' ? 'WARN' : 'OK';
 
@@ -566,14 +607,24 @@ function renderCorrectionsTab(artifacts) {
       </div>
       ${validationSection(applied.length ? 'OK' : 'WARN', '6.1 Correções aplicadas no XHTML', correctionRows(applied))}
       ${validationSection(skipped.length ? 'WARN' : 'OK', '6.2 Ações pendentes ou ignoradas', skippedRows(skipped))}
-      ${validationSection(postValidation.status || 'WARN', '6.3 Validação pós-correção', detailsBlock([
+      ${validationSection((reviewSummary.totalItems || 0) ? 'WARN' : 'OK', '6.3 Review queue', `
+        ${detailsBlock([
+          detailRow('Itens totais', formatNumber(reviewSummary.totalItems || 0), (reviewSummary.totalItems || 0) ? 'WARN' : 'OK'),
+          detailRow('Pending', formatNumber(reviewSummary.pending || 0), (reviewSummary.pending || 0) ? 'WARN' : 'OK'),
+          detailRow('Approved', formatNumber(reviewSummary.approved || 0)),
+          detailRow('Rejected', formatNumber(reviewSummary.rejected || 0)),
+          detailRow('Needs context', formatNumber(reviewSummary.needsContext || 0), (reviewSummary.needsContext || 0) ? 'WARN' : 'OK'),
+        ])}
+        ${reviewQueueRows(reviewQueue)}
+      `)}
+      ${validationSection(postValidation.status || 'WARN', '6.4 Validação pós-correção', detailsBlock([
         detailRow('ZIP legível', packageValidation.zipReadable ? 'sim' : 'não', packageValidation.zipReadable ? 'OK' : 'FAIL'),
         detailRow('mimetype/container/OPF', packageValidation.mimetypePresent && packageValidation.containerPresent && packageValidation.opfPresent ? 'OK' : 'incompleto', packageValidation.mimetypePresent && packageValidation.containerPresent && packageValidation.opfPresent ? 'OK' : 'FAIL'),
         detailRow('Manifest/spine', packageValidation.manifestValid && packageValidation.spineValid ? 'OK' : 'incompleto', packageValidation.manifestValid && packageValidation.spineValid ? 'OK' : 'FAIL'),
         detailRow('Mudança textual real', textComparison.textChanged ? 'sim' : 'não', textComparison.textChanged ? 'OK' : 'WARN'),
         detailRow('Correções confirmadas', `${formatNumber(correctionValidation.confirmedCorrections || 0)} / ${formatNumber(correctionValidation.appliedCorrections || 0)}`, correctionValidation.unconfirmedCorrections ? 'WARN' : 'OK'),
       ]))}
-      ${validationSection(resultStatus, '6.4 Reauditoria automática', detailsBlock([
+      ${validationSection(resultStatus, '6.5 Reauditoria automática', detailsBlock([
         detailRow('Resultado', result, resultStatus),
         detailRow('Issues antes/depois', `${formatNumber(reauditoriaSummary.issuesBefore || 0)} -> ${formatNumber(reauditoriaSummary.issuesAfter || 0)}`),
         detailRow('Warnings antes/depois', `${formatNumber(reauditoriaSummary.warningsBefore || 0)} -> ${formatNumber(reauditoriaSummary.warningsAfter || 0)}`),

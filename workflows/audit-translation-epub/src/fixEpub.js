@@ -8,8 +8,13 @@ import AdmZip from 'adm-zip';
 import * as cheerio from 'cheerio';
 import archiver from 'archiver';
 import { readFirstEpubFromDir } from './epubReader.js';
+import { buildApprovedCorrectionActions } from './correction/approvedCorrectionsReader.js';
 import { applySafeCorrectionsToZip } from './correction/xhtmlCorrectionEngine.js';
 import { validatePostCorrection } from './correction/postCorrectionValidator.js';
+import {
+  formatReviewQueueValidation,
+  validateReviewQueue,
+} from './correction/reviewQueueValidator.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workflowRoot = path.resolve(__dirname, '..');
@@ -29,6 +34,7 @@ const paths = {
   postCorrectionValidationPath: path.join(workflowRoot, 'logs/json/post-correction-validation.json'),
   reauditReportPath: path.join(workflowRoot, 'logs/json/reaudit-report.json'),
   reauditoriaSummaryPath: path.join(workflowRoot, 'logs/json/reauditoria-summary.json'),
+  reviewQueuePath: path.join(workflowRoot, 'logs/json/review-queue.json'),
 };
 
 function parseArgs(argv) {
@@ -281,6 +287,56 @@ function loadCorrectionPlan() {
   return JSON.parse(fs.readFileSync(paths.correctionPlanPath, 'utf8'));
 }
 
+function loadReviewQueue() {
+  if (!fs.existsSync(paths.reviewQueuePath)) return null;
+  return JSON.parse(fs.readFileSync(paths.reviewQueuePath, 'utf8'));
+}
+
+function buildApplicationPlan(correctionPlan, reviewQueue) {
+  if (reviewQueue) {
+    const reviewValidation = validateReviewQueue(reviewQueue);
+    if (!reviewValidation.ok) {
+      throw new Error(`Review queue invalida:\n${formatReviewQueueValidation(reviewValidation)}`);
+    }
+  }
+
+  const approvedCorrections = buildApprovedCorrectionActions(reviewQueue);
+  return {
+    applicationPlan: {
+      ...correctionPlan,
+      actions: [
+        ...(correctionPlan.actions || []),
+        ...approvedCorrections.actions,
+      ],
+      reviewQueueApproved: approvedCorrections.summary,
+    },
+    approvedCorrections,
+  };
+}
+
+function attachReviewQueueResult(correctionResult, approvedCorrections) {
+  const reviewSkipped = approvedCorrections.skippedItems.map((item) => ({
+    actionId: item.actionId,
+    candidateId: item.candidateId,
+    reviewQueueItemId: item.reviewQueueItemId,
+    type: item.type,
+    mode: item.mode,
+    source: item.source,
+    status: item.status,
+    reason: item.reason,
+    filePath: item.filePath,
+    nodeId: item.nodeId,
+    confidence: item.confidence,
+  }));
+
+  correctionResult.skippedActions.push(...reviewSkipped);
+  correctionResult.reviewQueueApproved = approvedCorrections.summary;
+  correctionResult.summary.skippedActions = correctionResult.skippedActions.length;
+  correctionResult.summary.reviewQueueApprovedActions = approvedCorrections.summary.approvedApplicable;
+  correctionResult.summary.reviewQueueIgnoredItems = approvedCorrections.summary.ignored;
+  return correctionResult;
+}
+
 function latestAuditReportPath() {
   if (!fs.existsSync(paths.logsJsonDir)) return null;
   const reports = fs.readdirSync(paths.logsJsonDir)
@@ -403,7 +459,12 @@ export async function fixEpub({ translatedPath, logPath } = {}) {
   const finalPath = path.join(paths.outputDir, outputName);
   const zip = new AdmZip(translated.filePath);
   const correctionPlan = loadCorrectionPlan();
-  const correctionResult = applySafeCorrectionsToZip(zip, correctionPlan);
+  const reviewQueue = loadReviewQueue();
+  const { applicationPlan, approvedCorrections } = buildApplicationPlan(correctionPlan, reviewQueue);
+  const correctionResult = attachReviewQueueResult(
+    applySafeCorrectionsToZip(zip, applicationPlan),
+    approvedCorrections
+  );
 
   await writeEpubZip(zip, versionPath);
   fs.copyFileSync(versionPath, finalPath);
@@ -422,6 +483,7 @@ export async function fixEpub({ translatedPath, logPath } = {}) {
     versionPath,
     finalPath,
     correctionPlanPath: paths.correctionPlanPath,
+    reviewQueuePath: paths.reviewQueuePath,
     correctionReportPath: paths.correctionReportPath,
     postCorrectionValidationPath: paths.postCorrectionValidationPath,
     changedEntries: correctionResult.changedEntries,
@@ -430,6 +492,7 @@ export async function fixEpub({ translatedPath, logPath } = {}) {
     packageValidation: validateEpubPackage(versionPath),
     postCorrectionValidation,
     totalReplacements: correctionResult.summary.replacements,
+    reviewQueueApproved: correctionResult.reviewQueueApproved,
   };
   report.manifest = updateManifest({ version, translated, versionPath, finalPath, report });
   fs.writeFileSync(paths.correctionReportPath, `${JSON.stringify({
@@ -440,6 +503,8 @@ export async function fixEpub({ translatedPath, logPath } = {}) {
     versionPath: relativeWorkflowPath(versionPath),
     finalPath: relativeWorkflowPath(finalPath),
     correctionPlanPath: relativeWorkflowPath(paths.correctionPlanPath),
+    reviewQueuePath: relativeWorkflowPath(paths.reviewQueuePath),
+    reviewQueueApproved: correctionResult.reviewQueueApproved,
   }, null, 2)}\n`, 'utf8');
   const reauditoria = runPostFixReaudit({
     finalPath,
@@ -462,6 +527,8 @@ export async function fixEpub({ translatedPath, logPath } = {}) {
     replacementsApplied: report.totalReplacements,
     appliedCorrections: correctionResult.summary.appliedCorrections,
     skippedActions: correctionResult.summary.skippedActions,
+    reviewQueueApprovedApplied: correctionResult.reviewQueueApproved.approvedApplicable,
+    reviewQueueIgnoredItems: correctionResult.reviewQueueApproved.ignored,
     postCorrectionStatus: postCorrectionValidation.status,
     textChanged: postCorrectionValidation.textComparison.textChanged,
     confirmedCorrections: postCorrectionValidation.correctionValidation.confirmedCorrections,

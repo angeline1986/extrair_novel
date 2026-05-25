@@ -1001,3 +1001,80 @@ Proxima milestone recomendada:
 ```txt
 iniciar correcoes contextuais controladas para casos auto_review, com aprovacao ou regras conservadoras
 ```
+
+## 32. Estado Da Milestone m8-review-queue
+
+Implementado em: 2026-05-25T01:57:41Z
+
+A milestone `m8-review-queue` foi concluida como preparacao para aprovacao manual futura de acoes inseguras ou ambiguas.
+
+Entregas:
+
+- `src/correction/reviewQueue.js`;
+- `logs/json/review-queue.json`;
+- `logs/txt/review-queue-latest.md`;
+- inclusao de actions `auto_review` e `manual_only` na fila;
+- campos por item: tipo, modo, status, `filePath`, `nodeId`, indices XHTML, `textPreview`, motivo, confianca, risco e sugestao;
+- status permitidos: `pending`, `approved`, `rejected`, `needs_context`;
+- preservacao de status anterior quando a mesma chave estavel reaparece em nova auditoria;
+- resumo da fila no dashboard principal;
+- resumo da fila na aba `Correcoes` do relatorio de validacao.
+
+Esta milestone nao aplica itens aprovados, nao executa Ollama e nao faz correcao contextual ampla. A fila e apenas um contrato persistente de revisao para permitir uma etapa futura segura.
+
+Proxima milestone recomendada:
+
+```txt
+interface/fluxo de aprovacao manual da review queue sem aplicacao automatica ampla
+```
+
+## 33. Estado Da Milestone m9-review-approval-application
+
+Implementado em: 2026-05-25T02:26:08Z
+
+A milestone `m9-review-approval-application` foi concluida como mecanismo controlado de aplicacao manualmente aprovada.
+
+Entregas:
+
+- `src/correction/approvedCorrectionsReader.js`;
+- leitura de `logs/json/review-queue.json` pelo `fixEpub.js`;
+- conversao apenas de itens `approved` em actions aplicaveis;
+- validacao obrigatoria de `before`, `after` e localizacao XHTML antes da aplicacao;
+- bloqueio explicito de itens `pending`, `rejected` e `needs_context`;
+- suporte no `xhtmlCorrectionEngine.js` para actions com origem `review_queue_approved`;
+- registro de `source`, `reviewQueueItemId`, `filePath`, `nodeId` e `confidence` no `correction-report.json`;
+- resumo de aprovadas/ignoradas no relatorio de correcoes;
+- dashboards atualizados com origem/status das actions.
+
+Esta milestone nao cria aprovacao automatica, nao usa Ollama e nao implementa correcao contextual ampla. Ela apenas permite aplicar uma decisao manual ja registrada de forma explicita na fila.
+
+Proxima milestone recomendada:
+
+```txt
+criar comando/interface para editar status da review queue com seguranca e trilha de auditoria
+```
+
+## 34. Estado Da Milestone m10-review-queue-workflow-docs
+
+Implementado em: 2026-05-25T02:49:11Z
+
+A milestone `m10-review-queue-workflow-docs` foi concluida como camada de documentacao e validacao do fluxo manual.
+
+Entregas:
+
+- `REVIEW_QUEUE_WORKFLOW.md`;
+- documentacao dos status permitidos: `pending`, `approved`, `rejected`, `needs_context`;
+- documentacao dos campos obrigatorios para item `approved`;
+- exemplos de item `approved` e `rejected`;
+- `src/correction/reviewQueueValidator.js`;
+- `src/validateReviewQueue.js`;
+- script `npm run review:translation:epub:validate`;
+- validacao integrada ao `fixEpub.js` para impedir `approved` invalido.
+
+Esta milestone nao implementa Ollama, aprovacao automatica nem interface interativa. Ela garante que a edicao manual da fila tenha regras claras e uma validacao executavel.
+
+Proxima milestone recomendada:
+
+```txt
+criar comando assistido para aprovar/rejeitar itens sem editar JSON manualmente
+```

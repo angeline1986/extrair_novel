@@ -235,3 +235,36 @@ Em 2026-05-25T01:32:18Z foi implementada a milestone `m7-correction-report-dashb
 - geracao de `logs/txt/correction-report-latest.md` como resumo Markdown das correcoes;
 - README atualizado com as novas saidas e informacoes exibidas;
 - a milestone manteve o escopo restrito a visualizacao/rastreabilidade, sem aplicar correcao contextual ampla.
+
+Em 2026-05-25T01:57:41Z foi implementada a milestone `m8-review-queue`:
+
+- criacao de `src/correction/reviewQueue.js`;
+- geracao de `logs/json/review-queue.json` a partir de actions `auto_review` e `manual_only`;
+- geracao de `logs/txt/review-queue-latest.md`;
+- itens da fila incluem tipo, `filePath`, `nodeId`, `textPreview`, motivo de nao aplicar automaticamente, confianca e sugestao;
+- status preparados para revisao futura: `pending`, `approved`, `rejected`, `needs_context`;
+- dashboard principal e aba `Correcoes` passaram a exibir resumo da review queue;
+- nenhuma aplicacao de itens aprovados, Ollama ou correcao contextual ampla foi implementada nesta etapa.
+
+Em 2026-05-25T02:26:08Z foi implementada a milestone `m9-review-approval-application`:
+
+- criacao de `src/correction/approvedCorrectionsReader.js`;
+- `fixEpub.js` passou a ler `logs/json/review-queue.json` antes de aplicar correcoes;
+- somente itens `approved` com `before`, `after` e localizacao XHTML valida sao convertidos em actions aplicaveis;
+- itens `pending`, `rejected` e `needs_context` sao registrados como ignorados e nao alteram o EPUB;
+- `xhtmlCorrectionEngine.js` passou a aceitar actions com origem `review_queue_approved`;
+- `correction-report.json` registra `source: review_queue_approved`, `reviewQueueItemId`, `filePath`, `nodeId`, `confidence` e resumo da fila;
+- dashboards e Markdown de correcoes exibem origem/status para diferenciar correcoes automaticas seguras de correcoes aprovadas manualmente;
+- nenhuma aprovacao automatica, Ollama ou correcao contextual ampla foi implementada.
+
+Em 2026-05-25T02:49:11Z foi implementada a milestone `m10-review-queue-workflow-docs`:
+
+- criacao de `REVIEW_QUEUE_WORKFLOW.md` com fluxo manual de aprovacao/rejeicao;
+- documentacao dos status `pending`, `approved`, `rejected` e `needs_context`;
+- documentacao dos campos obrigatorios para `approved`;
+- exemplos de item `approved` e `rejected`;
+- criacao de `src/correction/reviewQueueValidator.js`;
+- criacao do comando `src/validateReviewQueue.js`;
+- inclusao do script `npm run review:translation:epub:validate`;
+- `fixEpub.js` passou a bloquear item `approved` invalido antes da aplicacao;
+- README atualizado com o comando de validacao e referencia ao guia.

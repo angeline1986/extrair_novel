@@ -27,6 +27,13 @@ function isHighConfidenceAutoSafe(action) {
   );
 }
 
+function isApprovedReviewQueueAction(action) {
+  return action.source === 'review_queue_approved' &&
+    action.status === 'approved' &&
+    action.before &&
+    action.after;
+}
+
 function actionLocations(action) {
   const locations = Array.isArray(action.locations) ? action.locations : [];
   const target = action.target && action.target.filePath ? [action.target] : [];
@@ -91,6 +98,7 @@ function replaceInTextNode(node, action) {
 }
 
 function actionSkipReason(action) {
+  if (isApprovedReviewQueueAction(action)) return null;
   if (action.mode !== 'auto_safe') return `mode_${action.mode || 'unknown'}_not_applied`;
   if (Number(action.confidence || 0) < MIN_AUTO_SAFE_CONFIDENCE) return 'confidence_below_auto_safe_threshold';
   if (!action.before || !action.after) return 'missing_before_after';
@@ -110,8 +118,10 @@ export function applySafeCorrectionsToZip(zip, correctionPlan) {
       skippedActions.push({
         actionId: action.id,
         candidateId: action.candidateId,
+        reviewQueueItemId: action.reviewQueueItemId || null,
         type: action.type,
         mode: action.mode,
+        source: action.source || null,
         reason: skipReason,
       });
       continue;
@@ -122,8 +132,10 @@ export function applySafeCorrectionsToZip(zip, correctionPlan) {
       skippedActions.push({
         actionId: action.id,
         candidateId: action.candidateId,
+        reviewQueueItemId: action.reviewQueueItemId || null,
         type: action.type,
         mode: action.mode,
+        source: action.source || null,
         reason: 'no_mapped_locations',
       });
       continue;
@@ -142,8 +154,10 @@ export function applySafeCorrectionsToZip(zip, correctionPlan) {
         skippedActions.push({
           actionId: item.action.id,
           candidateId: item.action.candidateId,
+          reviewQueueItemId: item.action.reviewQueueItemId || null,
           type: item.action.type,
           mode: item.action.mode,
+          source: item.action.source || null,
           reason: 'xhtml_file_not_found',
           filePath,
         });
@@ -161,8 +175,10 @@ export function applySafeCorrectionsToZip(zip, correctionPlan) {
         skippedActions.push({
           actionId: action.id,
           candidateId: action.candidateId,
+          reviewQueueItemId: action.reviewQueueItemId || null,
           type: action.type,
           mode: action.mode,
+          source: action.source || null,
           reason: 'text_node_not_found',
           filePath,
           nodeId: location.id || null,
@@ -175,8 +191,10 @@ export function applySafeCorrectionsToZip(zip, correctionPlan) {
         skippedActions.push({
           actionId: action.id,
           candidateId: action.candidateId,
+          reviewQueueItemId: action.reviewQueueItemId || null,
           type: action.type,
           mode: action.mode,
+          source: action.source || null,
           reason: 'before_text_not_found_in_node',
           filePath,
           nodeId: location.id || null,
@@ -187,8 +205,10 @@ export function applySafeCorrectionsToZip(zip, correctionPlan) {
       const correction = {
         actionId: action.id,
         candidateId: action.candidateId,
+        reviewQueueItemId: action.reviewQueueItemId || null,
         type: action.type,
         mode: action.mode,
+        source: action.source || null,
         confidence: action.confidence,
         filePath,
         nodeId: location.id || null,
@@ -221,6 +241,7 @@ export function applySafeCorrectionsToZip(zip, correctionPlan) {
     summary: {
       totalActions: actions.length,
       autoSafeActions: actions.filter(isHighConfidenceAutoSafe).length,
+      reviewQueueApprovedActions: actions.filter(isApprovedReviewQueueAction).length,
       appliedCorrections: appliedCorrections.length,
       skippedActions: skippedActions.length,
       changedEntries: changedEntries.length,

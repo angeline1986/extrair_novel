@@ -22,6 +22,10 @@ import {
   buildCorrectionPlan,
   loadCorrectionGlossary,
 } from './correction/correctionPlanner.js';
+import {
+  buildReviewQueue,
+  renderReviewQueueMarkdown,
+} from './correction/reviewQueue.js';
 import { buildXhtmlMap } from './xhtmlMapper.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -303,23 +307,43 @@ function writeCorrectionMarkdownReport(outputPath) {
     '',
     '## Correcoes Aplicadas',
     '',
-    '| Tipo | Before | After | Arquivo | Node | Confidence |',
-    '| --- | --- | --- | --- | --- | --- |',
+    '| Tipo | Origem | Before | After | Arquivo | Node | Confidence |',
+    '| --- | --- | --- | --- | --- | --- | --- |',
     ...(applied.length
-      ? applied.slice(0, 80).map((item) => `| ${item.type || '-'} | ${String(item.before || '-').replaceAll('|', '\\|')} | ${String(item.after || '-').replaceAll('|', '\\|')} | ${item.filePath || '-'} | ${item.nodeId || '-'} | ${item.confidence ?? '-'} |`)
-      : ['| - | Nenhuma correcao aplicada | - | - | - | - |']),
+      ? applied.slice(0, 80).map((item) => `| ${item.type || '-'} | ${item.source || '-'} | ${String(item.before || '-').replaceAll('|', '\\|')} | ${String(item.after || '-').replaceAll('|', '\\|')} | ${item.filePath || '-'} | ${item.nodeId || '-'} | ${item.confidence ?? '-'} |`)
+      : ['| - | - | Nenhuma correcao aplicada | - | - | - | - |']),
     '',
     '## Acoes Ignoradas',
     '',
-    '| Action | Tipo | Modo | Motivo | Candidate |',
-    '| --- | --- | --- | --- | --- |',
+    '| Action | Tipo | Modo | Origem | Status | Motivo | Candidate |',
+    '| --- | --- | --- | --- | --- | --- | --- |',
     ...(skipped.length
-      ? skipped.slice(0, 80).map((item) => `| ${item.actionId || '-'} | ${item.type || '-'} | ${item.mode || '-'} | ${item.reason || '-'} | ${item.candidateId || '-'} |`)
-      : ['| - | Nenhuma acao ignorada | - | - | - |']),
+      ? skipped.slice(0, 80).map((item) => `| ${item.actionId || '-'} | ${item.type || '-'} | ${item.mode || '-'} | ${item.source || '-'} | ${item.status || '-'} | ${item.reason || '-'} | ${item.candidateId || '-'} |`)
+      : ['| - | Nenhuma acao ignorada | - | - | - | - | - |']),
     '',
   ];
 
   fs.writeFileSync(outputPath, lines.join('\n'), 'utf8');
+}
+
+function writeReviewQueueReports({ correctionPlan, createdAt }) {
+  const reviewQueuePath = path.join(paths.logsJsonDir, 'review-queue.json');
+  const existingQueue = readJsonIfExists(reviewQueuePath);
+  const reviewQueue = buildReviewQueue({
+    correctionPlan,
+    existingQueue,
+    createdAt,
+  });
+  fs.writeFileSync(reviewQueuePath, JSON.stringify(reviewQueue, null, 2), 'utf8');
+
+  const reviewQueueMarkdownPath = path.join(paths.logsTxtDir, 'review-queue-latest.md');
+  fs.writeFileSync(reviewQueueMarkdownPath, renderReviewQueueMarkdown(reviewQueue), 'utf8');
+
+  return {
+    reviewQueue,
+    reviewQueuePath,
+    reviewQueueMarkdownPath,
+  };
 }
 
 function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, warnings, correctionCandidates, xhtmlMap, glossary }) {
@@ -440,13 +464,19 @@ function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, 
   pruneOldAuditReports(jsonPath);
   const correctionPlanPath = path.join(paths.logsJsonDir, 'correction-plan.json');
   fs.writeFileSync(correctionPlanPath, JSON.stringify(correctionPlan, null, 2), 'utf8');
+  const { reviewQueue, reviewQueuePath, reviewQueueMarkdownPath } = writeReviewQueueReports({
+    correctionPlan,
+    createdAt: isoTimestamp,
+  });
   appendWorkflowEvent('AUDIT_REPORT_CREATED', {
     status,
     issues: issues.length,
     warnings: warnings.length,
     report: path.relative(workflowRoot, jsonPath).replaceAll('\\', '/'),
     correctionPlan: path.relative(workflowRoot, correctionPlanPath).replaceAll('\\', '/'),
+    reviewQueue: path.relative(workflowRoot, reviewQueuePath).replaceAll('\\', '/'),
     correctionCandidates: correctionCandidates.length,
+    reviewQueueItems: reviewQueue.summary.totalItems,
     source: sourceDoc.filename,
     translation: translationDoc.filename,
     timestamp: isoTimestamp,
@@ -489,6 +519,8 @@ function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, 
     `Auto-review: ${correctionPlan.summary.autoReview}`,
     `Manual-only: ${correctionPlan.summary.manualOnly}`,
     `Correction plan: ${correctionPlanPath}`,
+    `Review queue: ${reviewQueuePath}`,
+    `Review queue items: ${reviewQueue.summary.totalItems}`,
     '',
     'PRINCIPAIS ACHADOS',
     ...(findings.length ? findings : ['- Nenhum achado.']),
@@ -507,6 +539,8 @@ function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, 
     report,
     jsonPath,
     correctionPlanPath,
+    reviewQueuePath,
+    reviewQueueMarkdownPath,
     dashboardHtmlPath,
     validationHtmlPath,
     summaryPath,

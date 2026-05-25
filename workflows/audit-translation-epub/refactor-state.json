@@ -1,16 +1,16 @@
 {
   "schemaVersion": "1.0",
-  "refactorVersion": "0.8.0",
+  "refactorVersion": "0.11.0",
   "workflow": "audit-translation-epub",
   "currentPhase": {
-    "id": "phase-7",
-    "name": "Dashboard de correcoes implementado",
+    "id": "phase-10",
+    "name": "Fluxo manual da review queue documentado",
     "status": "active",
-    "description": "Os dashboards EPUB agora exibem correcoes aplicadas, acoes ignoradas, validacao pos-correcao e reauditoria antes/depois."
+    "description": "A review queue agora possui guia de edicao manual e validador executavel para bloquear approved invalido."
   },
   "timestamps": {
     "createdAt": "2026-05-24T23:37:47Z",
-    "updatedAt": "2026-05-25T01:32:18Z"
+    "updatedAt": "2026-05-25T02:49:11Z"
   },
   "completedTasks": [
     {
@@ -86,6 +86,21 @@
     {
       "id": "dashboard-correction-visibility",
       "title": "Exibir correction report, validacao pos-correcao e reauditoria nos dashboards",
+      "status": "done"
+    },
+    {
+      "id": "review-queue",
+      "title": "Gerar fila de revisao para actions auto_review/manual_only",
+      "status": "done"
+    },
+    {
+      "id": "review-approval-application",
+      "title": "Aplicar somente itens approved da review queue com before/after validos",
+      "status": "done"
+    },
+    {
+      "id": "review-queue-workflow-docs",
+      "title": "Documentar e validar fluxo manual da review queue",
       "status": "done"
     }
   ],
@@ -210,6 +225,44 @@
       ]
     },
     {
+      "id": "m8-review-queue",
+      "name": "Fila de revisao",
+      "status": "done",
+      "deliverables": [
+        "reviewQueue.js",
+        "review-queue.json",
+        "review-queue-latest.md",
+        "status pending/approved/rejected/needs_context por item",
+        "resumo da fila no dashboard",
+        "preparacao para aprovacao manual futura sem aplicacao"
+      ]
+    },
+    {
+      "id": "m9-review-approval-application",
+      "name": "Aplicacao de aprovacoes manuais",
+      "status": "done",
+      "deliverables": [
+        "approvedCorrectionsReader.js",
+        "leitura de review-queue.json pelo fixEpub.js",
+        "aplicacao somente de status approved",
+        "pending/rejected/needs_context ignorados",
+        "validacao obrigatoria de before/after antes de aplicar",
+        "correction-report com origem review_queue_approved"
+      ]
+    },
+    {
+      "id": "m10-review-queue-workflow-docs",
+      "name": "Documentacao e validacao da review queue",
+      "status": "done",
+      "deliverables": [
+        "REVIEW_QUEUE_WORKFLOW.md",
+        "validateReviewQueue.js",
+        "reviewQueueValidator.js",
+        "script npm run review:translation:epub:validate",
+        "bloqueio de approved invalido no fixEpub"
+      ]
+    },
+    {
       "id": "m3-reaudit",
       "name": "Reauditoria comparativa",
       "status": "done",
@@ -281,12 +334,16 @@
     "terminologyNormalizer.js": "implemented_glossary_terms",
     "entityNormalizer.js": "implemented_safe_aliases_only",
     "postCorrectionValidator.js": "implemented_validates_epub_and_text_changes",
+    "reviewQueue.js": "implemented_generates_pending_review_items",
+    "approvedCorrectionsReader.js": "implemented_converts_approved_review_items",
     "epubDashboardWriter.js": "implemented_correction_visibility",
     "epubValidationWriter.js": "implemented_corrections_tab",
     "genderAgreementFixer.js": "missing",
     "residualEnglishFixer.js": "missing",
     "epubValidator.js": "missing",
-    "epubVersionWorkflow.js": "missing"
+    "epubVersionWorkflow.js": "missing",
+    "reviewQueueValidator": "implemented_validates_manual_review_queue",
+    "validateReviewQueue.js": "implemented_cli_validation"
   },
   "risks": [
     {

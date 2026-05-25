@@ -1,5 +1,5 @@
 {
-  "currentVersion": 6,
+  "currentVersion": 7,
   "currentPath": "output",
   "origin": "input/translated",
   "versions": [
@@ -132,15 +132,20 @@
       "output": "input-fixed/v7",
       "file": "Show Me Your Stats ptbr_v7_fixed.epub",
       "finalFile": "Show Me Your Stats ptbr_v7_fixed.epub",
-      "createdAt": "2026-05-24T22:35:51.650Z",
+      "createdAt": "2026-05-25T04:45:30.035Z",
       "step": 7,
       "metadata": {
-        "replacementsApplied": 0,
-        "changedEntries": 0,
+        "replacementsApplied": 4,
+        "changedEntries": 4,
         "packageValidation": {
           "mimetypeFirst": true,
           "mimetypeValid": true,
           "hasContainer": true
+        },
+        "postCorrectionValidation": {
+          "status": "OK",
+          "textChanged": true,
+          "confirmedCorrections": 4
         }
       }
     }

@@ -35,6 +35,12 @@ Para gerar uma versao revisada diretamente, sem menu:
 npm run fix:translation:epub
 ```
 
+Para validar a fila de revisao manual antes de aplicar itens aprovados:
+
+```bash
+npm run review:translation:epub:validate
+```
+
 O fluxo principal do menu executa:
 
 ```txt
@@ -80,12 +86,14 @@ O auditor usa esse arquivo para:
 logs/workflow-events.jsonl
 logs/json/audit-report-*.json
 logs/json/correction-plan.json
+logs/json/review-queue.json
 logs/json/correction-report.json
 logs/json/post-correction-validation.json
 logs/json/reaudit-report.json
 logs/json/reauditoria-summary.json
 logs/txt/epub-audit-summary-latest.txt
 logs/txt/correction-report-latest.md
+logs/txt/review-queue-latest.md
 logs/html/audit-dashboard-latest.html
 logs/html/validation-report-latest.html
 input-fixed/manifest.json
@@ -98,3 +106,9 @@ Os relatorios HTML exibem uma secao de correcoes com:
 - validacao tecnica pos-correcao;
 - comparativo da reauditoria antes/depois;
 - status final `improvement`, `regression`, `neutral` ou `unknown`.
+
+O arquivo `logs/json/review-queue.json` registra acoes `auto_review` e `manual_only` que ainda nao devem ser aplicadas automaticamente. Cada item nasce como `pending` e pode ser preparado futuramente para `approved`, `rejected` ou `needs_context`, sem alterar o EPUB nesta milestone.
+
+Quando um item da review queue for marcado manualmente como `approved`, ele so sera aplicado pelo `fixEpub` se tambem tiver `before` e `after` preenchidos e uma localizacao XHTML valida. Itens `pending`, `rejected` e `needs_context` continuam registrados, mas nao sao aplicados.
+
+O fluxo manual completo esta documentado em `REVIEW_QUEUE_WORKFLOW.md`, incluindo exemplos de item `approved` e `rejected`.

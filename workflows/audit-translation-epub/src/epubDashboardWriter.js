@@ -779,17 +779,19 @@ function loadCorrectionArtifacts(logsDir) {
     correctionReport: readJsonIfExists(logsDir, 'correction-report.json'),
     postValidation: readJsonIfExists(logsDir, 'post-correction-validation.json'),
     reauditoriaSummary: readJsonIfExists(logsDir, 'reauditoria-summary.json'),
+    reviewQueue: readJsonIfExists(logsDir, 'review-queue.json'),
   };
 }
 
 function renderCorrectionRows(corrections = []) {
   if (!corrections.length) {
-    return '<tr><td colspan="7">Nenhuma correção aplicada registrada.</td></tr>';
+    return '<tr><td colspan="8">Nenhuma correção aplicada registrada.</td></tr>';
   }
 
   return corrections.slice(0, 80).map((item) => `
     <tr>
       <td>${escapeHtml(item.type || '-')}</td>
+      <td>${escapeHtml(item.source || '-')}</td>
       <td><code>${escapeHtml(item.before || '-')}</code></td>
       <td><code>${escapeHtml(item.after || '-')}</code></td>
       <td>${escapeHtml(item.filePath || '-')}</td>
@@ -801,7 +803,7 @@ function renderCorrectionRows(corrections = []) {
 
 function renderSkippedActionRows(actions = []) {
   if (!actions.length) {
-    return '<tr><td colspan="5">Nenhuma ação ignorada registrada.</td></tr>';
+    return '<tr><td colspan="7">Nenhuma ação ignorada registrada.</td></tr>';
   }
 
   return actions.slice(0, 80).map((item) => `
@@ -809,6 +811,8 @@ function renderSkippedActionRows(actions = []) {
       <td>${escapeHtml(item.actionId || '-')}</td>
       <td>${escapeHtml(item.type || '-')}</td>
       <td>${escapeHtml(item.mode || '-')}</td>
+      <td>${escapeHtml(item.source || '-')}</td>
+      <td>${escapeHtml(item.status || '-')}</td>
       <td>${escapeHtml(item.reason || '-')}</td>
       <td>${escapeHtml(item.candidateId || '-')}</td>
     </tr>`).join('');
@@ -878,6 +882,69 @@ function renderReauditSummary(reauditoriaSummary) {
     </div>`;
 }
 
+function renderReviewQueueRows(reviewQueue) {
+  const items = reviewQueue?.items || [];
+  if (!items.length) {
+    return '<tr><td colspan="7">Nenhum item pendente de revisão.</td></tr>';
+  }
+
+  return items.slice(0, 80).map((item) => `
+    <tr>
+      <td>${escapeHtml(item.status || 'pending')}</td>
+      <td>${escapeHtml(item.type || '-')}</td>
+      <td>${escapeHtml(item.filePath || '-')}</td>
+      <td>${escapeHtml(item.nodeId || '-')}</td>
+      <td>${escapeHtml(String(item.confidence ?? '-'))}</td>
+      <td>${escapeHtml(item.notAppliedReason || item.reason || '-')}</td>
+      <td>${escapeHtml(item.textPreview || '-')}</td>
+    </tr>`).join('');
+}
+
+function renderReviewQueueSummary(reviewQueue) {
+  const summary = reviewQueue?.summary || {};
+
+  return `
+    <h3>Fila de revisão</h3>
+    <div class="grid grid-4">
+      <div class="card">
+        <div class="metric-label">Itens</div>
+        <div class="metric-value">${formatNumber(summary.totalItems || 0)}</div>
+        <div class="metric-note">auto_review/manual_only.</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Pending</div>
+        <div class="metric-value">${formatNumber(summary.pending || 0)}</div>
+        <div class="metric-note">Aguardando decisão.</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Needs context</div>
+        <div class="metric-value">${formatNumber(summary.needsContext || 0)}</div>
+        <div class="metric-note">Requer mais contexto.</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Approved / rejected</div>
+        <div class="metric-value">${formatNumber(summary.approved || 0)} / ${formatNumber(summary.rejected || 0)}</div>
+        <div class="metric-note">Preparado para aprovação manual futura.</div>
+      </div>
+    </div>
+    <div class="card compact-table-card">
+      <table>
+        <thead>
+          <tr>
+            <th>Status</th>
+            <th>Tipo</th>
+            <th>Arquivo</th>
+            <th>Node</th>
+            <th>Confiança</th>
+            <th>Motivo</th>
+            <th>Preview</th>
+          </tr>
+        </thead>
+        <tbody>${renderReviewQueueRows(reviewQueue)}</tbody>
+      </table>
+    </div>`;
+}
+
 function renderCorrectionsSection(artifacts) {
   const correctionReport = artifacts.correctionReport || {};
   const applied = correctionReport.appliedCorrections || [];
@@ -921,6 +988,7 @@ function renderCorrectionsSection(artifacts) {
           <thead>
             <tr>
               <th>Tipo</th>
+              <th>Origem</th>
               <th>Before</th>
               <th>After</th>
               <th>Arquivo</th>
@@ -941,6 +1009,8 @@ function renderCorrectionsSection(artifacts) {
               <th>Action</th>
               <th>Tipo</th>
               <th>Modo</th>
+              <th>Origem</th>
+              <th>Status</th>
               <th>Motivo</th>
               <th>Candidate</th>
             </tr>
@@ -948,6 +1018,8 @@ function renderCorrectionsSection(artifacts) {
           <tbody>${renderSkippedActionRows(skipped)}</tbody>
         </table>
       </div>
+
+      ${renderReviewQueueSummary(artifacts.reviewQueue)}
 
       <h3>Validação pós-correção</h3>
       ${renderValidationSummary(artifacts.postValidation)}
