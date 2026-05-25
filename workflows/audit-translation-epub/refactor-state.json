@@ -1,16 +1,16 @@
 {
   "schemaVersion": "1.0",
-  "refactorVersion": "0.17.0",
+  "refactorVersion": "0.18.0",
   "workflow": "audit-translation-epub",
   "currentPhase": {
-    "id": "phase-16",
-    "name": "Alinhamento seguro de paragrafos implementado",
+    "id": "phase-17",
+    "name": "Estabilizacao e validacoes implementadas",
     "status": "active",
-    "description": "O pipeline tenta alinhar o paragrafo original dentro do capitulo usando heuristicas conservadoras e omite originalAlignedText quando ha ambiguidade."
+    "description": "O workflow EPUB possui validador agregado com fixtures temporarias para proteger contratos centrais do pipeline."
   },
   "timestamps": {
     "createdAt": "2026-05-24T23:37:47Z",
-    "updatedAt": "2026-05-25T09:48:02Z"
+    "updatedAt": "2026-05-25T10:17:41Z"
   },
   "completedTasks": [
     {
@@ -131,6 +131,11 @@
     {
       "id": "paragraph-alignment-safe",
       "title": "Implementar alinhamento seguro de paragrafo dentro do capitulo",
+      "status": "done"
+    },
+    {
+      "id": "stabilization-and-tests",
+      "title": "Adicionar validacoes minimas do pipeline EPUB",
       "status": "done"
     }
   ],
@@ -365,6 +370,18 @@
       ]
     },
     {
+      "id": "m17-stabilization-and-tests",
+      "name": "Estabilizacao e testes minimos",
+      "status": "done",
+      "deliverables": [
+        "validatePipeline.js",
+        "npm run validate:translation:epub",
+        "fixtures temporarias EPUB",
+        "checklist de validacao",
+        "validacao de contratos centrais"
+      ]
+    },
+    {
       "id": "m3-reaudit",
       "name": "Reauditoria comparativa",
       "status": "done",
@@ -448,7 +465,8 @@
     "validateReviewQueue.js": "implemented_cli_validation",
     "assistedReview": "implemented_safe_paragraph_alignment_context",
     "reviewQueue": "implemented_safe_paragraph_alignment_context",
-    "chapterAligner": "implemented_safe_chapter_and_paragraph_alignment"
+    "chapterAligner": "implemented_safe_chapter_and_paragraph_alignment",
+    "validatePipeline": "implemented_contract_validation_script"
   },
   "risks": [
     {

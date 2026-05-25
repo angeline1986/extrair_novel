@@ -41,6 +41,12 @@ Para validar a fila de revisao manual antes de aplicar itens aprovados:
 npm run review:translation:epub:validate
 ```
 
+Para validar os contratos internos do pipeline EPUB com fixtures pequenas:
+
+```bash
+npm run validate:translation:epub
+```
+
 O fluxo principal do menu executa:
 
 ```txt
@@ -120,5 +126,18 @@ Os itens de review e as sugestoes assistidas incluem contexto expandido limitado
 As sugestoes assistidas podem usar `originalAlignedText` confiavel para propor `suggestedAfter` apenas em heuristicas locais e conservadoras, como descompasso simples de pronome com sobreposicao textual suficiente entre original e traducao. Mesmo nesses casos, `requiresHumanApproval` permanece `true`.
 
 Dentro de capitulos alinhados, o workflow tenta alinhar o paragrafo original por nomes proprios, numeros, perfil de pontuacao e comprimento relativo. O texto original so e exposto quando `paragraphAlignmentConfidence` e seguro; casos ambiguos mantem `originalAlignedText` vazio.
+
+## Checklist De Validacao
+
+Use este checklist antes de concluir mudancas no workflow EPUB:
+
+```bash
+npm run validate:translation:epub
+npm run review:translation:epub:validate
+npm run audit:translation:epub:run
+npm run fix:translation:epub
+```
+
+O comando `validate:translation:epub` cobre os contratos principais de `correctionTypes`, `correctionPlanner`, `xhtmlMapper`, `xhtmlCorrectionEngine`, `postCorrectionValidator`, `reviewQueueValidator` e `chapterAligner` usando EPUBs pequenos gerados temporariamente.
 
 O fluxo manual completo esta documentado em `REVIEW_QUEUE_WORKFLOW.md`, incluindo exemplos de item `approved` e `rejected`.

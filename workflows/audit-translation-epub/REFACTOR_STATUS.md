@@ -327,3 +327,20 @@ Em 2026-05-25T09:48:02Z foi implementada a milestone `m16-paragraph-alignment-sa
 - casos ambiguos mantem `originalAlignedText` vazio por seguranca;
 - dashboards e relatorios exibem confianca/motivo do alinhamento de paragrafo;
 - nenhuma aplicacao automatica, Ollama obrigatorio ou reescrita ampla foi implementada.
+
+Em 2026-05-25T10:17:41Z foi implementada a milestone `m17-stabilization-and-tests`:
+
+- criacao de `src/validatePipeline.js`;
+- comando `npm run validate:translation:epub`;
+- validacao de contratos para `correctionTypes`, `correctionPlanner`, `xhtmlMapper`, `xhtmlCorrectionEngine`, `postCorrectionValidator`, `reviewQueueValidator` e `chapterAligner`;
+- fixtures EPUB pequenas geradas em diretorio temporario durante a execucao;
+- README atualizado com checklist de validacao;
+- nenhuma funcionalidade linguistica nova foi implementada.
+
+Checkpoint final da m17 em 2026-05-25T16:39:00Z:
+
+- `npm run validate:translation:epub` executado com sucesso;
+- `npm run review:translation:epub:validate` executado com sucesso;
+- `npm run audit:translation:epub:run` executado com sucesso;
+- `npm run fix:translation:epub` executado com sucesso, gerando validacao pos-correcao `OK` e reauditoria `improvement`;
+- `input-fixed/manifest.json` revertido por conter apenas avanco operacional para `v8` gerado durante validacao local.

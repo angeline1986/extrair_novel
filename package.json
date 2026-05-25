@@ -31,6 +31,7 @@
     "audit:epub:menu": "node workflows/audit-translation-epub/src/menu.js",
     "fix:translation:epub": "node workflows/audit-translation-epub/src/fixEpub.js",
     "review:translation:epub:validate": "node workflows/audit-translation-epub/src/validateReviewQueue.js",
+    "validate:translation:epub": "node workflows/audit-translation-epub/src/validatePipeline.js",
     
     "fix:gender": "node workflows/audit-translation-docx/src/fix-gender-issues.js",
     "fix:gender:verbose": "node workflows/audit-translation-docx/src/fix-gender-issues.js --verbose",

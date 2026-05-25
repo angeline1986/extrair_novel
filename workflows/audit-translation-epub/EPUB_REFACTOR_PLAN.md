@@ -1223,3 +1223,31 @@ Proxima milestone recomendada:
 ```txt
 usar alinhamento de paragrafo confiavel para sugestoes assistidas mais especificas
 ```
+
+## 41. Estado Da Milestone m17-stabilization-and-tests
+
+Implementado em: 2026-05-25T10:17:41Z
+
+A milestone `m17-stabilization-and-tests` foi concluida como consolidacao do estado atual do refactor.
+
+Entregas:
+
+- `src/validatePipeline.js`;
+- comando `npm run validate:translation:epub`;
+- fixtures EPUB pequenas criadas em diretorio temporario durante a validacao;
+- validacao de `correctionTypes`;
+- validacao de `correctionPlanner`;
+- validacao de `xhtmlMapper`;
+- validacao de `xhtmlCorrectionEngine`;
+- validacao de `postCorrectionValidator`;
+- validacao de `reviewQueueValidator`;
+- validacao de `chapterAligner`;
+- checklist de validacao no README.
+
+Esta milestone nao implementa novas funcionalidades linguisticas. O objetivo e reduzir risco de regressao no pipeline ja existente.
+
+Proxima milestone recomendada:
+
+```txt
+criar testes automatizados formais ou integrar validate:translation:epub ao CI
+```
