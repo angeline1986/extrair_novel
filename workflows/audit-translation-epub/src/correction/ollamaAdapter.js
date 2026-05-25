@@ -41,7 +41,10 @@ ${item.type || 'unknown'}
 
 Responda SOMENTE em JSON valido, sem markdown:
 {
-  "suggestedAfter": "texto sugerido em PT-BR, ou string vazia se nao houver seguranca",
+  "patchMode": "full_paragraph|localized_patch",
+  "suggestedAfter": "paragrafo atual COMPLETO corrigido quando patchMode=full_paragraph, ou string vazia quando patchMode=localized_patch",
+  "targetBefore": "trecho exato do PARAGRAFO ATUAL que deve ser substituido quando patchMode=localized_patch",
+  "replacementAfter": "trecho corrigido que substitui targetBefore quando patchMode=localized_patch",
   "reason": "explique brevemente a relacao entre original, contexto e sugestao",
   "confidence": 0.0,
   "risks": ["risco 1"],
@@ -50,7 +53,10 @@ Responda SOMENTE em JSON valido, sem markdown:
 
 Regras:
 - requiresHumanApproval deve ser true.
-- suggestedAfter deve ser um ajuste localizado do paragrafo/trecho atual.
+- Use patchMode="full_paragraph" quando conseguir devolver o PARAGRAFO ATUAL completo com a correcao aplicada.
+- Em full_paragraph, suggestedAfter deve conter o paragrafo completo corrigido, nao apenas a frase ou palavra alterada.
+- Use patchMode="localized_patch" quando a correcao for pequena e localizada.
+- Em localized_patch, targetBefore deve existir exatamente no PARAGRAFO ATUAL e replacementAfter deve ser apenas o trecho corrigido.
 - Se nao houver contexto suficiente, use suggestedAfter vazio e confidence <= 0.5.
 - Nao altere nomes proprios, numeros ou termos canonicos sem evidencia clara.`;
 }

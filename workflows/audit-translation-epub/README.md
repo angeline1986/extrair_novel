@@ -134,7 +134,9 @@ Opcionalmente, as sugestoes assistidas podem chamar um modelo local Ollama. O ad
 EPUB_AUDIT_OLLAMA=1 OLLAMA_MODEL=qwen2.5:7b npm run audit:translation:epub:run
 ```
 
-Variaveis aceitas: `EPUB_AUDIT_OLLAMA`, `OLLAMA_MODEL`, `OLLAMA_ENDPOINT` e `OLLAMA_TIMEOUT_MS`. O modelo recebe apenas itens `pending` + `auto_review` e contexto limitado (`originalAlignedText`, paragrafo anterior/atual/posterior e preview). Todas as respostas do modelo sao gravadas em `logs/json/assisted-review-model-trace.json`, passam por validacao conservadora e continuam com `requiresHumanApproval: true`; nenhuma sugestao e aplicada automaticamente.
+Variaveis aceitas: `EPUB_AUDIT_OLLAMA`, `OLLAMA_HOST`, `OLLAMA_MODEL`, `OLLAMA_ENDPOINT` e `OLLAMA_TIMEOUT_MS`. O modelo recebe apenas itens `pending` + `auto_review` e contexto limitado (`originalAlignedText`, paragrafo anterior/atual/posterior e preview). Todas as respostas do modelo sao gravadas em `logs/json/assisted-review-model-trace.json`, passam por validacao conservadora e continuam com `requiresHumanApproval: true`; nenhuma sugestao e aplicada automaticamente.
+
+O contrato de saida do modelo aceita dois modos. Em `full_paragraph`, `suggestedAfter` deve conter o paragrafo completo corrigido. Em `localized_patch`, o modelo deve preencher `targetBefore` com um trecho existente exatamente no paragrafo atual e `replacementAfter` com a substituicao localizada. Patches localizados sao rejeitados se `targetBefore` nao for encontrado literalmente no paragrafo atual.
 
 ## Checklist De Validacao
 

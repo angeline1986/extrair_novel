@@ -358,3 +358,14 @@ Em 2026-05-25T17:25:00Z foi implementada a milestone `m18-assisted-model-adapter
 - criado `logs/json/assisted-review-model-trace.json` para registrar prompts, respostas, rejeicoes e fallback;
 - dashboards e relatorios passaram a exibir origem das sugestoes, riscos, contagem de Ollama e fallback;
 - nenhuma sugestao e aplicada automaticamente e nenhum EPUB e alterado nesta milestone.
+
+Em 2026-05-25T17:45:00Z foi implementada a milestone `m19-model-output-contract`:
+
+- prompt do Ollama atualizado para exigir `suggestedAfter` como paragrafo completo em `patchMode: full_paragraph`;
+- adicionados campos opcionais `targetBefore`, `replacementAfter` e `patchMode`;
+- validacao passou a aceitar dois contratos: `full_paragraph` e `localized_patch`;
+- `localized_patch` so e aceito quando `targetBefore` existe literalmente em `currentParagraph`;
+- `localized_patch` gera `suggestedAfter` como paragrafo completo derivado do patch, mantendo rastreabilidade de `targetBefore` e `replacementAfter`;
+- trace do modelo registra `patchMode`, `targetBefore`, `replacementAfter` e motivo de rejeicao;
+- README atualizado com o novo contrato;
+- nenhuma sugestao e aplicada automaticamente.

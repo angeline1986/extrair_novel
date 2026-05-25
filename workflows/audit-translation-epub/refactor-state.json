@@ -1,16 +1,16 @@
 {
   "schemaVersion": "1.0",
-  "refactorVersion": "0.19.0",
+  "refactorVersion": "0.20.0",
   "workflow": "audit-translation-epub",
   "currentPhase": {
-    "id": "phase-18",
-    "name": "Adapter opcional de modelo assistido implementado",
+    "id": "phase-19",
+    "name": "Contrato de saida do modelo ajustado",
     "status": "active",
-    "description": "O workflow EPUB possui adapter Ollama opcional para sugestoes assistidas, com fallback deterministico e aprovacao humana obrigatoria."
+    "description": "O assistedReview aceita sugestoes Ollama em modo full_paragraph ou localized_patch, mantendo aprovacao humana obrigatoria."
   },
   "timestamps": {
     "createdAt": "2026-05-24T23:37:47Z",
-    "updatedAt": "2026-05-25T17:25:00Z"
+    "updatedAt": "2026-05-25T17:45:00Z"
   },
   "completedTasks": [
     {
@@ -141,6 +141,11 @@
     {
       "id": "assisted-model-adapter",
       "title": "Integrar adapter Ollama opcional para sugestoes assistidas",
+      "status": "done"
+    },
+    {
+      "id": "model-output-contract",
+      "title": "Ajustar contrato de saida do modelo para paragrafo completo ou patch localizado",
       "status": "done"
     }
   ],
@@ -419,6 +424,18 @@
         "residualEnglishFixer",
         "modo auto_review"
       ]
+    },
+    {
+      "id": "m19-model-output-contract",
+      "name": "Contrato de saida do modelo",
+      "status": "done",
+      "deliverables": [
+        "prompt explicito para full_paragraph",
+        "targetBefore/replacementAfter/patchMode opcionais",
+        "validacao de localized_patch com targetBefore literal",
+        "trace com patchMode e rejeicoes",
+        "requiresHumanApproval true em todas as sugestoes"
+      ]
     }
   ],
   "priorities": {
@@ -482,9 +499,9 @@
     "epubVersionWorkflow.js": "missing",
     "reviewQueueValidator": "implemented_validates_manual_review_queue",
     "validateReviewQueue.js": "implemented_cli_validation",
-    "assistedReview": "implemented_safe_paragraph_alignment_context",
+    "assistedReview": "implemented_model_output_contract_full_paragraph_or_localized_patch",
     "modelAdapter": "implemented_optional_model_contract",
-    "ollamaAdapter": "implemented_optional_assisted_review_provider",
+    "ollamaAdapter": "implemented_optional_assisted_review_provider_with_patch_contract",
     "reviewQueue": "implemented_safe_paragraph_alignment_context",
     "chapterAligner": "implemented_safe_chapter_and_paragraph_alignment",
     "validatePipeline": "implemented_contract_validation_script"

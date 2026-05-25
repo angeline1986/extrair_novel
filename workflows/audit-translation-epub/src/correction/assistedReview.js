@@ -219,27 +219,52 @@ function parseModelConfidence(value) {
   return Math.max(0, Math.min(1, confidence));
 }
 
-function validateModelSuggestion(item, parsed) {
-  const sourceText = item.currentParagraph || item.textPreview || item.before || '';
-  const suggestedAfter = normalizeWhitespace(parsed?.suggestedAfter);
+function modelPatchMode(parsed) {
+  const explicitMode = normalizeWhitespace(parsed?.patchMode);
+  if (explicitMode === 'localized_patch' || explicitMode === 'full_paragraph') {
+    return explicitMode;
+  }
+
+  if (normalizeWhitespace(parsed?.targetBefore) || normalizeWhitespace(parsed?.replacementAfter)) {
+    return 'localized_patch';
+  }
+
+  return 'full_paragraph';
+}
+
+function validateCommonModelFields(item, parsed) {
   const confidence = parseModelConfidence(parsed?.confidence);
   const risks = Array.isArray(parsed?.risks)
     ? parsed.risks.map((risk) => normalizeWhitespace(risk)).filter(Boolean).slice(0, 6)
     : [];
-
-  if (!suggestedAfter) {
-    return {
-      ok: false,
-      reason: 'model_suggested_after_empty',
-      suggestionStatus: item.type === 'residual_english_review' ? 'needs_human_translation' : 'insufficient_context',
-    };
-  }
 
   if (confidence < 0.65) {
     return {
       ok: false,
       reason: 'model_confidence_below_threshold',
       suggestionStatus: item.type === 'residual_english_review' ? 'needs_human_translation' : 'insufficient_context',
+      confidence,
+      risks,
+    };
+  }
+
+  return {
+    ok: true,
+    confidence,
+    risks,
+  };
+}
+
+function validateFullParagraphSuggestion(item, parsed, common) {
+  const sourceText = item.currentParagraph || item.textPreview || item.before || '';
+  const suggestedAfter = normalizeWhitespace(parsed?.suggestedAfter);
+
+  if (!suggestedAfter) {
+    return {
+      ok: false,
+      reason: 'model_suggested_after_empty',
+      suggestionStatus: item.type === 'residual_english_review' ? 'needs_human_translation' : 'insufficient_context',
+      patchMode: 'full_paragraph',
     };
   }
 
@@ -249,6 +274,7 @@ function validateModelSuggestion(item, parsed) {
       ok: false,
       reason: `model_suggestion_length_ratio_out_of_range:${ratio.toFixed(2)}`,
       suggestionStatus: 'insufficient_context',
+      patchMode: 'full_paragraph',
     };
   }
 
@@ -257,16 +283,100 @@ function validateModelSuggestion(item, parsed) {
       ok: false,
       reason: 'model_suggestion_does_not_preserve_protected_tokens',
       suggestionStatus: 'insufficient_context',
+      patchMode: 'full_paragraph',
     };
   }
 
   return {
     ok: true,
+    patchMode: 'full_paragraph',
     suggestedAfter,
-    reason: normalizeWhitespace(parsed?.reason) || 'Sugestao gerada por modelo opcional com contexto expandido; requer aprovacao humana.',
-    confidence,
-    risks,
+    reason: normalizeWhitespace(parsed?.reason) || 'Sugestao de paragrafo completo gerada por modelo opcional; requer aprovacao humana.',
+    confidence: common.confidence,
+    risks: common.risks,
   };
+}
+
+function validateLocalizedPatchSuggestion(item, parsed, common) {
+  const sourceText = item.currentParagraph || item.textPreview || item.before || '';
+  const targetBefore = normalizeWhitespace(parsed?.targetBefore);
+  const replacementAfter = normalizeWhitespace(parsed?.replacementAfter);
+
+  if (!targetBefore || !replacementAfter) {
+    return {
+      ok: false,
+      reason: 'model_localized_patch_missing_target_or_replacement',
+      suggestionStatus: 'insufficient_context',
+      patchMode: 'localized_patch',
+    };
+  }
+
+  if (!sourceText.includes(targetBefore)) {
+    return {
+      ok: false,
+      reason: 'model_localized_patch_target_not_found',
+      suggestionStatus: 'insufficient_context',
+      patchMode: 'localized_patch',
+    };
+  }
+
+  const patchRatio = lengthRatio(targetBefore, replacementAfter);
+  if (patchRatio < 0.35 || patchRatio > 2.5) {
+    return {
+      ok: false,
+      reason: `model_localized_patch_length_ratio_out_of_range:${patchRatio.toFixed(2)}`,
+      suggestionStatus: 'insufficient_context',
+      patchMode: 'localized_patch',
+    };
+  }
+
+  if (!preservesProtectedTokens(targetBefore, replacementAfter)) {
+    return {
+      ok: false,
+      reason: 'model_localized_patch_does_not_preserve_protected_tokens',
+      suggestionStatus: 'insufficient_context',
+      patchMode: 'localized_patch',
+    };
+  }
+
+  const suggestedAfter = sourceText.replace(targetBefore, replacementAfter);
+  const fullRatio = lengthRatio(sourceText, suggestedAfter);
+  if (fullRatio < 0.45 || fullRatio > 1.8) {
+    return {
+      ok: false,
+      reason: `model_localized_patch_full_length_ratio_out_of_range:${fullRatio.toFixed(2)}`,
+      suggestionStatus: 'insufficient_context',
+      patchMode: 'localized_patch',
+    };
+  }
+
+  return {
+    ok: true,
+    patchMode: 'localized_patch',
+    targetBefore,
+    replacementAfter,
+    suggestedAfter,
+    reason: normalizeWhitespace(parsed?.reason) || 'Patch localizado gerado por modelo opcional; requer aprovacao humana.',
+    confidence: common.confidence,
+    risks: common.risks,
+  };
+}
+
+function validateModelSuggestion(item, parsed) {
+  const patchMode = modelPatchMode(parsed);
+  const common = validateCommonModelFields(item, parsed);
+  if (!common.ok) {
+    return {
+      ...common,
+      patchMode,
+    };
+  }
+
+  if (patchMode === 'localized_patch') {
+    return validateLocalizedPatchSuggestion(item, parsed, common);
+  }
+
+  return validateFullParagraphSuggestion(item, parsed, common);
 }
 
 function buildSuggestion(item, index) {
@@ -294,6 +404,9 @@ function buildSuggestion(item, index) {
     paragraphAlignmentReason: item.paragraphAlignmentReason || null,
     before: beforeText(item),
     suggestedAfter: explicitSuggestedAfter,
+    targetBefore: null,
+    replacementAfter: null,
+    patchMode: null,
     suggestionStatus: suggestionStatus(item),
     reason: reasonForItem(item),
     confidence: confidenceForItem(item),
@@ -322,6 +435,8 @@ function summarizeSuggestions(suggestions, modelTrace) {
     modelRejected: modelTrace?.summary?.rejected || 0,
     modelFailed: modelTrace?.summary?.failed || 0,
     modelFallback: modelTrace?.summary?.fallback || 0,
+    modelFullParagraph: suggestions.filter((item) => item.source === 'ollama' && item.patchMode === 'full_paragraph').length,
+    modelLocalizedPatch: suggestions.filter((item) => item.source === 'ollama' && item.patchMode === 'localized_patch').length,
     modelEnabled: Boolean(modelTrace?.adapter?.enabled),
     modelName: modelTrace?.adapter?.model || null,
   };
@@ -349,6 +464,9 @@ export async function buildAssistedReviewSuggestions({
           finalSuggestion = {
             ...deterministic,
             suggestedAfter: validation.suggestedAfter,
+            targetBefore: validation.targetBefore || null,
+            replacementAfter: validation.replacementAfter || null,
+            patchMode: validation.patchMode,
             suggestionStatus: 'suggestion_available',
             reason: validation.reason,
             confidence: validation.confidence,
@@ -368,6 +486,9 @@ export async function buildAssistedReviewSuggestions({
             rawResponse: modelResult.rawResponse,
             parsedResponse: modelResult.parsed,
             finalSuggestionId: finalSuggestion.id,
+            patchMode: validation.patchMode,
+            targetBefore: validation.targetBefore || null,
+            replacementAfter: validation.replacementAfter || null,
             reason: validation.reason,
             confidence: validation.confidence,
             usedFallback: false,
@@ -388,6 +509,7 @@ export async function buildAssistedReviewSuggestions({
             rawResponse: modelResult.rawResponse,
             parsedResponse: modelResult.parsed,
             rejectionReason: validation.reason,
+            patchMode: validation.patchMode,
             usedFallback: true,
           });
         }
@@ -455,18 +577,20 @@ export function renderAssistedReviewMarkdown(assistedReview) {
     `Insufficient context: ${summary.insufficientContext || 0}`,
     `Fallback deterministico: ${summary.deterministicFallback || 0}`,
     `Sugestoes Ollama: ${summary.ollamaSuggestions || 0}`,
+    `Full paragraph / localized patch: ${summary.modelFullParagraph || 0}/${summary.modelLocalizedPatch || 0}`,
     `Modelo aceitas/rejeitadas/falhas: ${summary.modelAccepted || 0}/${summary.modelRejected || 0}/${summary.modelFailed || 0}`,
     '',
     'Nenhuma sugestao deste arquivo e aplicada automaticamente.',
     '',
-    '| ID | Review item | Status | Origem | Tipo | Arquivo | Node | Confidence | Alignment | Before | Suggested after | Riscos | Contexto | Reason |',
-    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+    '| ID | Review item | Status | Origem | Patch mode | Tipo | Arquivo | Node | Confidence | Alignment | Before | Suggested after | Riscos | Contexto | Reason |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
     ...(suggestions.length
       ? suggestions.map((item) => [
         item.id,
         item.reviewQueueItemId || '-',
         item.suggestionStatus || '-',
         item.source || '-',
+        item.patchMode || '-',
         item.type || '-',
         item.filePath || '-',
         item.nodeId || '-',
