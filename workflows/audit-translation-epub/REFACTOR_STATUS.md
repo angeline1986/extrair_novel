@@ -369,3 +369,16 @@ Em 2026-05-25T17:45:00Z foi implementada a milestone `m19-model-output-contract`
 - trace do modelo registra `patchMode`, `targetBefore`, `replacementAfter` e motivo de rejeicao;
 - README atualizado com o novo contrato;
 - nenhuma sugestao e aplicada automaticamente.
+
+Em 2026-05-25T21:05:00Z foi executada a milestone operacional `m20-manual-approved-suggestion-test`:
+
+- analisado `logs/json/assisted-review-suggestions.json`;
+- escolhida uma unica sugestao `suggestion_available`: `ars-0001`, ligada ao item `rq-0001`;
+- item `rq-0001` foi marcado como `approved` em `review-queue.json` usando `targetBefore` como `before` e `replacementAfter` como `after`;
+- `npm run review:translation:epub:validate` retornou `OK` com 1 approved e 1 pending;
+- `npm run fix:translation:epub` aplicou 5 substituicoes no total;
+- a correcao aprovada da review queue foi aplicada como `review_queue_approved`;
+- item pendente `rq-0002` permaneceu ignorado com `review_queue_pending_not_applied`;
+- validacao pos-correcao retornou `OK`, EPUB tecnico valido e 5/5 correcoes confirmadas;
+- reauditoria retornou `improvement`, com candidates reduzidos de 3 para 2;
+- `input-fixed/manifest.json` foi restaurado apos o teste para evitar registrar estado operacional local como mudanca de codigo.

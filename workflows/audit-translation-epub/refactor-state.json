@@ -1,16 +1,16 @@
 {
   "schemaVersion": "1.0",
-  "refactorVersion": "0.20.0",
+  "refactorVersion": "0.21.0",
   "workflow": "audit-translation-epub",
   "currentPhase": {
-    "id": "phase-19",
-    "name": "Contrato de saida do modelo ajustado",
+    "id": "phase-20",
+    "name": "Teste operacional de aprovacao manual concluido",
     "status": "active",
-    "description": "O assistedReview aceita sugestoes Ollama em modo full_paragraph ou localized_patch, mantendo aprovacao humana obrigatoria."
+    "description": "Uma sugestao assistida do Ollama foi aprovada manualmente, aplicada pelo fixEpub, validada e reauditada sem aplicar itens pendentes."
   },
   "timestamps": {
     "createdAt": "2026-05-24T23:37:47Z",
-    "updatedAt": "2026-05-25T17:45:00Z"
+    "updatedAt": "2026-05-25T21:05:00Z"
   },
   "completedTasks": [
     {
@@ -146,6 +146,11 @@
     {
       "id": "model-output-contract",
       "title": "Ajustar contrato de saida do modelo para paragrafo completo ou patch localizado",
+      "status": "done"
+    },
+    {
+      "id": "manual-approved-suggestion-test",
+      "title": "Testar aplicacao real de uma sugestao assistida aprovada manualmente",
       "status": "done"
     }
   ],
@@ -436,6 +441,19 @@
         "trace com patchMode e rejeicoes",
         "requiresHumanApproval true em todas as sugestoes"
       ]
+    },
+    {
+      "id": "m20-manual-approved-suggestion-test",
+      "name": "Teste de sugestao aprovada manualmente",
+      "status": "done",
+      "deliverables": [
+        "1 sugestao suggestion_available aprovada",
+        "review queue validada com 1 approved e 1 pending",
+        "fixEpub aplicou review_queue_approved",
+        "validacao pos-correcao OK",
+        "reauditoria improvement",
+        "manifest operacional restaurado apos teste"
+      ]
     }
   ],
   "priorities": {
@@ -502,9 +520,11 @@
     "assistedReview": "implemented_model_output_contract_full_paragraph_or_localized_patch",
     "modelAdapter": "implemented_optional_model_contract",
     "ollamaAdapter": "implemented_optional_assisted_review_provider_with_patch_contract",
-    "reviewQueue": "implemented_safe_paragraph_alignment_context",
+    "reviewQueue": "validated_manual_approval_operational_flow",
     "chapterAligner": "implemented_safe_chapter_and_paragraph_alignment",
-    "validatePipeline": "implemented_contract_validation_script"
+    "validatePipeline": "implemented_contract_validation_script",
+    "approvedCorrectionsReader": "validated_applies_assisted_review_approved_item",
+    "fixEpub": "validated_manual_approved_suggestion_application"
   },
   "risks": [
     {
