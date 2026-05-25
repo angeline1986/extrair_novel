@@ -298,3 +298,32 @@ Em 2026-05-25T04:08:33Z foi implementada a milestone `m13-review-context-enrichm
 - dashboards e relatorio de validacao exibem o contexto expandido;
 - a classificacao `insufficient_context` foi mantida quando o contexto ainda nao permite uma sugestao segura;
 - nenhuma correcao automatica, Ollama obrigatorio ou reescrita ampla foi implementada.
+
+Em 2026-05-25T04:37:12Z foi implementada a milestone `m14-chapter-alignment-safe`:
+
+- criacao de `src/chapterAligner.js`;
+- alinhamento de secoes priorizando numero de capitulo e titulo normalizado;
+- fallback por indice marcado como `index_fallback_low_confidence`;
+- `originalAlignedText` so e preenchido quando `alignmentConfidence >= 0.8`;
+- review queue e assisted review passaram a incluir `alignmentConfidence` e `alignmentReason`;
+- dashboards e relatorios exibem motivo/confianca do alinhamento;
+- alinhamentos inseguros deixam `originalAlignedText` vazio por seguranca.
+
+Em 2026-05-25T04:58:26Z foi implementada a milestone `m15-assisted-review-with-alignment`:
+
+- `assistedReview.js` passou a usar `originalAlignedText` quando `alignmentConfidence` e alta;
+- `suggestedAfter` pode ser gerado apenas em heuristicas locais e conservadoras com sobreposicao textual suficiente;
+- a heuristica inicial cobre descompasso simples de pronomes quando original e traducao atual sustentam a sugestao;
+- `requiresHumanApproval` permanece `true` em todas as sugestoes;
+- `insufficient_context` e mantido quando o alinhamento e confiavel em nivel de capitulo, mas nao ha base textual segura no paragrafo;
+- nenhuma aplicacao automatica, Ollama obrigatorio ou reescrita ampla foi implementada.
+
+Em 2026-05-25T09:48:02Z foi implementada a milestone `m16-paragraph-alignment-safe`:
+
+- `chapterAligner.js` passou a tentar alinhamento seguro de paragrafo dentro do capitulo alinhado;
+- heuristicas conservadoras usam nomes proprios, numeros, perfil de pontuacao e comprimento relativo;
+- review queue e assisted review passaram a incluir `paragraphAlignmentConfidence` e `paragraphAlignmentReason`;
+- `originalAlignedText` so e preenchido quando o alinhamento de paragrafo passa no limiar seguro;
+- casos ambiguos mantem `originalAlignedText` vazio por seguranca;
+- dashboards e relatorios exibem confianca/motivo do alinhamento de paragrafo;
+- nenhuma aplicacao automatica, Ollama obrigatorio ou reescrita ampla foi implementada.

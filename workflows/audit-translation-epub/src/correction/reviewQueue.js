@@ -1,3 +1,5 @@
+import { alignedOriginalParagraphByText } from '../chapterAligner.js';
+
 const REVIEW_STATUSES = new Set(['pending', 'approved', 'rejected', 'needs_context']);
 const CONTEXT_PREVIEW_LIMIT = 520;
 
@@ -32,39 +34,35 @@ function findMappedParagraph(xhtmlMap, location) {
   };
 }
 
-function chapterNumberFromSection(section) {
-  const value = `${section?.title || ''} ${section?.path || ''}`;
-  const match = value.match(/(?:chapter|cap[ií]tulo|text\/)(?:_|\s|-)*0*(\d{1,4})/i) ||
-    value.match(/\/0*(\d{1,4})[_-]/);
-  return match ? Number(match[1]) : null;
+function alignedOriginalContext({ sourceDoc, chapterAlignment, location, currentParagraph }) {
+  const result = alignedOriginalParagraphByText({
+    sourceDoc,
+    chapterAlignment,
+    translationPath: location?.filePath,
+    paragraphIndex: location?.paragraphIndex,
+    translatedParagraph: currentParagraph,
+  });
+
+  return {
+    originalAlignedText: preview(result.text),
+    alignmentConfidence: result.confidence,
+    alignmentReason: result.reason,
+    paragraphAlignmentConfidence: result.paragraphAlignmentConfidence,
+    paragraphAlignmentReason: result.paragraphAlignmentReason,
+  };
 }
 
-function findOriginalAlignedText({ sourceDoc, translationDoc, location }) {
-  if (!sourceDoc || !translationDoc || !location?.filePath) return null;
-  const translationSection = (translationDoc.sections || []).find((section) => section.path === location.filePath);
-  if (!translationSection) return null;
-  const translationChapter = chapterNumberFromSection(translationSection);
-  const sourceSection = (sourceDoc.sections || []).find((section) =>
-    translationChapter !== null && chapterNumberFromSection(section) === translationChapter);
-  if (!sourceSection) return null;
-
-  return preview(
-    sourceSection.paragraphs?.[location.paragraphIndex] ||
-    sourceSection.rawText ||
-    null
-  );
-}
-
-function contextForAction(action, { xhtmlMap, sourceDoc, translationDoc } = {}) {
+function contextForAction(action, { xhtmlMap, sourceDoc, chapterAlignment } = {}) {
   const location = firstLocation(action);
   const mapped = findMappedParagraph(xhtmlMap, location);
   const currentParagraph = preview(mapped?.paragraph?.text || location.textPreview);
+  const originalContext = alignedOriginalContext({ sourceDoc, chapterAlignment, location, currentParagraph });
 
   return {
     previousParagraph: preview(mapped?.previous?.text),
     currentParagraph,
     nextParagraph: preview(mapped?.next?.text),
-    originalAlignedText: findOriginalAlignedText({ sourceDoc, translationDoc, location }),
+    ...originalContext,
   };
 }
 
@@ -115,7 +113,7 @@ export function buildReviewQueue({
   existingQueue = null,
   xhtmlMap = null,
   sourceDoc = null,
-  translationDoc = null,
+  chapterAlignment = null,
   createdAt = new Date().toISOString(),
 }) {
   const previousItems = previousItemByKey(existingQueue);
@@ -125,7 +123,7 @@ export function buildReviewQueue({
     const stableKey = stableKeyFromAction(action);
     const previousItem = previousItems.get(stableKey) || {};
     const previousStatus = REVIEW_STATUSES.has(previousItem.status) ? previousItem.status : 'pending';
-    const context = contextForAction(action, { xhtmlMap, sourceDoc, translationDoc });
+    const context = contextForAction(action, { xhtmlMap, sourceDoc, chapterAlignment });
 
     return {
       id: reviewItemId(index),
@@ -145,6 +143,10 @@ export function buildReviewQueue({
       currentParagraph: context.currentParagraph,
       nextParagraph: context.nextParagraph,
       originalAlignedText: context.originalAlignedText,
+      alignmentConfidence: context.alignmentConfidence,
+      alignmentReason: context.alignmentReason,
+      paragraphAlignmentConfidence: context.paragraphAlignmentConfidence,
+      paragraphAlignmentReason: context.paragraphAlignmentReason,
       reason: action.reason || null,
       notAppliedReason: notAppliedReason(action),
       confidence: action.confidence ?? null,
@@ -173,6 +175,10 @@ export function buildReviewQueue({
       autoReview: items.filter((item) => item.mode === 'auto_review').length,
       manualOnly: items.filter((item) => item.mode === 'manual_only').length,
       contextEnriched: items.filter((item) => item.currentParagraph || item.previousParagraph || item.nextParagraph || item.originalAlignedText).length,
+      reliableOriginalAlignment: items.filter((item) => item.originalAlignedText && Number(item.alignmentConfidence || 0) >= 0.8).length,
+      originalAlignmentSkipped: items.filter((item) => !item.originalAlignedText).length,
+      reliableParagraphAlignment: items.filter((item) => item.originalAlignedText && Number(item.paragraphAlignmentConfidence || 0) >= 0.72).length,
+      paragraphAlignmentSkipped: items.filter((item) => !item.originalAlignedText).length,
       pending: countByStatus(items, 'pending'),
       approved: countByStatus(items, 'approved'),
       rejected: countByStatus(items, 'rejected'),
@@ -196,11 +202,15 @@ export function renderReviewQueueMarkdown(reviewQueue) {
     `Approved: ${summary.approved || 0}`,
     `Rejected: ${summary.rejected || 0}`,
     `Needs context: ${summary.needsContext || 0}`,
+    `Alinhamento original confiavel: ${summary.reliableOriginalAlignment || 0}`,
+    `Sem originalAlignedText por seguranca: ${summary.originalAlignmentSkipped || 0}`,
+    `Alinhamento de paragrafo confiavel: ${summary.reliableParagraphAlignment || 0}`,
+    `Sem alinhamento de paragrafo por seguranca: ${summary.paragraphAlignmentSkipped || 0}`,
     '',
     '## Itens',
     '',
-    '| ID | Status | Tipo | Modo | Arquivo | Node | Confidence | Motivo | Sugestao | Preview |',
-    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+    '| ID | Status | Tipo | Modo | Arquivo | Node | Confidence | Alignment | Motivo | Sugestao | Preview |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
     ...(items.length
       ? items.map((item) => [
         item.id,
@@ -210,11 +220,12 @@ export function renderReviewQueueMarkdown(reviewQueue) {
         item.filePath || '-',
         item.nodeId || '-',
         item.confidence ?? '-',
+        `${item.alignmentReason || '-'} (${item.alignmentConfidence ?? '-'}) / ${item.paragraphAlignmentReason || '-'} (${item.paragraphAlignmentConfidence ?? '-'})`,
         item.notAppliedReason || item.reason || '-',
         item.suggestion || '-',
         String(item.textPreview || '-').replace(/\s+/g, ' ').slice(0, 180),
       ].map((value) => String(value).replaceAll('|', '\\|')).join(' | ')).map((row) => `| ${row} |`)
-      : ['| - | pending | - | - | - | - | - | Nenhum item pendente | - | - |']),
+      : ['| - | pending | - | - | - | - | - | - | Nenhum item pendente | - | - |']),
     '',
   ].join('\n');
 }

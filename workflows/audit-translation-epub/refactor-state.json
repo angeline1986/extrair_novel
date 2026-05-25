@@ -1,16 +1,16 @@
 {
   "schemaVersion": "1.0",
-  "refactorVersion": "0.14.0",
+  "refactorVersion": "0.17.0",
   "workflow": "audit-translation-epub",
   "currentPhase": {
-    "id": "phase-13",
-    "name": "Contexto expandido de revisao implementado",
+    "id": "phase-16",
+    "name": "Alinhamento seguro de paragrafos implementado",
     "status": "active",
-    "description": "Review queue e sugestoes assistidas agora incluem paragrafo anterior, atual, posterior e original alinhado quando disponivel."
+    "description": "O pipeline tenta alinhar o paragrafo original dentro do capitulo usando heuristicas conservadoras e omite originalAlignedText quando ha ambiguidade."
   },
   "timestamps": {
     "createdAt": "2026-05-24T23:37:47Z",
-    "updatedAt": "2026-05-25T04:08:33Z"
+    "updatedAt": "2026-05-25T09:48:02Z"
   },
   "completedTasks": [
     {
@@ -116,6 +116,21 @@
     {
       "id": "review-context-enrichment",
       "title": "Enriquecer review queue e assisted review com contexto expandido",
+      "status": "done"
+    },
+    {
+      "id": "chapter-alignment-safe",
+      "title": "Implementar alinhamento seguro entre EPUB original e traduzido",
+      "status": "done"
+    },
+    {
+      "id": "assisted-review-with-alignment",
+      "title": "Usar originalAlignedText confiavel para sugestoes assistidas conservadoras",
+      "status": "done"
+    },
+    {
+      "id": "paragraph-alignment-safe",
+      "title": "Implementar alinhamento seguro de paragrafo dentro do capitulo",
       "status": "done"
     }
   ],
@@ -314,6 +329,42 @@
       ]
     },
     {
+      "id": "m14-chapter-alignment-safe",
+      "name": "Alinhamento seguro de capitulos",
+      "status": "done",
+      "deliverables": [
+        "chapterAligner.js",
+        "alignmentConfidence/alignmentReason",
+        "originalAlignedText apenas com alinhamento confiavel",
+        "fallback por indice com baixa confianca",
+        "dashboards com confianca de alinhamento"
+      ]
+    },
+    {
+      "id": "m15-assisted-review-with-alignment",
+      "name": "Sugestoes assistidas com alinhamento",
+      "status": "done",
+      "deliverables": [
+        "originalAlignedText usado em assistedReview.js",
+        "suggestedAfter apenas com heuristica segura",
+        "reason com relacao original/traducao/contexto",
+        "requiresHumanApproval true",
+        "insufficient_context preservado quando nao ha seguranca"
+      ]
+    },
+    {
+      "id": "m16-paragraph-alignment-safe",
+      "name": "Alinhamento seguro de paragrafos",
+      "status": "done",
+      "deliverables": [
+        "paragraphAlignmentConfidence",
+        "paragraphAlignmentReason",
+        "originalAlignedText apenas com paragrafo confiavel",
+        "heuristicas de nomes/numeros/pontuacao/comprimento",
+        "dashboards com alinhamento de paragrafo"
+      ]
+    },
+    {
       "id": "m3-reaudit",
       "name": "Reauditoria comparativa",
       "status": "done",
@@ -395,8 +446,9 @@
     "epubVersionWorkflow.js": "missing",
     "reviewQueueValidator": "implemented_validates_manual_review_queue",
     "validateReviewQueue.js": "implemented_cli_validation",
-    "assistedReview": "implemented_context_enriched_quality_suggestions",
-    "reviewQueue": "implemented_context_enriched_review_items"
+    "assistedReview": "implemented_safe_paragraph_alignment_context",
+    "reviewQueue": "implemented_safe_paragraph_alignment_context",
+    "chapterAligner": "implemented_safe_chapter_and_paragraph_alignment"
   },
   "risks": [
     {

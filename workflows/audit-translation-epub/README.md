@@ -115,6 +115,10 @@ Quando um item da review queue for marcado manualmente como `approved`, ele so s
 
 O arquivo `logs/json/assisted-review-suggestions.json` traz sugestoes assistidas para itens `pending` + `auto_review`. Todas as sugestoes possuem `requiresHumanApproval: true` e nao sao aplicadas automaticamente. Cada sugestao e classificada como `suggestion_available`, `needs_human_translation` ou `insufficient_context`; `suggestedAfter` so e preenchido quando houver heuristica segura ou `before/after` explicito na review queue.
 
-Os itens de review e as sugestoes assistidas incluem contexto expandido limitado: `previousParagraph`, `currentParagraph`, `nextParagraph` e, quando houver pareamento simples disponivel, `originalAlignedText`. Esses campos sao previews curtos para apoiar revisao humana sem inflar os relatorios.
+Os itens de review e as sugestoes assistidas incluem contexto expandido limitado: `previousParagraph`, `currentParagraph`, `nextParagraph` e, quando houver alinhamento confiavel por numero/titulo de capitulo, `originalAlignedText`. O alinhamento registra `alignmentConfidence` e `alignmentReason`; fallback por indice e tratado como baixa confianca e nao preenche `originalAlignedText`.
+
+As sugestoes assistidas podem usar `originalAlignedText` confiavel para propor `suggestedAfter` apenas em heuristicas locais e conservadoras, como descompasso simples de pronome com sobreposicao textual suficiente entre original e traducao. Mesmo nesses casos, `requiresHumanApproval` permanece `true`.
+
+Dentro de capitulos alinhados, o workflow tenta alinhar o paragrafo original por nomes proprios, numeros, perfil de pontuacao e comprimento relativo. O texto original so e exposto quando `paragraphAlignmentConfidence` e seguro; casos ambiguos mantem `originalAlignedText` vazio.
 
 O fluxo manual completo esta documentado em `REVIEW_QUEUE_WORKFLOW.md`, incluindo exemplos de item `approved` e `rejected`.

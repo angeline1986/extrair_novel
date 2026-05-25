@@ -901,6 +901,8 @@ function renderReviewQueueRows(reviewQueue) {
         item.previousParagraph ? `Anterior: ${item.previousParagraph}` : null,
         item.currentParagraph ? `Atual: ${item.currentParagraph}` : null,
         item.nextParagraph ? `Posterior: ${item.nextParagraph}` : null,
+        `Alinhamento: ${item.alignmentReason || '-'} (${item.alignmentConfidence ?? '-'})`,
+        `Parágrafo: ${item.paragraphAlignmentReason || '-'} (${item.paragraphAlignmentConfidence ?? '-'})`,
         item.originalAlignedText ? `Original: ${item.originalAlignedText}` : null,
       ].filter(Boolean).join(' | ') || '-')}</td>
       <td>${escapeHtml(item.textPreview || '-')}</td>
@@ -926,7 +928,7 @@ function renderReviewQueueSummary(reviewQueue) {
       <div class="card">
         <div class="metric-label">Needs context</div>
         <div class="metric-value">${formatNumber(summary.needsContext || 0)}</div>
-        <div class="metric-note">${formatNumber(summary.contextEnriched || 0)} com contexto expandido.</div>
+        <div class="metric-note">${formatNumber(summary.reliableParagraphAlignment || 0)} parágrafos confiáveis.</div>
       </div>
       <div class="card">
         <div class="metric-label">Approved / rejected</div>
@@ -973,6 +975,8 @@ function renderAssistedReviewRows(assistedReview) {
         item.previousParagraph ? `Anterior: ${item.previousParagraph}` : null,
         item.currentParagraph ? `Atual: ${item.currentParagraph}` : null,
         item.nextParagraph ? `Posterior: ${item.nextParagraph}` : null,
+        `Alinhamento: ${item.alignmentReason || '-'} (${item.alignmentConfidence ?? '-'})`,
+        `Parágrafo: ${item.paragraphAlignmentReason || '-'} (${item.paragraphAlignmentConfidence ?? '-'})`,
         item.originalAlignedText ? `Original: ${item.originalAlignedText}` : null,
       ].filter(Boolean).join(' | ') || '-')}</td>
       <td>${escapeHtml(item.reason || '-')}</td>
@@ -993,7 +997,7 @@ function renderAssistedReviewSummary(assistedReview) {
       <div class="card">
         <div class="metric-label">Aprovação humana</div>
         <div class="metric-value">${formatNumber(summary.requiresHumanApproval || 0)}</div>
-        <div class="metric-note">${formatNumber(summary.contextEnriched || 0)} com contexto expandido.</div>
+        <div class="metric-note">${formatNumber(summary.reliableParagraphAlignment || 0)} parágrafos confiáveis.</div>
       </div>
       <div class="card">
         <div class="metric-label">Com suggestedAfter</div>

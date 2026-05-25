@@ -1151,3 +1151,75 @@ Proxima milestone recomendada:
 ```txt
 usar contexto expandido para comando assistido de aprovacao/rejeicao manual
 ```
+
+## 38. Estado Da Milestone m14-chapter-alignment-safe
+
+Implementado em: 2026-05-25T04:37:12Z
+
+A milestone `m14-chapter-alignment-safe` foi concluida como camada segura de alinhamento entre EPUB original e traduzido.
+
+Entregas:
+
+- `src/chapterAligner.js`;
+- alinhamento por numero de capitulo quando disponivel;
+- alinhamento por titulo normalizado como segunda opcao confiavel;
+- fallback por indice apenas com baixa confianca;
+- `originalAlignedText` vazio quando o alinhamento nao atinge o limiar confiavel;
+- `alignmentConfidence` e `alignmentReason` na review queue;
+- `alignmentConfidence` e `alignmentReason` nas sugestoes assistidas;
+- exibicao de confianca/motivo nos dashboards e relatorios.
+
+Esta milestone nao implementa aplicacao automatica, modelo obrigatorio ou reescrita ampla. O objetivo e evitar contexto original enganoso quando houver deslocamento entre EPUBs.
+
+Proxima milestone recomendada:
+
+```txt
+usar alinhamento confiavel como insumo para aprovacao assistida manual
+```
+
+## 39. Estado Da Milestone m15-assisted-review-with-alignment
+
+Implementado em: 2026-05-25T04:58:26Z
+
+A milestone `m15-assisted-review-with-alignment` foi concluida como uso conservador do `originalAlignedText` nas sugestoes assistidas.
+
+Entregas:
+
+- `assistedReview.js` usando `originalAlignedText` confiavel como insumo;
+- `suggestedAfter` gerado somente quando original, traducao atual e contexto sustentam uma troca local segura;
+- heuristica inicial para descompasso simples de pronome;
+- `reason` explicando a relacao entre original alinhado, traducao atual e sugestao;
+- manutencao de `requiresHumanApproval: true` em todas as sugestoes;
+- preservacao de `insufficient_context` quando o alinhamento de capitulo nao garante correspondencia de paragrafo suficiente.
+
+Esta milestone nao implementa aplicacao automatica, Ollama obrigatorio ou reescrita ampla.
+
+Proxima milestone recomendada:
+
+```txt
+criar aprovacao assistida manual usando suggestion_available como entrada
+```
+
+## 40. Estado Da Milestone m16-paragraph-alignment-safe
+
+Implementado em: 2026-05-25T09:48:02Z
+
+A milestone `m16-paragraph-alignment-safe` foi concluida como alinhamento seguro em nivel de paragrafo dentro de capitulos alinhados.
+
+Entregas:
+
+- alinhamento de paragrafo em `src/chapterAligner.js`;
+- heuristicas conservadoras com nomes proprios, numeros, pontuacao e comprimento relativo;
+- `paragraphAlignmentConfidence`;
+- `paragraphAlignmentReason`;
+- `originalAlignedText` preenchido apenas quando o paragrafo e confiavel;
+- campos propagados para review queue e assisted review;
+- dashboards e relatorios atualizados com o alinhamento de paragrafo.
+
+Esta milestone nao implementa modelo/Ollama, aplicacao automatica ou reescrita ampla.
+
+Proxima milestone recomendada:
+
+```txt
+usar alinhamento de paragrafo confiavel para sugestoes assistidas mais especificas
+```

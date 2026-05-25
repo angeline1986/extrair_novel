@@ -31,6 +31,7 @@ import {
   renderAssistedReviewMarkdown,
 } from './correction/assistedReview.js';
 import { buildXhtmlMap } from './xhtmlMapper.js';
+import { buildChapterAlignment } from './chapterAligner.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workflowRoot = path.resolve(__dirname, '..');
@@ -330,7 +331,7 @@ function writeCorrectionMarkdownReport(outputPath) {
   fs.writeFileSync(outputPath, lines.join('\n'), 'utf8');
 }
 
-function writeReviewQueueReports({ correctionPlan, sourceDoc, translationDoc, xhtmlMap, createdAt }) {
+function writeReviewQueueReports({ correctionPlan, sourceDoc, xhtmlMap, chapterAlignment, createdAt }) {
   const reviewQueuePath = path.join(paths.logsJsonDir, 'review-queue.json');
   const existingQueue = readJsonIfExists(reviewQueuePath);
   const reviewQueue = buildReviewQueue({
@@ -338,7 +339,7 @@ function writeReviewQueueReports({ correctionPlan, sourceDoc, translationDoc, xh
     existingQueue,
     xhtmlMap,
     sourceDoc,
-    translationDoc,
+    chapterAlignment,
     createdAt,
   });
   fs.writeFileSync(reviewQueuePath, JSON.stringify(reviewQueue, null, 2), 'utf8');
@@ -371,7 +372,7 @@ function writeAssistedReviewReports({ reviewQueue, createdAt }) {
   };
 }
 
-function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, warnings, correctionCandidates, xhtmlMap, glossary }) {
+function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, warnings, correctionCandidates, xhtmlMap, chapterAlignment, glossary }) {
   const runDate = new Date();
   const timestamp = formatTimestampForFile(runDate);
   const isoTimestamp = runDate.toISOString();
@@ -465,6 +466,7 @@ function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, 
       source: sourceDoc,
       translation: translationDoc,
       alignment: alignedDoc.chapters,
+      chapterAlignment,
       xhtmlMap: {
         schemaVersion: xhtmlMap.schemaVersion,
         opfPath: xhtmlMap.opfPath,
@@ -492,8 +494,8 @@ function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, 
   const { reviewQueue, reviewQueuePath, reviewQueueMarkdownPath } = writeReviewQueueReports({
     correctionPlan,
     sourceDoc,
-    translationDoc,
     xhtmlMap,
+    chapterAlignment,
     createdAt: isoTimestamp,
   });
   const { assistedReview, assistedReviewPath, assistedReviewMarkdownPath } = writeAssistedReviewReports({
@@ -634,6 +636,7 @@ async function main() {
   allWarnings.push(...logAudit.warnings);
 
   const xhtmlMap = buildXhtmlMap(translationDoc.filePath);
+  const chapterAlignment = buildChapterAlignment(sourceDoc, translationDoc);
   const glossary = loadCorrectionGlossary({
     termsPath: paths.termsGlossaryPath,
     entitiesPath: paths.entitiesGlossaryPath,
@@ -656,6 +659,7 @@ async function main() {
     warnings: allWarnings,
     correctionCandidates,
     xhtmlMap,
+    chapterAlignment,
     glossary,
   });
 

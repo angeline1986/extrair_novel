@@ -583,6 +583,8 @@ function reviewQueueRows(reviewQueue) {
               item.previousParagraph ? `Anterior: ${item.previousParagraph}` : null,
               item.currentParagraph ? `Atual: ${item.currentParagraph}` : null,
               item.nextParagraph ? `Posterior: ${item.nextParagraph}` : null,
+              `Alinhamento: ${item.alignmentReason || '-'} (${item.alignmentConfidence ?? '-'})`,
+              `Parágrafo: ${item.paragraphAlignmentReason || '-'} (${item.paragraphAlignmentConfidence ?? '-'})`,
               item.originalAlignedText ? `Original: ${item.originalAlignedText}` : null,
             ].filter(Boolean).join(' | ') || '-')}</td>
             <td class="example-col">${escapeHtml(item.textPreview || '-')}</td>
@@ -626,6 +628,8 @@ function assistedReviewRows(assistedReview) {
               item.previousParagraph ? `Anterior: ${item.previousParagraph}` : null,
               item.currentParagraph ? `Atual: ${item.currentParagraph}` : null,
               item.nextParagraph ? `Posterior: ${item.nextParagraph}` : null,
+              `Alinhamento: ${item.alignmentReason || '-'} (${item.alignmentConfidence ?? '-'})`,
+              `Parágrafo: ${item.paragraphAlignmentReason || '-'} (${item.paragraphAlignmentConfidence ?? '-'})`,
               item.originalAlignedText ? `Original: ${item.originalAlignedText}` : null,
             ].filter(Boolean).join(' | ') || '-')}</td>
             <td class="example-col">${escapeHtml(item.reason || '-')}</td>
@@ -665,6 +669,10 @@ function renderCorrectionsTab(artifacts) {
           detailRow('Itens totais', formatNumber(reviewSummary.totalItems || 0), (reviewSummary.totalItems || 0) ? 'WARN' : 'OK'),
           detailRow('Pending', formatNumber(reviewSummary.pending || 0), (reviewSummary.pending || 0) ? 'WARN' : 'OK'),
           detailRow('Com contexto expandido', formatNumber(reviewSummary.contextEnriched || 0)),
+          detailRow('Alinhamento original confiável', formatNumber(reviewSummary.reliableOriginalAlignment || 0)),
+          detailRow('Sem originalAlignedText por segurança', formatNumber(reviewSummary.originalAlignmentSkipped || 0), (reviewSummary.originalAlignmentSkipped || 0) ? 'WARN' : 'OK'),
+          detailRow('Alinhamento de parágrafo confiável', formatNumber(reviewSummary.reliableParagraphAlignment || 0)),
+          detailRow('Sem parágrafo alinhado por segurança', formatNumber(reviewSummary.paragraphAlignmentSkipped || 0), (reviewSummary.paragraphAlignmentSkipped || 0) ? 'WARN' : 'OK'),
           detailRow('Approved', formatNumber(reviewSummary.approved || 0)),
           detailRow('Rejected', formatNumber(reviewSummary.rejected || 0)),
           detailRow('Needs context', formatNumber(reviewSummary.needsContext || 0), (reviewSummary.needsContext || 0) ? 'WARN' : 'OK'),
@@ -676,6 +684,10 @@ function renderCorrectionsTab(artifacts) {
           detailRow('Sugestões geradas', formatNumber(assistedSummary.totalSuggestions || 0), (assistedSummary.totalSuggestions || 0) ? 'WARN' : 'OK'),
           detailRow('Requer aprovação humana', formatNumber(assistedSummary.requiresHumanApproval || 0), (assistedSummary.requiresHumanApproval || 0) ? 'WARN' : 'OK'),
           detailRow('Com contexto expandido', formatNumber(assistedSummary.contextEnriched || 0)),
+          detailRow('Alinhamento original confiável', formatNumber(assistedSummary.reliableOriginalAlignment || 0)),
+          detailRow('Sem originalAlignedText por segurança', formatNumber(assistedSummary.originalAlignmentSkipped || 0), (assistedSummary.originalAlignmentSkipped || 0) ? 'WARN' : 'OK'),
+          detailRow('Alinhamento de parágrafo confiável', formatNumber(assistedSummary.reliableParagraphAlignment || 0)),
+          detailRow('Sem parágrafo alinhado por segurança', formatNumber(assistedSummary.paragraphAlignmentSkipped || 0), (assistedSummary.paragraphAlignmentSkipped || 0) ? 'WARN' : 'OK'),
           detailRow('Com suggestedAfter', formatNumber(assistedSummary.withSuggestedAfter || 0)),
           detailRow('Suggestion available', formatNumber(assistedSummary.suggestionAvailable || 0)),
           detailRow('Needs human translation', formatNumber(assistedSummary.needsHumanTranslation || 0)),

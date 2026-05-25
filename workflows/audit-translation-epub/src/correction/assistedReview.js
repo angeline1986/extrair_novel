@@ -32,23 +32,130 @@ function hasProbablyValidPortuguesePattern(item) {
   return validPatterns.some((pattern) => pattern.test(text));
 }
 
+function normalizeForTokens(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function contentTokens(value) {
+  const stopwords = new Set([
+    'para', 'com', 'que', 'uma', 'mais', 'isso', 'essa', 'esse', 'estava',
+    'estavam', 'como', 'pela', 'pelo', 'sobre', 'quando', 'onde', 'muito',
+    'muita', 'ainda', 'dentro', 'fora', 'there', 'that', 'this', 'with',
+    'from', 'into', 'were', 'would', 'could', 'should', 'have', 'they',
+  ]);
+
+  return new Set(
+    normalizeForTokens(value)
+      .match(/[\p{L}\p{N}]{4,}/gu)
+      ?.filter((token) => !stopwords.has(token)) || []
+  );
+}
+
+function textOverlapRatio(a, b) {
+  const left = contentTokens(a);
+  const right = contentTokens(b);
+  if (!left.size || !right.size) return 0;
+  let overlap = 0;
+  for (const token of left) {
+    if (right.has(token)) overlap += 1;
+  }
+  return overlap / Math.min(left.size, right.size);
+}
+
+function hasReliableOriginalAlignment(item) {
+  return Boolean(item.originalAlignedText && Number(item.alignmentConfidence || 0) >= 0.8);
+}
+
+function alignedParagraphLooksComparable(item) {
+  if (!hasReliableOriginalAlignment(item)) return false;
+  return textOverlapRatio(item.originalAlignedText, item.currentParagraph || item.textPreview) >= 0.08;
+}
+
+function originalGenderSignal(originalText) {
+  const text = normalizeForTokens(originalText);
+  const feminine = /\b(she|her|hers|herself|woman|girl|lady|mother|daughter)\b/u.test(text);
+  const masculine = /\b(he|him|his|himself|man|boy|lord|father|son)\b/u.test(text);
+
+  if (feminine && !masculine) return 'feminine';
+  if (masculine && !feminine) return 'masculine';
+  return null;
+}
+
+function replaceFirstPronoun(text, fromRegex, to) {
+  let replaced = false;
+  const result = String(text || '').replace(fromRegex, (match) => {
+    if (replaced) return match;
+    replaced = true;
+    if (match[0] === match[0]?.toUpperCase()) {
+      return `${to[0].toUpperCase()}${to.slice(1)}`;
+    }
+    return to;
+  });
+  return replaced ? result : null;
+}
+
+function alignedHeuristicSuggestion(item) {
+  if (!alignedParagraphLooksComparable(item)) return null;
+  const current = item.currentParagraph || item.textPreview || '';
+  const signal = originalGenderSignal(item.originalAlignedText);
+
+  if (signal === 'feminine') {
+    const suggested = replaceFirstPronoun(current, /\b[Ee]le\b/u, 'ela') ||
+      replaceFirstPronoun(current, /\bdele\b/u, 'dela');
+    if (suggested && suggested !== current) {
+      return {
+        suggestedAfter: suggested,
+        reason: 'Original alinhado confiavel indica referencia feminina e o paragrafo atual contem pronome masculino simples; sugestao local gerada para aprovacao humana.',
+        confidence: 0.68,
+      };
+    }
+  }
+
+  if (signal === 'masculine') {
+    const suggested = replaceFirstPronoun(current, /\b[Ee]la\b/u, 'ele') ||
+      replaceFirstPronoun(current, /\bdela\b/u, 'dele');
+    if (suggested && suggested !== current) {
+      return {
+        suggestedAfter: suggested,
+        reason: 'Original alinhado confiavel indica referencia masculina e o paragrafo atual contem pronome feminino simples; sugestao local gerada para aprovacao humana.',
+        confidence: 0.68,
+      };
+    }
+  }
+
+  return null;
+}
+
 function beforeText(item) {
   return item.before || item.textPreview || null;
 }
 
 function suggestedAfter(item) {
+  const aligned = alignedHeuristicSuggestion(item);
+  if (aligned) return aligned.suggestedAfter;
   return canSuggestReplacement(item) ? item.after : null;
 }
 
 function suggestionStatus(item) {
+  if (alignedHeuristicSuggestion(item)) return 'suggestion_available';
   if (canSuggestReplacement(item)) return 'suggestion_available';
   if (item.type === 'residual_english_review') return 'needs_human_translation';
   return 'insufficient_context';
 }
 
 function reasonForItem(item) {
+  const aligned = alignedHeuristicSuggestion(item);
+  if (aligned) return aligned.reason;
+
   if (canSuggestReplacement(item)) {
     return 'Item possui before/after preenchidos na review queue; suggestedAfter foi preservado como sugestao, mas ainda requer aprovacao humana.';
+  }
+
+  if (hasReliableOriginalAlignment(item) && !alignedParagraphLooksComparable(item)) {
+    return 'Ha originalAlignedText confiavel em nivel de capitulo, mas o paragrafo original nao tem sobreposicao textual suficiente com o paragrafo atual; nenhuma sugestao explicita foi gerada.';
   }
 
   if (hasProbablyValidPortuguesePattern(item)) {
@@ -67,6 +174,9 @@ function reasonForItem(item) {
 }
 
 function confidenceForItem(item) {
+  const aligned = alignedHeuristicSuggestion(item);
+  if (aligned) return aligned.confidence;
+
   if (canSuggestReplacement(item)) {
     return Math.min(Number(item.confidence || 0.7), 0.85);
   }
@@ -77,6 +187,9 @@ function confidenceForItem(item) {
 }
 
 function buildSuggestion(item, index) {
+  const aligned = alignedHeuristicSuggestion(item);
+  const explicitSuggestedAfter = aligned?.suggestedAfter || suggestedAfter(item);
+
   return {
     id: suggestionId(index),
     reviewQueueItemId: item.id,
@@ -92,8 +205,12 @@ function buildSuggestion(item, index) {
     currentParagraph: item.currentParagraph || null,
     nextParagraph: item.nextParagraph || null,
     originalAlignedText: item.originalAlignedText || null,
+    alignmentConfidence: item.alignmentConfidence ?? null,
+    alignmentReason: item.alignmentReason || null,
+    paragraphAlignmentConfidence: item.paragraphAlignmentConfidence ?? null,
+    paragraphAlignmentReason: item.paragraphAlignmentReason || null,
     before: beforeText(item),
-    suggestedAfter: suggestedAfter(item),
+    suggestedAfter: explicitSuggestedAfter,
     suggestionStatus: suggestionStatus(item),
     reason: reasonForItem(item),
     confidence: confidenceForItem(item),
@@ -122,6 +239,10 @@ export function buildAssistedReviewSuggestions({
       requiresHumanApproval: suggestions.filter((item) => item.requiresHumanApproval).length,
       withSuggestedAfter: suggestions.filter((item) => item.suggestedAfter).length,
       contextEnriched: suggestions.filter((item) => item.currentParagraph || item.previousParagraph || item.nextParagraph || item.originalAlignedText).length,
+      reliableOriginalAlignment: suggestions.filter((item) => item.originalAlignedText && Number(item.alignmentConfidence || 0) >= 0.8).length,
+      originalAlignmentSkipped: suggestions.filter((item) => !item.originalAlignedText).length,
+      reliableParagraphAlignment: suggestions.filter((item) => item.originalAlignedText && Number(item.paragraphAlignmentConfidence || 0) >= 0.72).length,
+      paragraphAlignmentSkipped: suggestions.filter((item) => !item.originalAlignedText).length,
       suggestionAvailable: suggestions.filter((item) => item.suggestionStatus === 'suggestion_available').length,
       needsHumanTranslation: suggestions.filter((item) => item.suggestionStatus === 'needs_human_translation').length,
       insufficientContext: suggestions.filter((item) => item.suggestionStatus === 'insufficient_context').length,
@@ -143,6 +264,10 @@ export function renderAssistedReviewMarkdown(assistedReview) {
     `Requer aprovacao humana: ${summary.requiresHumanApproval || 0}`,
     `Com suggestedAfter: ${summary.withSuggestedAfter || 0}`,
     `Com contexto expandido: ${summary.contextEnriched || 0}`,
+    `Alinhamento original confiavel: ${summary.reliableOriginalAlignment || 0}`,
+    `Sem originalAlignedText por seguranca: ${summary.originalAlignmentSkipped || 0}`,
+    `Alinhamento de paragrafo confiavel: ${summary.reliableParagraphAlignment || 0}`,
+    `Sem alinhamento de paragrafo por seguranca: ${summary.paragraphAlignmentSkipped || 0}`,
     `Suggestion available: ${summary.suggestionAvailable || 0}`,
     `Needs human translation: ${summary.needsHumanTranslation || 0}`,
     `Insufficient context: ${summary.insufficientContext || 0}`,
@@ -150,8 +275,8 @@ export function renderAssistedReviewMarkdown(assistedReview) {
     '',
     'Nenhuma sugestao deste arquivo e aplicada automaticamente.',
     '',
-    '| ID | Review item | Status | Tipo | Arquivo | Node | Confidence | Before | Suggested after | Contexto | Reason |',
-    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+    '| ID | Review item | Status | Tipo | Arquivo | Node | Confidence | Alignment | Before | Suggested after | Contexto | Reason |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
     ...(suggestions.length
       ? suggestions.map((item) => [
         item.id,
@@ -161,6 +286,7 @@ export function renderAssistedReviewMarkdown(assistedReview) {
         item.filePath || '-',
         item.nodeId || '-',
         item.confidence ?? '-',
+        `${item.alignmentReason || '-'} (${item.alignmentConfidence ?? '-'}) / ${item.paragraphAlignmentReason || '-'} (${item.paragraphAlignmentConfidence ?? '-'})`,
         String(item.before || '-').replace(/\s+/g, ' ').slice(0, 180),
         String(item.suggestedAfter || '-').replace(/\s+/g, ' ').slice(0, 180),
         String(item.currentParagraph || item.textPreview || '-').replace(/\s+/g, ' ').slice(0, 180),
