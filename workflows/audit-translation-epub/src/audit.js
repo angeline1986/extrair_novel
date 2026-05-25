@@ -17,6 +17,11 @@ import {
   writeEpubHtmlDashboard,
 } from './epubDashboardWriter.js';
 import { writeEpubValidationTabsDashboard } from './epubValidationWriter.js';
+import {
+  buildCorrectionCandidates,
+  buildCorrectionPlan,
+} from './correction/correctionPlanner.js';
+import { buildXhtmlMap } from './xhtmlMapper.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workflowRoot = path.resolve(__dirname, '..');
@@ -257,7 +262,7 @@ function relativeWorkflowPath(filePath) {
   return relative && !relative.startsWith('..') ? relative : filePath;
 }
 
-function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, warnings }) {
+function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, warnings, correctionCandidates, xhtmlMap }) {
   const runDate = new Date();
   const timestamp = formatTimestampForFile(runDate);
   const isoTimestamp = runDate.toISOString();
@@ -267,6 +272,14 @@ function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, 
   const manifest = loadEpubManifest(workflowRoot);
   const versionWorkflow = buildEpubVersionWorkflow(manifest, translationDoc.filePath);
   const workflowTrace = buildEpubWorkflowTrace(workflowRoot, manifest, translationDoc.filename);
+  const correctionPlan = buildCorrectionPlan({
+    workflowRoot,
+    sourceDoc,
+    translationDoc,
+    logInfo,
+    candidates: correctionCandidates,
+    createdAt: isoTimestamp,
+  });
   const report = {
     status,
     timestamp,
@@ -306,6 +319,8 @@ function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, 
       notes: logInfo.notes.slice(0, 50),
       warnings: logInfo.warnings,
     },
+    correctionCandidates,
+    correctionPlanSummary: correctionPlan.summary,
     issues: serializedIssues,
     warnings: serializedWarnings,
     ollamaResults: [],
@@ -329,6 +344,12 @@ function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, 
       source: sourceDoc,
       translation: translationDoc,
       alignment: alignedDoc.chapters,
+      xhtmlMap: {
+        schemaVersion: xhtmlMap.schemaVersion,
+        opfPath: xhtmlMap.opfPath,
+        spine: xhtmlMap.spine,
+        stats: xhtmlMap.stats,
+      },
     },
     config: {
       thresholds: {
@@ -345,11 +366,15 @@ function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, 
   const jsonPath = path.join(paths.logsJsonDir, `audit-report-${timestamp}.json`);
   fs.writeFileSync(jsonPath, JSON.stringify(report, null, 2), 'utf8');
   pruneOldAuditReports(jsonPath);
+  const correctionPlanPath = path.join(paths.logsJsonDir, 'correction-plan.json');
+  fs.writeFileSync(correctionPlanPath, JSON.stringify(correctionPlan, null, 2), 'utf8');
   appendWorkflowEvent('AUDIT_REPORT_CREATED', {
     status,
     issues: issues.length,
     warnings: warnings.length,
     report: path.relative(workflowRoot, jsonPath).replaceAll('\\', '/'),
+    correctionPlan: path.relative(workflowRoot, correctionPlanPath).replaceAll('\\', '/'),
+    correctionCandidates: correctionCandidates.length,
     source: sourceDoc.filename,
     translation: translationDoc.filename,
     timestamp: isoTimestamp,
@@ -386,6 +411,13 @@ function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, 
     `Termos: ${logInfo.terms.join(', ') || '-'}`,
     `Trocas: ${logInfo.replacements.map((r) => `${r.from} -> ${r.to}`).join('; ') || '-'}`,
     '',
+    'CORRECTION PLAN',
+    `Candidates: ${correctionCandidates.length}`,
+    `Auto-safe: ${correctionPlan.summary.autoSafe}`,
+    `Auto-review: ${correctionPlan.summary.autoReview}`,
+    `Manual-only: ${correctionPlan.summary.manualOnly}`,
+    `Correction plan: ${correctionPlanPath}`,
+    '',
     'PRINCIPAIS ACHADOS',
     ...(findings.length ? findings : ['- Nenhum achado.']),
     '',
@@ -400,6 +432,7 @@ function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, 
   return {
     report,
     jsonPath,
+    correctionPlanPath,
     dashboardHtmlPath,
     validationHtmlPath,
     summaryPath,
@@ -455,6 +488,15 @@ async function main() {
   allIssues.push(...logAudit.issues);
   allWarnings.push(...logAudit.warnings);
 
+  const xhtmlMap = buildXhtmlMap(translationDoc.filePath);
+  const correctionCandidates = buildCorrectionCandidates({
+    issues: allIssues,
+    warnings: allWarnings,
+    logInfo,
+    translationDoc,
+    xhtmlMap,
+  });
+
   const { report, jsonPath, dashboardHtmlPath, validationHtmlPath, summaryPath } = writeReports({
     sourceDoc,
     translationDoc,
@@ -462,11 +504,14 @@ async function main() {
     alignedDoc,
     issues: allIssues,
     warnings: allWarnings,
+    correctionCandidates,
+    xhtmlMap,
   });
 
   console.log('=== AUDITORIA EPUB CONCLUIDA ===');
   console.log(`Status: ${report.status}`);
   console.log(`Issues: ${allIssues.length} | Warnings: ${allWarnings.length}`);
+  console.log(`Correction candidates: ${correctionCandidates.length}`);
   console.log(`Resumo: ${summaryPath}`);
   console.log(`JSON: ${jsonPath}`);
   console.log(`Dashboard: ${dashboardHtmlPath}`);

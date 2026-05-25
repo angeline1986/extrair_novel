@@ -1,0 +1,6 @@
+Termos: Ayra, Janus, Solar, mana, Mestre, GM
+Nomes: Solar Xing Ayra, Janus, Attera
+Problema: revisar concordancia de genero em dialogos com Janus
+Master -> Mestre
+lord -> lorde
+stats -> estatisticas

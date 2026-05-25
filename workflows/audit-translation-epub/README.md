@@ -44,7 +44,7 @@ O fluxo principal do menu executa:
 4. reauditoria do EPUB publicado
 ```
 
-As correcoes automaticas sao conservadoras: o script edita apenas nos de texto dos XHTMLs e so aplica trocas declaradas no bloco inicial do log, como `mana stones -> pedras de mana`.
+As correcoes automaticas sao conservadoras: o script edita apenas nos de texto dos XHTMLs e so aplica trocas declaradas no bloco inicial do log, como `Master -> Mestre`.
 
 Tambem e possivel passar caminhos explicitos:
 
@@ -54,15 +54,18 @@ npm run audit:translation:epub -- --source=livro-en.epub --translated=livro-pt.e
 
 ## Formato recomendado do TXT
 
-O log aceita texto livre, mas aproveita melhor linhas estruturadas:
+O log aceita texto livre, mas aproveita melhor linhas estruturadas. Exemplo para *Show Me Your Stats*:
 
 ```txt
-Termos: Winterfield, Duke, mana, Rift
-Nomes: Cael, Mirella, House Ardent
-Problema: revisar tratamento formal nos dialogos do duque
-mana stones -> pedras de mana
-Rift -> Fenda
+Termos: Ayra, Janus, Solar, mana, Mestre, GM
+Nomes: Solar Xing Ayra, Janus, Attera
+Problema: revisar concordancia de genero em dialogos com Janus
+Master -> Mestre
+lord -> lorde
+stats -> estatisticas
 ```
+
+Copie o template em `templates/Log_Traducao.example.txt` para `input/logs/Log_Traducao.txt` e adapte os termos da obra atual.
 
 O auditor usa esse arquivo para:
 
@@ -76,6 +79,7 @@ O auditor usa esse arquivo para:
 ```txt
 logs/workflow-events.jsonl
 logs/json/audit-report-*.json
+logs/json/correction-plan.json
 logs/txt/epub-audit-summary-latest.txt
 logs/html/audit-dashboard-latest.html
 logs/html/validation-report-latest.html

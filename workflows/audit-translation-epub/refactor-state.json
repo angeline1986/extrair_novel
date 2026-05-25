@@ -1,0 +1,277 @@
+{
+  "schemaVersion": "1.0",
+  "refactorVersion": "0.3.0",
+  "workflow": "audit-translation-epub",
+  "currentPhase": {
+    "id": "phase-2",
+    "name": "Mapeamento XHTML implementado",
+    "status": "active",
+    "description": "O audit-report e correction-plan agora incluem referencias precisas a filePath, spineIndex, paragraphIndex, textNodeIndex e textPreview quando ha localizacao XHTML disponivel."
+  },
+  "timestamps": {
+    "createdAt": "2026-05-24T23:37:47Z",
+    "updatedAt": "2026-05-24T23:57:13Z"
+  },
+  "completedTasks": [
+    {
+      "id": "docs-refactor-plan",
+      "title": "Criar plano tecnico consolidado do refactor",
+      "status": "done"
+    },
+    {
+      "id": "docs-refactor-status",
+      "title": "Criar memoria persistente em Markdown do status do refactor",
+      "status": "done"
+    },
+    {
+      "id": "docs-refactor-state",
+      "title": "Criar estado estruturado legivel por maquina",
+      "status": "done"
+    },
+    {
+      "id": "logs-subfolders",
+      "title": "Definir estrutura de logs em json/html/txt",
+      "status": "done"
+    },
+    {
+      "id": "reports-docx-like",
+      "title": "Aproximar relatorios HTML do padrao visual do workflow DOCX",
+      "status": "done"
+    },
+    {
+      "id": "correction-contracts",
+      "title": "Definir contratos de correctionCandidates e correctionPlan",
+      "status": "done"
+    },
+    {
+      "id": "candidate-builder",
+      "title": "Criar geracao de correctionCandidates a partir dos achados da auditoria",
+      "status": "done"
+    },
+    {
+      "id": "correction-planner",
+      "title": "Criar src/correction/correctionPlanner.js e gerar correction-plan.json",
+      "status": "done"
+    },
+    {
+      "id": "xhtml-mapper",
+      "title": "Criar mapeamento estavel de arquivos XHTML, paragrafos e text nodes",
+      "status": "done"
+    }
+  ],
+  "inProgressTasks": [
+    {
+      "id": "xhtml-correction-engine",
+      "title": "Criar motor de preparacao/aplicacao controlada de correctionPlan em XHTML",
+      "status": "in_progress",
+      "priority": "high"
+    }
+  ],
+  "pendingTasks": [
+    {
+      "id": "terminology-normalizer",
+      "title": "Implementar normalizacao terminologica segura",
+      "priority": "high",
+      "dependsOn": [
+        "correction-planner"
+      ]
+    },
+    {
+      "id": "entity-normalizer",
+      "title": "Implementar normalizacao de entidades por obra",
+      "priority": "high",
+      "dependsOn": [
+        "terminology-normalizer"
+      ]
+    },
+    {
+      "id": "fix-epub-orchestrator",
+      "title": "Refatorar fixEpub.js para consumir correctionPlan",
+      "priority": "high",
+      "dependsOn": [
+        "xhtml-correction-engine"
+      ]
+    },
+    {
+      "id": "post-correction-reaudit",
+      "title": "Implementar reauditoria automatica e comparativo antes/depois",
+      "priority": "high",
+      "dependsOn": [
+        "fix-epub-orchestrator"
+      ]
+    },
+    {
+      "id": "gender-agreement-fixer",
+      "title": "Implementar correcao contextual inicial de genero e concordancia",
+      "priority": "medium",
+      "dependsOn": [
+        "entity-normalizer",
+        "xhtml-correction-engine"
+      ]
+    },
+    {
+      "id": "residual-english-fixer",
+      "title": "Implementar tratamento de residuos em ingles",
+      "priority": "medium",
+      "dependsOn": [
+        "xhtml-correction-engine"
+      ]
+    },
+    {
+      "id": "shared-modules",
+      "title": "Avaliar extracao de componentes compartilhados entre DOCX e EPUB",
+      "priority": "medium",
+      "dependsOn": [
+        "post-correction-reaudit"
+      ]
+    }
+  ],
+  "milestones": [
+    {
+      "id": "m1-contracts",
+      "name": "Contratos de correcao",
+      "status": "done",
+      "deliverables": [
+        "correctionCandidates no audit-report",
+        "correctionPlan gerado sem aplicar alteracoes"
+      ]
+    },
+    {
+      "id": "m2-xhtml-mapping",
+      "name": "Mapeamento XHTML",
+      "status": "done",
+      "deliverables": [
+        "xhtmlMapper.js",
+        "spine/ordem de leitura mapeada",
+        "filePath/spineIndex/paragraphIndex/textNodeIndex/textPreview em candidates",
+        "correctionPlan enriquecido com localizacoes XHTML"
+      ]
+    },
+    {
+      "id": "m2-safe-normalization",
+      "name": "Normalizacao segura",
+      "status": "pending",
+      "deliverables": [
+        "terminologyNormalizer",
+        "entityNormalizer",
+        "correcoes auto_safe aplicadas em XHTML"
+      ]
+    },
+    {
+      "id": "m3-reaudit",
+      "name": "Reauditoria comparativa",
+      "status": "pending",
+      "deliverables": [
+        "auditoria antes/depois",
+        "relatorio de correcoes",
+        "metricas de mudanca textual real"
+      ]
+    },
+    {
+      "id": "m4-contextual-correction",
+      "name": "Correcao contextual",
+      "status": "pending",
+      "deliverables": [
+        "genderAgreementFixer",
+        "residualEnglishFixer",
+        "modo auto_review"
+      ]
+    }
+  ],
+  "priorities": {
+    "high": [
+      "correctionCandidates",
+      "correctionPlan",
+      "xhtmlCorrectionEngine",
+      "terminologyNormalizer",
+      "entityNormalizer",
+      "reauditoria automatica"
+    ],
+    "medium": [
+      "genderAgreementFixer",
+      "residualEnglishFixer",
+      "componentes compartilhados"
+    ],
+    "low": [
+      "reescrita semantica ampla",
+      "reconstrucao automatica de secoes ausentes"
+    ]
+  },
+  "dependencies": {
+    "docxWorkflow": {
+      "reusableIdeas": [
+        "reportWriter",
+        "workflow-events",
+        "versionWorkflow",
+        "entities",
+        "gtPatterns",
+        "fix-gender",
+        "ollamaReviewer"
+      ],
+      "constraints": [
+        "Nao herdar glossario especifico de outra obra",
+        "Nao aplicar manipulacao DOCX ao EPUB",
+        "Adaptar regras ao XHTML"
+      ]
+    }
+  },
+  "moduleStatus": {
+    "audit.js": "emits_correction_candidates",
+    "checks.js": "existing_can_feed_candidates",
+    "epubReader.js": "existing_text_extractor",
+    "xhtmlMapper.js": "implemented_maps_spine_paragraphs_text_nodes",
+    "fixEpub.js": "existing_needs_orchestrator_refactor",
+    "logReader.js": "existing_can_feed_normalization",
+    "menu.js": "existing_operational",
+    "correctionTypes.js": "implemented",
+    "correctionPlanner.js": "implemented_generates_plan_without_applying",
+    "xhtmlCorrectionEngine.js": "missing",
+    "terminologyNormalizer.js": "missing",
+    "entityNormalizer.js": "missing",
+    "genderAgreementFixer.js": "missing",
+    "residualEnglishFixer.js": "missing",
+    "epubValidator.js": "missing",
+    "epubVersionWorkflow.js": "missing"
+  },
+  "risks": [
+    {
+      "id": "risk-xhtml-breakage",
+      "description": "Correcoes podem quebrar XHTML se aplicadas como string bruta.",
+      "severity": "high",
+      "mitigation": "Aplicar apenas em text nodes parseados."
+    },
+    {
+      "id": "risk-entity-false-positive",
+      "description": "Aliases de outra obra podem gerar normalizacoes erradas.",
+      "severity": "high",
+      "mitigation": "Usar glossario escopado por obra."
+    },
+    {
+      "id": "risk-contextual-overcorrection",
+      "description": "Correcoes de genero/concordancia podem alterar sentido.",
+      "severity": "medium",
+      "mitigation": "Comecar com regras auto_safe e enviar casos ambiguos para auto_review."
+    },
+    {
+      "id": "risk-no-textual-improvement",
+      "description": "EPUB corrigido pode diferir apenas no container, sem melhoria textual.",
+      "severity": "high",
+      "mitigation": "Medir diff textual real antes/depois."
+    }
+  ],
+  "updateProcess": {
+    "requiredFiles": [
+      "EPUB_REFACTOR_PLAN.md",
+      "REFACTOR_STATUS.md",
+      "refactor-state.json"
+    ],
+    "afterEachMajorStep": [
+      "Registrar implementacao concluida",
+      "Registrar decisoes arquiteturais",
+      "Registrar mudancas estruturais",
+      "Registrar problemas e riscos",
+      "Atualizar proximos passos",
+      "Atualizar timestamps"
+    ]
+  }
+}
