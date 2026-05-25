@@ -1251,3 +1251,30 @@ Proxima milestone recomendada:
 ```txt
 criar testes automatizados formais ou integrar validate:translation:epub ao CI
 ```
+
+## 42. Estado Da Milestone m18-assisted-model-adapter
+
+Implementado em: 2026-05-25T17:25:00Z
+
+A milestone `m18-assisted-model-adapter` foi concluida como integracao opcional de modelo local para melhorar sugestoes assistidas sem alterar EPUB.
+
+Entregas:
+
+- contrato desacoplado em `src/correction/modelAdapter.js`;
+- adapter Ollama em `src/correction/ollamaAdapter.js`;
+- ativacao opt-in por `EPUB_AUDIT_OLLAMA=1`;
+- fallback deterministico preservado quando Ollama esta desativado, indisponivel ou retorna sugestao rejeitada;
+- envio apenas de itens `pending` + `auto_review`;
+- prompt com `originalAlignedText`, `previousParagraph`, `currentParagraph`, `nextParagraph` e `textPreview`;
+- resposta estruturada com `suggestedAfter`, `reason`, `confidence`, `risks` e `requiresHumanApproval: true`;
+- validacao conservadora contra sugestao vazia, baixa confianca, mudanca excessiva de tamanho e perda de nomes/termos protegidos;
+- trace em `logs/json/assisted-review-model-trace.json`;
+- dashboards e relatorios atualizados para exibir origem, riscos, aceite/rejeicao do modelo e fallback.
+
+Esta milestone nao aplica sugestoes automaticamente, nao altera o EPUB e nao substitui a aprovacao humana.
+
+Proxima milestone recomendada:
+
+```txt
+criar fluxo assistido para converter sugestoes aprovadas em itens approved da review queue
+```

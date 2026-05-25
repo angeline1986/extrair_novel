@@ -94,6 +94,7 @@ logs/json/audit-report-*.json
 logs/json/correction-plan.json
 logs/json/review-queue.json
 logs/json/assisted-review-suggestions.json
+logs/json/assisted-review-model-trace.json
 logs/json/correction-report.json
 logs/json/post-correction-validation.json
 logs/json/reaudit-report.json
@@ -126,6 +127,14 @@ Os itens de review e as sugestoes assistidas incluem contexto expandido limitado
 As sugestoes assistidas podem usar `originalAlignedText` confiavel para propor `suggestedAfter` apenas em heuristicas locais e conservadoras, como descompasso simples de pronome com sobreposicao textual suficiente entre original e traducao. Mesmo nesses casos, `requiresHumanApproval` permanece `true`.
 
 Dentro de capitulos alinhados, o workflow tenta alinhar o paragrafo original por nomes proprios, numeros, perfil de pontuacao e comprimento relativo. O texto original so e exposto quando `paragraphAlignmentConfidence` e seguro; casos ambiguos mantem `originalAlignedText` vazio.
+
+Opcionalmente, as sugestoes assistidas podem chamar um modelo local Ollama. O adapter fica desativado por padrao e o fluxo usa fallback deterministico quando o modelo nao estiver habilitado ou falhar. Para habilitar:
+
+```bash
+EPUB_AUDIT_OLLAMA=1 OLLAMA_MODEL=qwen2.5:7b npm run audit:translation:epub:run
+```
+
+Variaveis aceitas: `EPUB_AUDIT_OLLAMA`, `OLLAMA_MODEL`, `OLLAMA_ENDPOINT` e `OLLAMA_TIMEOUT_MS`. O modelo recebe apenas itens `pending` + `auto_review` e contexto limitado (`originalAlignedText`, paragrafo anterior/atual/posterior e preview). Todas as respostas do modelo sao gravadas em `logs/json/assisted-review-model-trace.json`, passam por validacao conservadora e continuam com `requiresHumanApproval: true`; nenhuma sugestao e aplicada automaticamente.
 
 ## Checklist De Validacao
 

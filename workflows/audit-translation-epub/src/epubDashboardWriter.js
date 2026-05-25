@@ -781,6 +781,7 @@ function loadCorrectionArtifacts(logsDir) {
     reauditoriaSummary: readJsonIfExists(logsDir, 'reauditoria-summary.json'),
     reviewQueue: readJsonIfExists(logsDir, 'review-queue.json'),
     assistedReview: readJsonIfExists(logsDir, 'assisted-review-suggestions.json'),
+    assistedReviewModelTrace: readJsonIfExists(logsDir, 'assisted-review-model-trace.json'),
   };
 }
 
@@ -958,19 +959,21 @@ function renderReviewQueueSummary(reviewQueue) {
 function renderAssistedReviewRows(assistedReview) {
   const suggestions = assistedReview?.suggestions || [];
   if (!suggestions.length) {
-    return '<tr><td colspan="10">Nenhuma sugestão assistida gerada.</td></tr>';
+    return '<tr><td colspan="12">Nenhuma sugestão assistida gerada.</td></tr>';
   }
 
   return suggestions.slice(0, 80).map((item) => `
     <tr>
       <td>${escapeHtml(item.reviewQueueItemId || '-')}</td>
       <td>${escapeHtml(item.suggestionStatus || '-')}</td>
+      <td>${escapeHtml(item.source || '-')}</td>
       <td>${escapeHtml(item.type || '-')}</td>
       <td>${escapeHtml(item.filePath || '-')}</td>
       <td>${escapeHtml(item.nodeId || '-')}</td>
       <td>${escapeHtml(String(item.confidence ?? '-'))}</td>
       <td>${escapeHtml(item.before || '-')}</td>
       <td>${escapeHtml(item.suggestedAfter || '-')}</td>
+      <td>${escapeHtml(Array.isArray(item.risks) && item.risks.length ? item.risks.join(' | ') : '-')}</td>
       <td>${escapeHtml([
         item.previousParagraph ? `Anterior: ${item.previousParagraph}` : null,
         item.currentParagraph ? `Atual: ${item.currentParagraph}` : null,
@@ -983,8 +986,10 @@ function renderAssistedReviewRows(assistedReview) {
     </tr>`).join('');
 }
 
-function renderAssistedReviewSummary(assistedReview) {
+function renderAssistedReviewSummary(assistedReview, modelTrace = null) {
   const summary = assistedReview?.summary || {};
+  const traceSummary = modelTrace?.summary || {};
+  const adapter = modelTrace?.adapter || {};
 
   return `
     <h3>Sugestões assistidas</h3>
@@ -1009,6 +1014,16 @@ function renderAssistedReviewSummary(assistedReview) {
         <div class="metric-value">${formatNumber((summary.needsHumanTranslation || 0) + (summary.insufficientContext || 0))}</div>
         <div class="metric-note">${formatNumber(summary.insufficientContext || 0)} insufficient_context.</div>
       </div>
+      <div class="card">
+        <div class="metric-label">Ollama aceitas</div>
+        <div class="metric-value">${formatNumber(summary.ollamaSuggestions || 0)}</div>
+        <div class="metric-note">${adapter.enabled ? escapeHtml(adapter.model || 'modelo ativo') : 'Adapter opcional desativado.'}</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">Fallback / rejeitadas</div>
+        <div class="metric-value">${formatNumber(summary.deterministicFallback || 0)} / ${formatNumber(traceSummary.rejected || 0)}</div>
+        <div class="metric-note">${formatNumber(traceSummary.failed || 0)} falhas de modelo.</div>
+      </div>
     </div>
     <div class="card compact-table-card">
       <table>
@@ -1016,12 +1031,14 @@ function renderAssistedReviewSummary(assistedReview) {
           <tr>
             <th>Review item</th>
             <th>Status</th>
+            <th>Origem</th>
             <th>Tipo</th>
             <th>Arquivo</th>
             <th>Node</th>
             <th>Confiança</th>
             <th>Before</th>
             <th>Suggested after</th>
+            <th>Riscos</th>
             <th>Contexto</th>
             <th>Motivo</th>
           </tr>
@@ -1106,7 +1123,7 @@ function renderCorrectionsSection(artifacts) {
       </div>
 
       ${renderReviewQueueSummary(artifacts.reviewQueue)}
-      ${renderAssistedReviewSummary(artifacts.assistedReview)}
+      ${renderAssistedReviewSummary(artifacts.assistedReview, artifacts.assistedReviewModelTrace)}
 
       <h3>Validação pós-correção</h3>
       ${renderValidationSummary(artifacts.postValidation)}

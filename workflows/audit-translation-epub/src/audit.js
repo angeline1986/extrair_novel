@@ -30,6 +30,7 @@ import {
   buildAssistedReviewSuggestions,
   renderAssistedReviewMarkdown,
 } from './correction/assistedReview.js';
+import { createOllamaAdapter } from './correction/ollamaAdapter.js';
 import { buildXhtmlMap } from './xhtmlMapper.js';
 import { buildChapterAlignment } from './chapterAligner.js';
 
@@ -354,10 +355,12 @@ function writeReviewQueueReports({ correctionPlan, sourceDoc, xhtmlMap, chapterA
   };
 }
 
-function writeAssistedReviewReports({ reviewQueue, createdAt }) {
-  const assistedReview = buildAssistedReviewSuggestions({
+async function writeAssistedReviewReports({ reviewQueue, createdAt }) {
+  const modelAdapter = createOllamaAdapter();
+  const { assistedReview, modelTrace } = await buildAssistedReviewSuggestions({
     reviewQueue,
     createdAt,
+    modelAdapter,
   });
   const assistedReviewPath = path.join(paths.logsJsonDir, 'assisted-review-suggestions.json');
   fs.writeFileSync(assistedReviewPath, JSON.stringify(assistedReview, null, 2), 'utf8');
@@ -365,14 +368,19 @@ function writeAssistedReviewReports({ reviewQueue, createdAt }) {
   const assistedReviewMarkdownPath = path.join(paths.logsTxtDir, 'assisted-review-suggestions-latest.md');
   fs.writeFileSync(assistedReviewMarkdownPath, renderAssistedReviewMarkdown(assistedReview), 'utf8');
 
+  const assistedReviewModelTracePath = path.join(paths.logsJsonDir, 'assisted-review-model-trace.json');
+  fs.writeFileSync(assistedReviewModelTracePath, JSON.stringify(modelTrace, null, 2), 'utf8');
+
   return {
     assistedReview,
+    modelTrace,
     assistedReviewPath,
     assistedReviewMarkdownPath,
+    assistedReviewModelTracePath,
   };
 }
 
-function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, warnings, correctionCandidates, xhtmlMap, chapterAlignment, glossary }) {
+async function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, warnings, correctionCandidates, xhtmlMap, chapterAlignment, glossary }) {
   const runDate = new Date();
   const timestamp = formatTimestampForFile(runDate);
   const isoTimestamp = runDate.toISOString();
@@ -481,6 +489,7 @@ function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, 
         maxSectionCountDiffWarning: 2,
       },
       ollamaModel: null,
+      optionalOllamaModel: null,
       workflow: 'audit-translation-epub',
     },
     workflowTrace,
@@ -498,10 +507,18 @@ function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, 
     chapterAlignment,
     createdAt: isoTimestamp,
   });
-  const { assistedReview, assistedReviewPath, assistedReviewMarkdownPath } = writeAssistedReviewReports({
+  const {
+    assistedReview,
+    assistedReviewPath,
+    assistedReviewMarkdownPath,
+    assistedReviewModelTracePath,
+  } = await writeAssistedReviewReports({
     reviewQueue,
     createdAt: isoTimestamp,
   });
+  report.assistedReviewSummary = assistedReview.summary;
+  report.config.optionalOllamaModel = assistedReview.modelAssistance.model;
+  fs.writeFileSync(jsonPath, JSON.stringify(report, null, 2), 'utf8');
   appendWorkflowEvent('AUDIT_REPORT_CREATED', {
     status,
     issues: issues.length,
@@ -510,9 +527,12 @@ function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, 
     correctionPlan: path.relative(workflowRoot, correctionPlanPath).replaceAll('\\', '/'),
     reviewQueue: path.relative(workflowRoot, reviewQueuePath).replaceAll('\\', '/'),
     assistedReview: path.relative(workflowRoot, assistedReviewPath).replaceAll('\\', '/'),
+    assistedReviewModelTrace: path.relative(workflowRoot, assistedReviewModelTracePath).replaceAll('\\', '/'),
     correctionCandidates: correctionCandidates.length,
     reviewQueueItems: reviewQueue.summary.totalItems,
     assistedReviewSuggestions: assistedReview.summary.totalSuggestions,
+    assistedReviewOllamaSuggestions: assistedReview.summary.ollamaSuggestions,
+    assistedReviewFallbackSuggestions: assistedReview.summary.deterministicFallback,
     source: sourceDoc.filename,
     translation: translationDoc.filename,
     timestamp: isoTimestamp,
@@ -557,6 +577,10 @@ function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, 
     `Correction plan: ${correctionPlanPath}`,
     `Review queue: ${reviewQueuePath}`,
     `Review queue items: ${reviewQueue.summary.totalItems}`,
+    `Assisted review: ${assistedReviewPath}`,
+    `Assisted review trace: ${assistedReviewModelTracePath}`,
+    `Assisted review Ollama: ${assistedReview.summary.ollamaSuggestions}`,
+    `Assisted review fallback: ${assistedReview.summary.deterministicFallback}`,
     '',
     'PRINCIPAIS ACHADOS',
     ...(findings.length ? findings : ['- Nenhum achado.']),
@@ -579,6 +603,7 @@ function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, 
     reviewQueueMarkdownPath,
     assistedReviewPath,
     assistedReviewMarkdownPath,
+    assistedReviewModelTracePath,
     dashboardHtmlPath,
     validationHtmlPath,
     summaryPath,
@@ -650,7 +675,7 @@ async function main() {
     glossary,
   });
 
-  const { report, jsonPath, dashboardHtmlPath, validationHtmlPath, summaryPath } = writeReports({
+  const { report, jsonPath, dashboardHtmlPath, validationHtmlPath, summaryPath } = await writeReports({
     sourceDoc,
     translationDoc,
     logInfo,

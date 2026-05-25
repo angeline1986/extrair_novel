@@ -93,6 +93,7 @@ function loadCorrectionArtifacts(logsDir) {
     reauditoriaSummary: readJsonIfExists(logsDir, 'reauditoria-summary.json'),
     reviewQueue: readJsonIfExists(logsDir, 'review-queue.json'),
     assistedReview: readJsonIfExists(logsDir, 'assisted-review-suggestions.json'),
+    assistedReviewModelTrace: readJsonIfExists(logsDir, 'assisted-review-model-trace.json'),
   };
 }
 
@@ -603,12 +604,14 @@ function assistedReviewRows(assistedReview) {
         <tr>
           <th>Review item</th>
           <th>Status</th>
+          <th>Origem</th>
           <th>Tipo</th>
           <th>Arquivo</th>
           <th>Node</th>
           <th>Confidence</th>
           <th>Before</th>
           <th>Suggested after</th>
+          <th>Riscos</th>
           <th>Contexto</th>
           <th>Reason</th>
         </tr>
@@ -618,12 +621,14 @@ function assistedReviewRows(assistedReview) {
           <tr>
             <td class="example-col">${escapeHtml(item.reviewQueueItemId || '-')}</td>
             <td class="example-col">${escapeHtml(item.suggestionStatus || '-')}</td>
+            <td class="example-col">${escapeHtml(item.source || '-')}</td>
             <td class="example-col">${escapeHtml(item.type || '-')}</td>
             <td class="example-col">${escapeHtml(item.filePath || '-')}</td>
             <td class="example-col">${escapeHtml(item.nodeId || '-')}</td>
             <td class="example-col">${escapeHtml(String(item.confidence ?? '-'))}</td>
             <td class="example-col">${escapeHtml(item.before || '-')}</td>
             <td class="example-col">${escapeHtml(item.suggestedAfter || '-')}</td>
+            <td class="example-col">${escapeHtml(Array.isArray(item.risks) && item.risks.length ? item.risks.join(' | ') : '-')}</td>
             <td class="example-col">${escapeHtml([
               item.previousParagraph ? `Anterior: ${item.previousParagraph}` : null,
               item.currentParagraph ? `Atual: ${item.currentParagraph}` : null,
@@ -651,6 +656,9 @@ function renderCorrectionsTab(artifacts) {
   const reviewSummary = reviewQueue.summary || {};
   const assistedReview = artifacts.assistedReview || {};
   const assistedSummary = assistedReview.summary || {};
+  const assistedTrace = artifacts.assistedReviewModelTrace || {};
+  const traceSummary = assistedTrace.summary || {};
+  const traceAdapter = assistedTrace.adapter || {};
   const result = reauditoriaSummary.result || 'unknown';
   const resultStatus = result === 'regression' ? 'FAIL' : result === 'unknown' ? 'WARN' : 'OK';
 
@@ -692,6 +700,10 @@ function renderCorrectionsTab(artifacts) {
           detailRow('Suggestion available', formatNumber(assistedSummary.suggestionAvailable || 0)),
           detailRow('Needs human translation', formatNumber(assistedSummary.needsHumanTranslation || 0)),
           detailRow('Insufficient context', formatNumber(assistedSummary.insufficientContext || 0), (assistedSummary.insufficientContext || 0) ? 'WARN' : 'OK'),
+          detailRow('Modelo opcional', traceAdapter.enabled ? `${traceAdapter.provider || 'modelo'}:${traceAdapter.model || '-'}` : 'desativado'),
+          detailRow('Sugestões aceitas do Ollama', formatNumber(assistedSummary.ollamaSuggestions || 0)),
+          detailRow('Fallback determinístico', formatNumber(assistedSummary.deterministicFallback || 0), (assistedSummary.deterministicFallback || 0) ? 'WARN' : 'OK'),
+          detailRow('Modelo rejeitadas/falhas', `${formatNumber(traceSummary.rejected || 0)} / ${formatNumber(traceSummary.failed || 0)}`, ((traceSummary.rejected || 0) + (traceSummary.failed || 0)) ? 'WARN' : 'OK'),
         ])}
         ${assistedReviewRows(assistedReview)}
       `)}

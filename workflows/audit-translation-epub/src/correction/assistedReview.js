@@ -1,3 +1,5 @@
+import { appendModelTraceItem, createModelTrace } from './modelAdapter.js';
+
 function suggestionId(index) {
   return `ars-${String(index + 1).padStart(4, '0')}`;
 }
@@ -186,6 +188,87 @@ function confidenceForItem(item) {
   return Math.min(Number(item.confidence || 0.5), 0.6);
 }
 
+function normalizeWhitespace(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function lengthRatio(a, b) {
+  const left = normalizeWhitespace(a).length;
+  const right = normalizeWhitespace(b).length;
+  if (!left || !right) return 0;
+  return right / left;
+}
+
+function extractProtectedTokens(value) {
+  const text = String(value || '');
+  const matches = text.match(/\b[\p{Lu}][\p{L}0-9'-]*(?:\s+[\p{Lu}][\p{L}0-9'-]*)?\b/gu) || [];
+  return [...new Set(matches)]
+    .filter((token) => token.length > 2)
+    .slice(0, 10);
+}
+
+function preservesProtectedTokens(sourceText, suggestedText) {
+  const protectedTokens = extractProtectedTokens(sourceText);
+  if (!protectedTokens.length) return true;
+  return protectedTokens.every((token) => suggestedText.includes(token));
+}
+
+function parseModelConfidence(value) {
+  const confidence = Number(value);
+  if (!Number.isFinite(confidence)) return 0;
+  return Math.max(0, Math.min(1, confidence));
+}
+
+function validateModelSuggestion(item, parsed) {
+  const sourceText = item.currentParagraph || item.textPreview || item.before || '';
+  const suggestedAfter = normalizeWhitespace(parsed?.suggestedAfter);
+  const confidence = parseModelConfidence(parsed?.confidence);
+  const risks = Array.isArray(parsed?.risks)
+    ? parsed.risks.map((risk) => normalizeWhitespace(risk)).filter(Boolean).slice(0, 6)
+    : [];
+
+  if (!suggestedAfter) {
+    return {
+      ok: false,
+      reason: 'model_suggested_after_empty',
+      suggestionStatus: item.type === 'residual_english_review' ? 'needs_human_translation' : 'insufficient_context',
+    };
+  }
+
+  if (confidence < 0.65) {
+    return {
+      ok: false,
+      reason: 'model_confidence_below_threshold',
+      suggestionStatus: item.type === 'residual_english_review' ? 'needs_human_translation' : 'insufficient_context',
+    };
+  }
+
+  const ratio = lengthRatio(sourceText, suggestedAfter);
+  if (ratio < 0.45 || ratio > 1.8) {
+    return {
+      ok: false,
+      reason: `model_suggestion_length_ratio_out_of_range:${ratio.toFixed(2)}`,
+      suggestionStatus: 'insufficient_context',
+    };
+  }
+
+  if (!preservesProtectedTokens(sourceText, suggestedAfter)) {
+    return {
+      ok: false,
+      reason: 'model_suggestion_does_not_preserve_protected_tokens',
+      suggestionStatus: 'insufficient_context',
+    };
+  }
+
+  return {
+    ok: true,
+    suggestedAfter,
+    reason: normalizeWhitespace(parsed?.reason) || 'Sugestao gerada por modelo opcional com contexto expandido; requer aprovacao humana.',
+    confidence,
+    risks,
+  };
+}
+
 function buildSuggestion(item, index) {
   const aligned = alignedHeuristicSuggestion(item);
   const explicitSuggestedAfter = aligned?.suggestedAfter || suggestedAfter(item);
@@ -216,39 +299,138 @@ function buildSuggestion(item, index) {
     confidence: confidenceForItem(item),
     requiresHumanApproval: true,
     source: 'deterministic_fallback',
+    risks: [],
   };
 }
 
-export function buildAssistedReviewSuggestions({
+function summarizeSuggestions(suggestions, modelTrace) {
+  return {
+    totalSuggestions: suggestions.length,
+    requiresHumanApproval: suggestions.filter((item) => item.requiresHumanApproval).length,
+    withSuggestedAfter: suggestions.filter((item) => item.suggestedAfter).length,
+    contextEnriched: suggestions.filter((item) => item.currentParagraph || item.previousParagraph || item.nextParagraph || item.originalAlignedText).length,
+    reliableOriginalAlignment: suggestions.filter((item) => item.originalAlignedText && Number(item.alignmentConfidence || 0) >= 0.8).length,
+    originalAlignmentSkipped: suggestions.filter((item) => !item.originalAlignedText).length,
+    reliableParagraphAlignment: suggestions.filter((item) => item.originalAlignedText && Number(item.paragraphAlignmentConfidence || 0) >= 0.72).length,
+    paragraphAlignmentSkipped: suggestions.filter((item) => !item.originalAlignedText).length,
+    suggestionAvailable: suggestions.filter((item) => item.suggestionStatus === 'suggestion_available').length,
+    needsHumanTranslation: suggestions.filter((item) => item.suggestionStatus === 'needs_human_translation').length,
+    insufficientContext: suggestions.filter((item) => item.suggestionStatus === 'insufficient_context').length,
+    deterministicFallback: suggestions.filter((item) => item.source === 'deterministic_fallback').length,
+    ollamaSuggestions: suggestions.filter((item) => item.source === 'ollama').length,
+    modelAccepted: modelTrace?.summary?.accepted || 0,
+    modelRejected: modelTrace?.summary?.rejected || 0,
+    modelFailed: modelTrace?.summary?.failed || 0,
+    modelFallback: modelTrace?.summary?.fallback || 0,
+    modelEnabled: Boolean(modelTrace?.adapter?.enabled),
+    modelName: modelTrace?.adapter?.model || null,
+  };
+}
+
+export async function buildAssistedReviewSuggestions({
   reviewQueue,
   createdAt = new Date().toISOString(),
+  modelAdapter = null,
 } = {}) {
   const sourceItems = (reviewQueue?.items || [])
     .filter((item) => item.status === 'pending' && item.mode === 'auto_review');
-  const suggestions = sourceItems.map(buildSuggestion);
+  const modelTrace = createModelTrace({ createdAt, adapter: modelAdapter });
+  const suggestions = [];
 
-  return {
+  for (const item of sourceItems) {
+    const deterministic = buildSuggestion(item, suggestions.length);
+    let finalSuggestion = deterministic;
+
+    if (modelAdapter?.enabled) {
+      const modelResult = await modelAdapter.suggest(item);
+      if (modelResult.ok) {
+        const validation = validateModelSuggestion(item, modelResult.parsed);
+        if (validation.ok) {
+          finalSuggestion = {
+            ...deterministic,
+            suggestedAfter: validation.suggestedAfter,
+            suggestionStatus: 'suggestion_available',
+            reason: validation.reason,
+            confidence: validation.confidence,
+            requiresHumanApproval: true,
+            source: 'ollama',
+            model: modelResult.model || null,
+            risks: validation.risks,
+          };
+          appendModelTraceItem(modelTrace, {
+            reviewQueueItemId: item.id,
+            status: 'accepted',
+            endpoint: modelResult.endpoint || null,
+            model: modelResult.model || null,
+            httpStatus: modelResult.httpStatus || null,
+            httpStatusText: modelResult.httpStatusText || null,
+            prompt: modelResult.prompt,
+            rawResponse: modelResult.rawResponse,
+            parsedResponse: modelResult.parsed,
+            finalSuggestionId: finalSuggestion.id,
+            reason: validation.reason,
+            confidence: validation.confidence,
+            usedFallback: false,
+          });
+        } else {
+          finalSuggestion = {
+            ...deterministic,
+            suggestionStatus: validation.suggestionStatus || deterministic.suggestionStatus,
+          };
+          appendModelTraceItem(modelTrace, {
+            reviewQueueItemId: item.id,
+            status: 'rejected',
+            endpoint: modelResult.endpoint || null,
+            model: modelResult.model || null,
+            httpStatus: modelResult.httpStatus || null,
+            httpStatusText: modelResult.httpStatusText || null,
+            prompt: modelResult.prompt,
+            rawResponse: modelResult.rawResponse,
+            parsedResponse: modelResult.parsed,
+            rejectionReason: validation.reason,
+            usedFallback: true,
+          });
+        }
+      } else {
+        appendModelTraceItem(modelTrace, {
+          reviewQueueItemId: item.id,
+          status: 'failed',
+          endpoint: modelResult.endpoint || null,
+          model: modelResult.model || null,
+          httpStatus: modelResult.httpStatus || null,
+          httpStatusText: modelResult.httpStatusText || null,
+          prompt: modelResult.prompt || null,
+          error: modelResult.error || modelResult.reason || 'model_failed',
+          errorDetails: modelResult.errorDetails || null,
+          usedFallback: true,
+        });
+      }
+    }
+
+    suggestions.push(finalSuggestion);
+  }
+
+  const assistedReview = {
     schemaVersion: '1.0',
     workflow: 'audit-translation-epub',
     createdAt,
+    modelAssistance: {
+      enabled: Boolean(modelAdapter?.enabled),
+      provider: modelAdapter?.provider || modelAdapter?.name || 'none',
+      model: modelAdapter?.model || null,
+      traceFile: 'logs/json/assisted-review-model-trace.json',
+      requiresHumanApproval: true,
+    },
     source: {
       reviewQueueCreatedAt: reviewQueue?.createdAt || null,
     },
-    summary: {
-      totalSuggestions: suggestions.length,
-      requiresHumanApproval: suggestions.filter((item) => item.requiresHumanApproval).length,
-      withSuggestedAfter: suggestions.filter((item) => item.suggestedAfter).length,
-      contextEnriched: suggestions.filter((item) => item.currentParagraph || item.previousParagraph || item.nextParagraph || item.originalAlignedText).length,
-      reliableOriginalAlignment: suggestions.filter((item) => item.originalAlignedText && Number(item.alignmentConfidence || 0) >= 0.8).length,
-      originalAlignmentSkipped: suggestions.filter((item) => !item.originalAlignedText).length,
-      reliableParagraphAlignment: suggestions.filter((item) => item.originalAlignedText && Number(item.paragraphAlignmentConfidence || 0) >= 0.72).length,
-      paragraphAlignmentSkipped: suggestions.filter((item) => !item.originalAlignedText).length,
-      suggestionAvailable: suggestions.filter((item) => item.suggestionStatus === 'suggestion_available').length,
-      needsHumanTranslation: suggestions.filter((item) => item.suggestionStatus === 'needs_human_translation').length,
-      insufficientContext: suggestions.filter((item) => item.suggestionStatus === 'insufficient_context').length,
-      deterministicFallback: suggestions.filter((item) => item.source === 'deterministic_fallback').length,
-    },
+    summary: summarizeSuggestions(suggestions, modelTrace),
     suggestions,
+  };
+
+  return {
+    assistedReview,
+    modelTrace,
   };
 }
 
@@ -272,16 +454,19 @@ export function renderAssistedReviewMarkdown(assistedReview) {
     `Needs human translation: ${summary.needsHumanTranslation || 0}`,
     `Insufficient context: ${summary.insufficientContext || 0}`,
     `Fallback deterministico: ${summary.deterministicFallback || 0}`,
+    `Sugestoes Ollama: ${summary.ollamaSuggestions || 0}`,
+    `Modelo aceitas/rejeitadas/falhas: ${summary.modelAccepted || 0}/${summary.modelRejected || 0}/${summary.modelFailed || 0}`,
     '',
     'Nenhuma sugestao deste arquivo e aplicada automaticamente.',
     '',
-    '| ID | Review item | Status | Tipo | Arquivo | Node | Confidence | Alignment | Before | Suggested after | Contexto | Reason |',
-    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+    '| ID | Review item | Status | Origem | Tipo | Arquivo | Node | Confidence | Alignment | Before | Suggested after | Riscos | Contexto | Reason |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
     ...(suggestions.length
       ? suggestions.map((item) => [
         item.id,
         item.reviewQueueItemId || '-',
         item.suggestionStatus || '-',
+        item.source || '-',
         item.type || '-',
         item.filePath || '-',
         item.nodeId || '-',
@@ -289,10 +474,11 @@ export function renderAssistedReviewMarkdown(assistedReview) {
         `${item.alignmentReason || '-'} (${item.alignmentConfidence ?? '-'}) / ${item.paragraphAlignmentReason || '-'} (${item.paragraphAlignmentConfidence ?? '-'})`,
         String(item.before || '-').replace(/\s+/g, ' ').slice(0, 180),
         String(item.suggestedAfter || '-').replace(/\s+/g, ' ').slice(0, 180),
+        Array.isArray(item.risks) && item.risks.length ? item.risks.join('; ') : '-',
         String(item.currentParagraph || item.textPreview || '-').replace(/\s+/g, ' ').slice(0, 180),
         item.reason || '-',
       ].map((value) => String(value).replaceAll('|', '\\|')).join(' | ')).map((row) => `| ${row} |`)
-      : ['| - | - | - | - | - | - | Nenhuma sugestao gerada | - | - |']),
+      : ['| - | - | - | - | - | - | - | Nenhuma sugestao gerada | - | - | - | - | - |']),
     '',
   ].join('\n');
 }

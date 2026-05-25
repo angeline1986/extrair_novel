@@ -344,3 +344,17 @@ Checkpoint final da m17 em 2026-05-25T16:39:00Z:
 - `npm run audit:translation:epub:run` executado com sucesso;
 - `npm run fix:translation:epub` executado com sucesso, gerando validacao pos-correcao `OK` e reauditoria `improvement`;
 - `input-fixed/manifest.json` revertido por conter apenas avanco operacional para `v8` gerado durante validacao local.
+
+Em 2026-05-25T17:25:00Z foi implementada a milestone `m18-assisted-model-adapter`:
+
+- criado contrato desacoplado de adapter em `src/correction/modelAdapter.js`;
+- criado `src/correction/ollamaAdapter.js` usando o padrao local de Ollama via `/api/generate`, resposta JSON estruturada, timeout e temperatura baixa;
+- o adapter Ollama fica desativado por padrao e so roda com `EPUB_AUDIT_OLLAMA=1`;
+- `assistedReview.js` passou a enviar apenas itens `pending` + `auto_review` ao modelo opcional;
+- prompts usam contexto limitado: `originalAlignedText`, `previousParagraph`, `currentParagraph`, `nextParagraph` e `textPreview`;
+- respostas do modelo sao validadas para evitar `suggestedAfter` vazio, baixa confianca, mudanca excessiva de tamanho ou perda de nomes/termos protegidos;
+- resultados aceitos continuam com `requiresHumanApproval: true` e origem `ollama`;
+- falhas, baixa confianca ou sugestoes rejeitadas retornam ao fallback deterministico;
+- criado `logs/json/assisted-review-model-trace.json` para registrar prompts, respostas, rejeicoes e fallback;
+- dashboards e relatorios passaram a exibir origem das sugestoes, riscos, contagem de Ollama e fallback;
+- nenhuma sugestao e aplicada automaticamente e nenhum EPUB e alterado nesta milestone.
