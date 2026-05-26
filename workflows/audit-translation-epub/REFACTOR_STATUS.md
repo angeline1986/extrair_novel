@@ -439,3 +439,16 @@ Em 2026-05-26T01:10:00Z foi implementada a milestone `m24-model-validation-harde
 - nenhuma sugestao entrou no `correctionPlan`;
 - nenhum EPUB/output/input-fixed foi alterado.
 - decisao operacional: parar a calibracao da m24 neste ponto. A milestone melhorou diagnostico e validacao, mas novas calibracoes devem ser feitas futuramente com base em uso real e exemplos revisados manualmente, nao buscando metrica perfeita agora.
+
+Em 2026-05-26T12:50:00Z foi executada uma validacao pratica do pipeline com lote pequeno de sugestoes aprovadas manualmente:
+
+- itens selecionados: `ars-0026/srq-0025`, `ars-0030/srq-0029` e `ars-0011/srq-0010`;
+- apenas esses itens foram marcados como `approved` na review queue; os demais itens `semantic_audit` permaneceram `pending`;
+- `npm run review:translation:epub:validate` retornou `OK` com 3 approved, 31 pending, 0 rejected e 0 needs_context;
+- `npm run fix:translation:epub` gerou `output/Show Me Your Stats ptbr_v10_fixed.epub`;
+- foram registradas 6 substituicoes no total: 4 normalizacoes terminologicas `T/N -> N/T` e 2 correcoes semanticas aprovadas;
+- correcoes semanticas confirmadas no texto final: `incrédulo -> descrente` e `espessura ideal da massa -> espessura ideal do pão`;
+- a sugestao `Soble... -> Sobletz...` nao foi aplicada porque o `before` aprovado nao existia exatamente no no XHTML; o texto final ja continha `Sobletz`, portanto o skip foi seguro e evitou aplicar uma sugestao stale/truncada;
+- validacao pos-correcao retornou `OK`, EPUB tecnico valido, texto alterado e 6/6 correcoes aplicadas confirmadas;
+- reauditoria retornou `improvement`: issues 0 -> 0, warnings 3 -> 3, correctionCandidates 3 -> 2;
+- percepcao qualitativa: as duas mudancas semanticas aplicadas ficaram naturais no paragrafo e melhoram consistencia local; a terceira reforcou a necessidade de conferir se a sugestao ainda existe literalmente no XHTML antes de aprovar.
