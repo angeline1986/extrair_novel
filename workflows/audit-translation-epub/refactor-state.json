@@ -1,16 +1,16 @@
 {
   "schemaVersion": "1.0",
-  "refactorVersion": "0.22.0",
+  "refactorVersion": "0.23.0",
   "workflow": "audit-translation-epub",
   "currentPhase": {
-    "id": "phase-21",
-    "name": "Auditoria semantica e consistencia textual implementada",
+    "id": "phase-22",
+    "name": "Review semantica integrada",
     "status": "active",
-    "description": "O workflow EPUB gera semanticCandidates separados do correctionPlan para detectar riscos semanticos que exigem revisao humana."
+    "description": "SemanticCandidates medium e confiaveis entram na review queue como semantic_audit pending, sem alimentar correctionPlan ou aplicar correcoes."
   },
   "timestamps": {
     "createdAt": "2026-05-24T23:37:47Z",
-    "updatedAt": "2026-05-25T22:02:00Z"
+    "updatedAt": "2026-05-25T22:25:00Z"
   },
   "completedTasks": [
     {
@@ -156,6 +156,11 @@
     {
       "id": "semantic-consistency-audit",
       "title": "Criar auditoria semantica separada de correctionCandidates",
+      "status": "done"
+    },
+    {
+      "id": "semantic-review-integration",
+      "title": "Integrar candidatos semanticos relevantes a review queue",
       "status": "done"
     }
   ],
@@ -495,6 +500,19 @@
           "tighten repetition anomaly minimum size"
         ]
       }
+    },
+    {
+      "id": "m22-semantic-review-integration",
+      "name": "Integracao da review semantica",
+      "status": "done",
+      "deliverables": [
+        "semanticCandidates medium selecionados para review queue",
+        "origin semantic_audit",
+        "status pending",
+        "mode auto_review",
+        "sem auto_safe",
+        "dashboards separam correctionPlan/semantic/review semantica"
+      ]
     }
   ],
   "priorities": {
@@ -558,18 +576,18 @@
     "epubVersionWorkflow.js": "missing",
     "reviewQueueValidator": "implemented_validates_manual_review_queue",
     "validateReviewQueue.js": "implemented_cli_validation",
-    "assistedReview": "implemented_model_output_contract_full_paragraph_or_localized_patch",
+    "assistedReview": "implemented_semantic_audit_suggestion_tracking",
     "modelAdapter": "implemented_optional_model_contract",
     "ollamaAdapter": "implemented_optional_assisted_review_provider_with_patch_contract",
-    "reviewQueue": "validated_manual_approval_operational_flow",
+    "reviewQueue": "implemented_semantic_audit_pending_items",
     "chapterAligner": "implemented_safe_chapter_and_paragraph_alignment",
     "validatePipeline": "implemented_contract_validation_script",
     "approvedCorrectionsReader": "validated_applies_assisted_review_approved_item",
     "fixEpub": "validated_manual_approved_suggestion_application",
     "semanticConsistencyAudit": "implemented_generates_separate_semantic_candidates",
-    "audit_js": "emits_correction_and_semantic_candidates",
-    "epubDashboardWriter": "implemented_semantic_candidate_visibility",
-    "epubValidationWriter": "implemented_semantic_validation_tab"
+    "audit_js": "emits_semantic_candidates_and_semantic_review_items",
+    "epubDashboardWriter": "implemented_semantic_review_origin_visibility",
+    "epubValidationWriter": "implemented_semantic_review_origin_visibility"
   },
   "risks": [
     {

@@ -888,12 +888,13 @@ function renderReauditSummary(reauditoriaSummary) {
 function renderReviewQueueRows(reviewQueue) {
   const items = reviewQueue?.items || [];
   if (!items.length) {
-    return '<tr><td colspan="8">Nenhum item pendente de revisão.</td></tr>';
+    return '<tr><td colspan="9">Nenhum item pendente de revisão.</td></tr>';
   }
 
   return items.slice(0, 80).map((item) => `
     <tr>
       <td>${escapeHtml(item.status || 'pending')}</td>
+      <td>${escapeHtml(item.origin || '-')}</td>
       <td>${escapeHtml(item.type || '-')}</td>
       <td>${escapeHtml(item.filePath || '-')}</td>
       <td>${escapeHtml(item.nodeId || '-')}</td>
@@ -920,7 +921,7 @@ function renderReviewQueueSummary(reviewQueue) {
       <div class="card">
         <div class="metric-label">Itens</div>
         <div class="metric-value">${formatNumber(summary.totalItems || 0)}</div>
-        <div class="metric-note">auto_review/manual_only.</div>
+        <div class="metric-note">${formatNumber(summary.correctionPlanItems || 0)} correctionPlan · ${formatNumber(summary.semanticAuditItems || 0)} semânticos.</div>
       </div>
       <div class="card">
         <div class="metric-label">Pending</div>
@@ -943,6 +944,7 @@ function renderReviewQueueSummary(reviewQueue) {
         <thead>
           <tr>
             <th>Status</th>
+            <th>Origem</th>
             <th>Tipo</th>
             <th>Arquivo</th>
             <th>Node</th>
@@ -960,13 +962,14 @@ function renderReviewQueueSummary(reviewQueue) {
 function renderAssistedReviewRows(assistedReview) {
   const suggestions = assistedReview?.suggestions || [];
   if (!suggestions.length) {
-    return '<tr><td colspan="12">Nenhuma sugestão assistida gerada.</td></tr>';
+    return '<tr><td colspan="13">Nenhuma sugestão assistida gerada.</td></tr>';
   }
 
   return suggestions.slice(0, 80).map((item) => `
     <tr>
       <td>${escapeHtml(item.reviewQueueItemId || '-')}</td>
       <td>${escapeHtml(item.suggestionStatus || '-')}</td>
+      <td>${escapeHtml(item.origin || '-')}</td>
       <td>${escapeHtml(item.source || '-')}</td>
       <td>${escapeHtml(item.type || '-')}</td>
       <td>${escapeHtml(item.filePath || '-')}</td>
@@ -998,7 +1001,7 @@ function renderAssistedReviewSummary(assistedReview, modelTrace = null) {
       <div class="card">
         <div class="metric-label">Sugestões</div>
         <div class="metric-value">${formatNumber(summary.totalSuggestions || 0)}</div>
-        <div class="metric-note">Apenas pending + auto_review.</div>
+        <div class="metric-note">${formatNumber(summary.semanticAuditSuggestions || 0)} vindas da auditoria semântica.</div>
       </div>
       <div class="card">
         <div class="metric-label">Aprovação humana</div>
@@ -1032,7 +1035,8 @@ function renderAssistedReviewSummary(assistedReview, modelTrace = null) {
           <tr>
             <th>Review item</th>
             <th>Status</th>
-            <th>Origem</th>
+            <th>Origem item</th>
+            <th>Origem sugestão</th>
             <th>Tipo</th>
             <th>Arquivo</th>
             <th>Node</th>

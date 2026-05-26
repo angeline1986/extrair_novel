@@ -563,6 +563,7 @@ function reviewQueueRows(reviewQueue) {
       <thead>
         <tr>
           <th>Status</th>
+          <th>Origem</th>
           <th>Tipo</th>
           <th>Arquivo</th>
           <th>Node</th>
@@ -576,6 +577,7 @@ function reviewQueueRows(reviewQueue) {
         ${items.slice(0, 80).map((item) => `
           <tr>
             <td class="example-col">${escapeHtml(item.status || 'pending')}</td>
+            <td class="example-col">${escapeHtml(item.origin || '-')}</td>
             <td class="example-col">${escapeHtml(item.type || '-')}</td>
             <td class="example-col">${escapeHtml(item.filePath || '-')}</td>
             <td class="example-col">${escapeHtml(item.nodeId || '-')}</td>
@@ -605,7 +607,8 @@ function assistedReviewRows(assistedReview) {
         <tr>
           <th>Review item</th>
           <th>Status</th>
-          <th>Origem</th>
+          <th>Origem item</th>
+          <th>Origem sugestão</th>
           <th>Tipo</th>
           <th>Arquivo</th>
           <th>Node</th>
@@ -622,6 +625,7 @@ function assistedReviewRows(assistedReview) {
           <tr>
             <td class="example-col">${escapeHtml(item.reviewQueueItemId || '-')}</td>
             <td class="example-col">${escapeHtml(item.suggestionStatus || '-')}</td>
+            <td class="example-col">${escapeHtml(item.origin || '-')}</td>
             <td class="example-col">${escapeHtml(item.source || '-')}</td>
             <td class="example-col">${escapeHtml(item.type || '-')}</td>
             <td class="example-col">${escapeHtml(item.filePath || '-')}</td>
@@ -676,6 +680,8 @@ function renderCorrectionsTab(artifacts) {
       ${validationSection((reviewSummary.totalItems || 0) ? 'WARN' : 'OK', '6.3 Review queue', `
         ${detailsBlock([
           detailRow('Itens totais', formatNumber(reviewSummary.totalItems || 0), (reviewSummary.totalItems || 0) ? 'WARN' : 'OK'),
+          detailRow('Itens correctionPlan', formatNumber(reviewSummary.correctionPlanItems || 0)),
+          detailRow('Itens semantic_audit', formatNumber(reviewSummary.semanticAuditItems || 0), (reviewSummary.semanticAuditItems || 0) ? 'WARN' : 'OK'),
           detailRow('Pending', formatNumber(reviewSummary.pending || 0), (reviewSummary.pending || 0) ? 'WARN' : 'OK'),
           detailRow('Com contexto expandido', formatNumber(reviewSummary.contextEnriched || 0)),
           detailRow('Alinhamento original confiável', formatNumber(reviewSummary.reliableOriginalAlignment || 0)),
@@ -691,6 +697,7 @@ function renderCorrectionsTab(artifacts) {
       ${validationSection((assistedSummary.totalSuggestions || 0) ? 'WARN' : 'OK', '6.4 Sugestões assistidas', `
         ${detailsBlock([
           detailRow('Sugestões geradas', formatNumber(assistedSummary.totalSuggestions || 0), (assistedSummary.totalSuggestions || 0) ? 'WARN' : 'OK'),
+          detailRow('Sugestões de itens semantic_audit', formatNumber(assistedSummary.semanticAuditSuggestions || 0), (assistedSummary.semanticAuditSuggestions || 0) ? 'WARN' : 'OK'),
           detailRow('Requer aprovação humana', formatNumber(assistedSummary.requiresHumanApproval || 0), (assistedSummary.requiresHumanApproval || 0) ? 'WARN' : 'OK'),
           detailRow('Com contexto expandido', formatNumber(assistedSummary.contextEnriched || 0)),
           detailRow('Alinhamento original confiável', formatNumber(assistedSummary.reliableOriginalAlignment || 0)),

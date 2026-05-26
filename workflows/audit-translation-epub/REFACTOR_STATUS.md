@@ -401,3 +401,14 @@ Calibracao da m21:
 - falsos positivos reduzidos em numeros com separador PT-BR/EN, notas de rodape numericas, tratamento `Senhor` como titulo/lorde e repeticoes enfaticas curtas de dialogo;
 - distribuicao apos calibracao: 40 semanticCandidates, com 0 high, 32 medium e 8 low;
 - `high` passa a ficar reservado para riscos numericos realmente ausentes ou outras regras futuras de maior confianca.
+
+Em 2026-05-25T22:25:00Z foi implementada a milestone `m22-semantic-review-integration`:
+
+- `reviewQueue.js` passou a receber `semanticAudit`;
+- apenas `semanticCandidates` com severidade `medium` e `confidenceScore >= 0.55` entram na review queue;
+- itens semanticos entram com `origin: semantic_audit`, `mode: auto_review` e `status: pending`;
+- itens semanticos mantem `semanticCandidateId`, severidade, tipo, confidence, reason, filePath, nodeId, currentParagraph e originalAlignedText quando disponivel;
+- `semanticCandidates` continuam fora do `correctionPlan` e nunca viram `auto_safe`;
+- `assistedReview.js` passou a contabilizar sugestoes de origem semantica, sempre com `requiresHumanApproval: true`;
+- dashboards e relatorio de validacao separam correctionPlan, semanticCandidates e itens de review vindos da auditoria semantica;
+- nenhum EPUB/output e alterado nesta milestone.

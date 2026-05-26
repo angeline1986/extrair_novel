@@ -5,6 +5,8 @@ data/
 Traducao_corrigida/
 workflows/*/input/*
 !workflows/*/input/.gitkeep
+!workflows/audit-translation-epub/input/glossary/
+!workflows/audit-translation-epub/input/glossary/*.json
 workflows/*/output/*
 !workflows/*/output/.gitkeep
 workflows/*/logs/*

@@ -141,6 +141,8 @@ O contrato de saida do modelo aceita dois modos. Em `full_paragraph`, `suggested
 
 A auditoria semantica gera `logs/json/semantic-candidates.json` como uma camada separada de revisao. Esses candidatos procuram sinais de mudanca de sentido, omissao relevante, repeticao anormal, literalidade, inconsistencia terminologica, tratamento inconsistente e drift semantico usando alinhamento, contexto expandido, glossario e entidades. Eles nao entram automaticamente no `correction-plan.json`, nao alteram EPUB e sempre exigem revisao humana.
 
+Os `semanticCandidates` mais relevantes podem ser copiados para `logs/json/review-queue.json` com `origin: semantic_audit`, sempre como `status: pending` e `mode: auto_review`. Eles nunca viram `auto_safe` e qualquer sugestao assistida gerada para esses itens continua com `requiresHumanApproval: true`.
+
 ## Checklist De Validacao
 
 Use este checklist antes de concluir mudancas no workflow EPUB:

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1.0",
+  "terms": [
+    {
+      "from": "T/N:",
+      "to": "N/T:",
+      "mode": "auto_safe",
+      "confidence": 0.99,
+      "note": "Normaliza marcador de nota de tradutor para o padrao em portugues."
+    }
+  ]
+}
+

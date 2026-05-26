@@ -7,6 +7,10 @@ function reviewItemId(index) {
   return `rq-${String(index + 1).padStart(4, '0')}`;
 }
 
+function semanticReviewItemId(index) {
+  return `srq-${String(index + 1).padStart(4, '0')}`;
+}
+
 function actionNeedsReview(action) {
   return action?.mode === 'auto_review' || action?.mode === 'manual_only';
 }
@@ -104,12 +108,43 @@ function suggestionForAction(action) {
   return 'Revisar contexto e decidir se a correcao deve ser aprovada, rejeitada ou marcada como needs_context.';
 }
 
+function semanticCandidateEligible(candidate) {
+  return Boolean(
+    candidate?.severity === 'medium' &&
+    Number(candidate.confidenceScore || 0) >= 0.55
+  );
+}
+
+function stableKeyFromSemanticCandidate(candidate) {
+  return [
+    'semantic_audit',
+    candidate?.type || '-',
+    candidate?.location?.filePath || '-',
+    candidate?.location?.nodeId || '-',
+    candidate?.reason || '-',
+  ].join('::');
+}
+
+function semanticSuggestion(candidate) {
+  if (candidate.type === 'semantic_terminology_inconsistency') {
+    return `Revisar terminologia: ${candidate.evidence?.from || '-'} -> ${candidate.evidence?.expected || '-'}`;
+  }
+  if (candidate.type === 'semantic_treatment_inconsistency') {
+    return 'Revisar consistencia de tratamento/personagem no contexto antes de aprovar qualquer ajuste.';
+  }
+  if (candidate.type === 'semantic_repetition_anomaly') {
+    return 'Verificar se a repeticao e enfase intencional ou erro textual.';
+  }
+  return 'Revisar achado semantico com apoio do contexto antes de qualquer aprovacao manual.';
+}
+
 function countByStatus(items, status) {
   return items.filter((item) => item.status === status).length;
 }
 
 export function buildReviewQueue({
   correctionPlan,
+  semanticAudit = null,
   existingQueue = null,
   xhtmlMap = null,
   sourceDoc = null,
@@ -130,6 +165,7 @@ export function buildReviewQueue({
       stableKey,
       actionId: action.id,
       candidateId: action.candidateId,
+      origin: 'correction_plan',
       type: action.type,
       mode: action.mode,
       status: previousStatus,
@@ -164,6 +200,63 @@ export function buildReviewQueue({
       },
     };
   });
+  const semanticCandidates = (semanticAudit?.semanticCandidates || []).filter(semanticCandidateEligible);
+  const semanticItems = semanticCandidates.map((candidate, index) => {
+    const stableKey = stableKeyFromSemanticCandidate(candidate);
+    const previousItem = previousItems.get(stableKey) || {};
+    const previousStatus = REVIEW_STATUSES.has(previousItem.status) ? previousItem.status : 'pending';
+
+    return {
+      id: semanticReviewItemId(index),
+      stableKey,
+      actionId: null,
+      candidateId: candidate.id,
+      semanticCandidateId: candidate.id,
+      origin: 'semantic_audit',
+      type: candidate.type,
+      mode: 'auto_review',
+      status: previousStatus,
+      severity: candidate.severity,
+      filePath: candidate.location?.filePath || null,
+      nodeId: candidate.location?.nodeId || null,
+      spineIndex: candidate.location?.spineIndex ?? null,
+      paragraphIndex: candidate.location?.paragraphIndex ?? null,
+      textNodeIndex: candidate.location?.textNodeIndex ?? null,
+      textPreview: candidate.location?.textPreview || null,
+      previousParagraph: candidate.context?.previousParagraph || null,
+      currentParagraph: candidate.context?.currentParagraph || null,
+      nextParagraph: candidate.context?.nextParagraph || null,
+      originalAlignedText: candidate.context?.originalAlignedText || null,
+      alignmentConfidence: candidate.context?.alignmentConfidence ?? null,
+      alignmentReason: candidate.context?.alignmentReason || null,
+      paragraphAlignmentConfidence: candidate.context?.paragraphAlignmentConfidence ?? null,
+      paragraphAlignmentReason: candidate.context?.paragraphAlignmentReason || null,
+      reason: candidate.reason || null,
+      notAppliedReason: 'semantic_audit_requires_manual_approval',
+      confidence: candidate.confidenceScore ?? null,
+      confidenceKind: candidate.confidence || null,
+      risk: candidate.severity || null,
+      suggestion: semanticSuggestion(candidate),
+      before: previousItem.before || null,
+      after: previousItem.after || null,
+      occurrences: null,
+      examples: null,
+      details: {
+        semanticCandidateId: candidate.id,
+        semanticSeverity: candidate.severity,
+        semanticConfidence: candidate.confidence,
+        evidence: candidate.evidence || null,
+        feedsCorrectionPlan: false,
+        requiresHumanApproval: true,
+      },
+      review: previousItem.review || {
+        approvedBy: null,
+        reviewedAt: null,
+        notes: null,
+      },
+    };
+  });
+  const allItems = [...items, ...semanticItems];
 
   return {
     schemaVersion: '1.0',
@@ -171,21 +264,23 @@ export function buildReviewQueue({
     createdAt,
     source: correctionPlan?.source || {},
     summary: {
-      totalItems: items.length,
-      autoReview: items.filter((item) => item.mode === 'auto_review').length,
-      manualOnly: items.filter((item) => item.mode === 'manual_only').length,
-      contextEnriched: items.filter((item) => item.currentParagraph || item.previousParagraph || item.nextParagraph || item.originalAlignedText).length,
-      reliableOriginalAlignment: items.filter((item) => item.originalAlignedText && Number(item.alignmentConfidence || 0) >= 0.8).length,
-      originalAlignmentSkipped: items.filter((item) => !item.originalAlignedText).length,
-      reliableParagraphAlignment: items.filter((item) => item.originalAlignedText && Number(item.paragraphAlignmentConfidence || 0) >= 0.72).length,
-      paragraphAlignmentSkipped: items.filter((item) => !item.originalAlignedText).length,
-      pending: countByStatus(items, 'pending'),
-      approved: countByStatus(items, 'approved'),
-      rejected: countByStatus(items, 'rejected'),
-      needsContext: countByStatus(items, 'needs_context'),
+      totalItems: allItems.length,
+      correctionPlanItems: items.length,
+      semanticAuditItems: semanticItems.length,
+      autoReview: allItems.filter((item) => item.mode === 'auto_review').length,
+      manualOnly: allItems.filter((item) => item.mode === 'manual_only').length,
+      contextEnriched: allItems.filter((item) => item.currentParagraph || item.previousParagraph || item.nextParagraph || item.originalAlignedText).length,
+      reliableOriginalAlignment: allItems.filter((item) => item.originalAlignedText && Number(item.alignmentConfidence || 0) >= 0.8).length,
+      originalAlignmentSkipped: allItems.filter((item) => !item.originalAlignedText).length,
+      reliableParagraphAlignment: allItems.filter((item) => item.originalAlignedText && Number(item.paragraphAlignmentConfidence || 0) >= 0.72).length,
+      paragraphAlignmentSkipped: allItems.filter((item) => !item.originalAlignedText).length,
+      pending: countByStatus(allItems, 'pending'),
+      approved: countByStatus(allItems, 'approved'),
+      rejected: countByStatus(allItems, 'rejected'),
+      needsContext: countByStatus(allItems, 'needs_context'),
     },
     allowedStatuses: ['pending', 'approved', 'rejected', 'needs_context'],
-    items,
+    items: allItems,
   };
 }
 
@@ -198,6 +293,8 @@ export function renderReviewQueueMarkdown(reviewQueue) {
     '',
     `Gerado em: ${reviewQueue?.createdAt || '-'}`,
     `Total: ${summary.totalItems || 0}`,
+    `Correction plan items: ${summary.correctionPlanItems || 0}`,
+    `Semantic audit items: ${summary.semanticAuditItems || 0}`,
     `Pending: ${summary.pending || 0}`,
     `Approved: ${summary.approved || 0}`,
     `Rejected: ${summary.rejected || 0}`,
@@ -209,12 +306,13 @@ export function renderReviewQueueMarkdown(reviewQueue) {
     '',
     '## Itens',
     '',
-    '| ID | Status | Tipo | Modo | Arquivo | Node | Confidence | Alignment | Motivo | Sugestao | Preview |',
-    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+    '| ID | Status | Origem | Tipo | Modo | Arquivo | Node | Confidence | Alignment | Motivo | Sugestao | Preview |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
     ...(items.length
       ? items.map((item) => [
         item.id,
         item.status,
+        item.origin || '-',
         item.type || '-',
         item.mode || '-',
         item.filePath || '-',
@@ -225,7 +323,7 @@ export function renderReviewQueueMarkdown(reviewQueue) {
         item.suggestion || '-',
         String(item.textPreview || '-').replace(/\s+/g, ' ').slice(0, 180),
       ].map((value) => String(value).replaceAll('|', '\\|')).join(' | ')).map((row) => `| ${row} |`)
-      : ['| - | pending | - | - | - | - | - | - | Nenhum item pendente | - | - |']),
+      : ['| - | pending | - | - | - | - | - | - | - | Nenhum item pendente | - | - |']),
     '',
   ].join('\n');
 }

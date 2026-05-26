@@ -333,11 +333,12 @@ function writeCorrectionMarkdownReport(outputPath) {
   fs.writeFileSync(outputPath, lines.join('\n'), 'utf8');
 }
 
-function writeReviewQueueReports({ correctionPlan, sourceDoc, xhtmlMap, chapterAlignment, createdAt }) {
+function writeReviewQueueReports({ correctionPlan, semanticAudit, sourceDoc, xhtmlMap, chapterAlignment, createdAt }) {
   const reviewQueuePath = path.join(paths.logsJsonDir, 'review-queue.json');
   const existingQueue = readJsonIfExists(reviewQueuePath);
   const reviewQueue = buildReviewQueue({
     correctionPlan,
+    semanticAudit,
     existingQueue,
     xhtmlMap,
     sourceDoc,
@@ -507,6 +508,7 @@ async function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, is
   fs.writeFileSync(semanticCandidatesPath, JSON.stringify(semanticAudit, null, 2), 'utf8');
   const { reviewQueue, reviewQueuePath, reviewQueueMarkdownPath } = writeReviewQueueReports({
     correctionPlan,
+    semanticAudit,
     sourceDoc,
     xhtmlMap,
     chapterAlignment,
@@ -537,6 +539,7 @@ async function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, is
     correctionCandidates: correctionCandidates.length,
     semanticCandidatesCount: semanticAudit.summary.total,
     reviewQueueItems: reviewQueue.summary.totalItems,
+    reviewQueueSemanticItems: reviewQueue.summary.semanticAuditItems,
     assistedReviewSuggestions: assistedReview.summary.totalSuggestions,
     assistedReviewOllamaSuggestions: assistedReview.summary.ollamaSuggestions,
     assistedReviewFallbackSuggestions: assistedReview.summary.deterministicFallback,
@@ -591,6 +594,7 @@ async function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, is
     `Semantic candidates: ${semanticCandidatesPath}`,
     `Review queue: ${reviewQueuePath}`,
     `Review queue items: ${reviewQueue.summary.totalItems}`,
+    `Review queue semantic items: ${reviewQueue.summary.semanticAuditItems}`,
     `Assisted review: ${assistedReviewPath}`,
     `Assisted review trace: ${assistedReviewModelTracePath}`,
     `Assisted review Ollama: ${assistedReview.summary.ollamaSuggestions}`,

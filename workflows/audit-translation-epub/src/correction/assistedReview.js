@@ -172,6 +172,10 @@ function reasonForItem(item) {
     return 'Possivel residuo em ingles; traducao exige decisao humana ou modelo opcional antes de preencher suggestedAfter.';
   }
 
+  if (item.origin === 'semantic_audit') {
+    return 'Achado semantico exige revisao humana; sugestao automatica so pode ser usada como apoio e nunca como aplicacao direta.';
+  }
+
   return 'Item exige revisao humana; nenhuma reescrita automatica foi inferida.';
 }
 
@@ -391,6 +395,8 @@ function buildSuggestion(item, index) {
     type: item.type || null,
     mode: item.mode || null,
     status: item.status || 'pending',
+    origin: item.origin || null,
+    severity: item.severity || null,
     filePath: item.filePath || null,
     nodeId: item.nodeId || null,
     textPreview: item.textPreview || null,
@@ -410,6 +416,7 @@ function buildSuggestion(item, index) {
     suggestionStatus: suggestionStatus(item),
     reason: reasonForItem(item),
     confidence: confidenceForItem(item),
+    confidenceKind: item.confidenceKind || null,
     requiresHumanApproval: true,
     source: 'deterministic_fallback',
     risks: [],
@@ -430,6 +437,7 @@ function summarizeSuggestions(suggestions, modelTrace) {
     needsHumanTranslation: suggestions.filter((item) => item.suggestionStatus === 'needs_human_translation').length,
     insufficientContext: suggestions.filter((item) => item.suggestionStatus === 'insufficient_context').length,
     deterministicFallback: suggestions.filter((item) => item.source === 'deterministic_fallback').length,
+    semanticAuditSuggestions: suggestions.filter((item) => item.origin === 'semantic_audit').length,
     ollamaSuggestions: suggestions.filter((item) => item.source === 'ollama').length,
     modelAccepted: modelTrace?.summary?.accepted || 0,
     modelRejected: modelTrace?.summary?.rejected || 0,
@@ -582,13 +590,14 @@ export function renderAssistedReviewMarkdown(assistedReview) {
     '',
     'Nenhuma sugestao deste arquivo e aplicada automaticamente.',
     '',
-    '| ID | Review item | Status | Origem | Patch mode | Tipo | Arquivo | Node | Confidence | Alignment | Before | Suggested after | Riscos | Contexto | Reason |',
-    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+    '| ID | Review item | Status | Origem item | Origem sugestao | Patch mode | Tipo | Arquivo | Node | Confidence | Alignment | Before | Suggested after | Riscos | Contexto | Reason |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
     ...(suggestions.length
       ? suggestions.map((item) => [
         item.id,
         item.reviewQueueItemId || '-',
         item.suggestionStatus || '-',
+        item.origin || '-',
         item.source || '-',
         item.patchMode || '-',
         item.type || '-',

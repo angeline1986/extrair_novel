@@ -1298,3 +1298,22 @@ Entregas:
 - dashboard principal e relatorio de validacao com visualizacao dos candidatos semanticos.
 
 Esta milestone nao aplica correcoes automaticamente e nao altera EPUB.
+
+## 44. Estado Da Milestone m22-semantic-review-integration
+
+Implementado em: 2026-05-25T22:25:00Z
+
+A milestone `m22-semantic-review-integration` foi concluida como integracao controlada dos candidatos semanticos ao fluxo de revisao humana.
+
+Entregas:
+
+- leitura dos `semanticCandidates` gerados pela auditoria semantica;
+- selecao apenas de candidatos `medium` com confianca suficiente;
+- criacao de itens `origin: semantic_audit` na review queue;
+- status inicial `pending`;
+- `mode: auto_review`, nunca `auto_safe`;
+- preservacao de tipo, severidade, confidence, reason, filePath, nodeId, currentParagraph e originalAlignedText;
+- sugestoes assistidas continuam sendo apenas apoio e exigem aprovacao humana;
+- dashboard principal e relatorio de validacao separam correctionCandidates, semanticCandidates e review items semanticos.
+
+Esta milestone nao altera EPUB/output e nao aplica correcoes automaticamente.
