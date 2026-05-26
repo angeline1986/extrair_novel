@@ -412,3 +412,15 @@ Em 2026-05-25T22:25:00Z foi implementada a milestone `m22-semantic-review-integr
 - `assistedReview.js` passou a contabilizar sugestoes de origem semantica, sempre com `requiresHumanApproval: true`;
 - dashboards e relatorio de validacao separam correctionPlan, semanticCandidates e itens de review vindos da auditoria semantica;
 - nenhum EPUB/output e alterado nesta milestone.
+
+Em 2026-05-25T22:45:00Z foi executada a milestone operacional `m23-semantic-review-with-ollama`:
+
+- auditoria executada com `EPUB_AUDIT_OLLAMA=1`, `OLLAMA_HOST=http://127.0.0.1:11434` e `OLLAMA_MODEL=qwen2.5:7b`;
+- Ollama respondeu via endpoint local com 33 requisicoes no trace;
+- 32 itens `semantic_audit` estavam na review queue e permaneceram `pending`;
+- foram geradas 33 sugestoes assistidas no total, sendo 32 de origem `semantic_audit`;
+- 19 sugestoes do Ollama foram aceitas como `suggestion_available`;
+- 14 respostas foram rejeitadas pela validacao conservadora e ficaram em fallback/`insufficient_context`;
+- motivos de rejeicao: `target_not_found`, `length_ratio_out_of_range` e `does_not_preserve_protected_tokens`;
+- nenhuma sugestao entrou no `correctionPlan`;
+- nenhum EPUB/output/input-fixed foi alterado.
