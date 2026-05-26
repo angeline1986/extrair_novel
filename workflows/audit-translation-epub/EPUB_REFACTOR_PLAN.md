@@ -1317,3 +1317,29 @@ Entregas:
 - dashboard principal e relatorio de validacao separam correctionCandidates, semanticCandidates e review items semanticos.
 
 Esta milestone nao altera EPUB/output e nao aplica correcoes automaticamente.
+
+## 45. Estado Da Milestone m24-model-validation-hardening
+
+Implementado em: 2026-05-26T01:10:00Z
+
+A milestone `m24-model-validation-hardening` estabiliza o contrato de sugestoes do modelo apos o teste real da review semantica com Ollama.
+
+Entregas:
+
+- prompt do Ollama reforcado para exigir `targetBefore` literal, sem reticencias/resumos, e `replacementAfter` proporcional ao alvo;
+- instrucao explicita para preservar nomes proprios, numeros, termos canonicos, tags entre colchetes e marcadores como `*[T/N`;
+- validacao com detalhes rastreaveis para `protected_tokens`, `target_not_found`, ratios e numeros alterados;
+- localizacao segura de `localized_patch` com equivalencia entre aspas retas e aspas tipograficas;
+- rejeicao de alvos truncados com reticencias quando nao encontrados literalmente;
+- rejeicao de alteracoes numericas, insercao de marcador/termo ingles inseguro e sugestoes semanticas com justificativa apenas estilistica;
+- `assisted-review-model-trace.json` passou a registrar `validationDetails` e `matchMode`;
+- auditoria operacional com Ollama respondeu 33 requisicoes, aceitou 13 sugestoes como `suggestion_available` e rejeitou 20 com fallback conservador.
+
+Comparativo m23 -> m24:
+
+- m23: 19 aceitas, 14 rejeitadas;
+- m24 final: 13 aceitas, 20 rejeitadas;
+- rejeicoes antigas de ratio foram substituidas por motivos mais especificos;
+- falsos positivos percebidos foram reduzidos ao bloquear numeros alterados, termos ingleses inseguros e sugestoes puramente estilisticas.
+
+Esta milestone nao aplica sugestoes automaticamente, nao altera EPUB/output/input-fixed e nao coloca itens semanticos no `correctionPlan`.

@@ -203,6 +203,11 @@ function lengthRatio(a, b) {
   return right / left;
 }
 
+function preview(value, limit = 220) {
+  const text = normalizeWhitespace(value);
+  return text.length > limit ? `${text.slice(0, limit - 3)}...` : text;
+}
+
 function extractProtectedTokens(value) {
   const text = String(value || '');
   const matches = text.match(/\b[\p{Lu}][\p{L}0-9'-]*(?:\s+[\p{Lu}][\p{L}0-9'-]*)?\b/gu) || [];
@@ -211,10 +216,104 @@ function extractProtectedTokens(value) {
     .slice(0, 10);
 }
 
-function preservesProtectedTokens(sourceText, suggestedText) {
+function protectedTokenReport(sourceText, suggestedText) {
   const protectedTokens = extractProtectedTokens(sourceText);
-  if (!protectedTokens.length) return true;
-  return protectedTokens.every((token) => suggestedText.includes(token));
+  const missingTokens = protectedTokens.filter((token) => !suggestedText.includes(token));
+  return {
+    ok: missingTokens.length === 0,
+    protectedTokens,
+    missingTokens,
+  };
+}
+
+function numericTokenReport(sourceText, suggestedText) {
+  const sourceNumbers = [...new Set(String(sourceText || '').match(/\d+(?:[.,]\d+)?/gu) || [])];
+  const suggestedNumbers = [...new Set(String(suggestedText || '').match(/\d+(?:[.,]\d+)?/gu) || [])];
+  return {
+    ok: sourceNumbers.every((number) => suggestedNumbers.includes(number)) &&
+      suggestedNumbers.every((number) => sourceNumbers.includes(number)),
+    sourceNumbers,
+    suggestedNumbers,
+    missingNumbers: sourceNumbers.filter((number) => !suggestedNumbers.includes(number)),
+    addedNumbers: suggestedNumbers.filter((number) => !sourceNumbers.includes(number)),
+  };
+}
+
+function introducesUnsafeMarker(sourceText, suggestedText) {
+  const source = normalizeWhitespace(sourceText).toLowerCase();
+  const suggested = normalizeWhitespace(suggestedText).toLowerCase();
+  const unsafeMarkers = [/\bt\/n\b/u, /\btranslator'?s note\b/u, /\blord\b/u];
+  return unsafeMarkers.some((marker) => marker.test(suggested) && !marker.test(source));
+}
+
+function looksLikeStyleOnlyModelReason(reason) {
+  return /\b(flu[eê]ncia|formal|simplific|mais espec[ií]fico|pontua[cç][aã]o|sin[oô]nimo|tom mais)\b/iu
+    .test(String(reason || ''));
+}
+
+function validationDetailBase(sourceText, suggestedText = '') {
+  return {
+    sourcePreview: preview(sourceText),
+    suggestionPreview: preview(suggestedText),
+  };
+}
+
+function hasPlaceholderEllipsis(value) {
+  const text = normalizeWhitespace(value);
+  return /(?:\.\.\.|…)$/.test(text) && text.length < 260;
+}
+
+function escapeRegexChar(char) {
+  return char.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
+}
+
+function targetToQuoteCompatibleRegex(targetBefore) {
+  let pattern = '';
+  for (const char of String(targetBefore || '')) {
+    if (/\s/u.test(char)) {
+      pattern += '\\s+';
+    } else if (char === '"' || char === '“' || char === '”') {
+      pattern += '["“”]';
+    } else if (char === '\'' || char === '‘' || char === '’') {
+      pattern += '[\'‘’]';
+    } else {
+      pattern += escapeRegexChar(char);
+    }
+  }
+  return new RegExp(pattern, 'u');
+}
+
+function findLocalizedTarget(sourceText, targetBefore) {
+  if (sourceText.includes(targetBefore)) {
+    return {
+      found: true,
+      matchedTarget: targetBefore,
+      matchMode: 'exact',
+    };
+  }
+
+  if (hasPlaceholderEllipsis(targetBefore)) {
+    return {
+      found: false,
+      matchMode: 'not_found',
+      reason: 'target_appears_truncated_with_ellipsis',
+    };
+  }
+
+  const match = sourceText.match(targetToQuoteCompatibleRegex(targetBefore));
+  if (match?.[0]) {
+    return {
+      found: true,
+      matchedTarget: match[0],
+      matchMode: 'quote_compatible',
+    };
+  }
+
+  return {
+    found: false,
+    matchMode: 'not_found',
+    reason: 'target_not_found_in_current_paragraph',
+  };
 }
 
 function parseModelConfidence(value) {
@@ -273,21 +372,64 @@ function validateFullParagraphSuggestion(item, parsed, common) {
   }
 
   const ratio = lengthRatio(sourceText, suggestedAfter);
-  if (ratio < 0.45 || ratio > 1.8) {
+  const minRatio = 0.45;
+  const maxRatio = 1.8;
+  if (ratio < minRatio || ratio > maxRatio) {
     return {
       ok: false,
       reason: `model_suggestion_length_ratio_out_of_range:${ratio.toFixed(2)}`,
       suggestionStatus: 'insufficient_context',
       patchMode: 'full_paragraph',
+      validationDetails: {
+        ...validationDetailBase(sourceText, suggestedAfter),
+        ratio: Number(ratio.toFixed(3)),
+        minRatio,
+        maxRatio,
+        sourceLength: normalizeWhitespace(sourceText).length,
+        suggestedLength: suggestedAfter.length,
+      },
     };
   }
 
-  if (!preservesProtectedTokens(sourceText, suggestedAfter)) {
+  const tokenReport = protectedTokenReport(sourceText, suggestedAfter);
+  if (!tokenReport.ok) {
     return {
       ok: false,
       reason: 'model_suggestion_does_not_preserve_protected_tokens',
       suggestionStatus: 'insufficient_context',
       patchMode: 'full_paragraph',
+      validationDetails: {
+        ...validationDetailBase(sourceText, suggestedAfter),
+        protectedTokens: tokenReport.protectedTokens,
+        missingProtectedTokens: tokenReport.missingTokens,
+      },
+    };
+  }
+
+  const numberReport = numericTokenReport(sourceText, suggestedAfter);
+  if (!numberReport.ok) {
+    return {
+      ok: false,
+      reason: 'model_suggestion_does_not_preserve_numbers',
+      suggestionStatus: 'insufficient_context',
+      patchMode: 'full_paragraph',
+      validationDetails: {
+        ...validationDetailBase(sourceText, suggestedAfter),
+        sourceNumbers: numberReport.sourceNumbers,
+        suggestedNumbers: numberReport.suggestedNumbers,
+        missingNumbers: numberReport.missingNumbers,
+        addedNumbers: numberReport.addedNumbers,
+      },
+    };
+  }
+
+  if (introducesUnsafeMarker(sourceText, suggestedAfter)) {
+    return {
+      ok: false,
+      reason: 'model_suggestion_introduces_unsafe_marker_or_english_term',
+      suggestionStatus: 'insufficient_context',
+      patchMode: 'full_paragraph',
+      validationDetails: validationDetailBase(sourceText, suggestedAfter),
     };
   }
 
@@ -305,6 +447,7 @@ function validateLocalizedPatchSuggestion(item, parsed, common) {
   const sourceText = item.currentParagraph || item.textPreview || item.before || '';
   const targetBefore = normalizeWhitespace(parsed?.targetBefore);
   const replacementAfter = normalizeWhitespace(parsed?.replacementAfter);
+  const modelReason = normalizeWhitespace(parsed?.reason);
 
   if (!targetBefore || !replacementAfter) {
     return {
@@ -315,42 +458,153 @@ function validateLocalizedPatchSuggestion(item, parsed, common) {
     };
   }
 
-  if (!sourceText.includes(targetBefore)) {
+  const targetMatch = findLocalizedTarget(sourceText, targetBefore);
+  if (!targetMatch.found) {
     return {
       ok: false,
       reason: 'model_localized_patch_target_not_found',
       suggestionStatus: 'insufficient_context',
       patchMode: 'localized_patch',
+      validationDetails: {
+        ...validationDetailBase(sourceText, replacementAfter),
+        targetBeforePreview: preview(targetBefore),
+        currentParagraphPreview: preview(sourceText, 420),
+        matchMode: targetMatch.matchMode,
+        matchFailureReason: targetMatch.reason,
+      },
     };
   }
 
-  const patchRatio = lengthRatio(targetBefore, replacementAfter);
-  if (patchRatio < 0.35 || patchRatio > 2.5) {
+  const matchedTarget = targetMatch.matchedTarget;
+  const patchRatio = lengthRatio(matchedTarget, replacementAfter);
+  const minPatchRatio = 0.35;
+  const maxPatchRatio = 2.5;
+  if (patchRatio < minPatchRatio || patchRatio > maxPatchRatio) {
     return {
       ok: false,
       reason: `model_localized_patch_length_ratio_out_of_range:${patchRatio.toFixed(2)}`,
       suggestionStatus: 'insufficient_context',
       patchMode: 'localized_patch',
+      validationDetails: {
+        targetBeforePreview: preview(targetBefore),
+        matchedTargetPreview: preview(matchedTarget),
+        replacementAfterPreview: preview(replacementAfter),
+        ratio: Number(patchRatio.toFixed(3)),
+        minRatio: minPatchRatio,
+        maxRatio: maxPatchRatio,
+        matchMode: targetMatch.matchMode,
+        targetLength: matchedTarget.length,
+        replacementLength: replacementAfter.length,
+      },
     };
   }
 
-  if (!preservesProtectedTokens(targetBefore, replacementAfter)) {
+  const numberReport = numericTokenReport(matchedTarget, replacementAfter);
+  if (!numberReport.ok) {
+    return {
+      ok: false,
+      reason: 'model_localized_patch_does_not_preserve_numbers',
+      suggestionStatus: 'insufficient_context',
+      patchMode: 'localized_patch',
+      validationDetails: {
+        targetBeforePreview: preview(targetBefore),
+        matchedTargetPreview: preview(matchedTarget),
+        replacementAfterPreview: preview(replacementAfter),
+        matchMode: targetMatch.matchMode,
+        sourceNumbers: numberReport.sourceNumbers,
+        suggestedNumbers: numberReport.suggestedNumbers,
+        missingNumbers: numberReport.missingNumbers,
+        addedNumbers: numberReport.addedNumbers,
+      },
+    };
+  }
+
+  const tokenReport = protectedTokenReport(matchedTarget, replacementAfter);
+  if (!tokenReport.ok) {
     return {
       ok: false,
       reason: 'model_localized_patch_does_not_preserve_protected_tokens',
       suggestionStatus: 'insufficient_context',
       patchMode: 'localized_patch',
+      validationDetails: {
+        targetBeforePreview: preview(targetBefore),
+        matchedTargetPreview: preview(matchedTarget),
+        replacementAfterPreview: preview(replacementAfter),
+        matchMode: targetMatch.matchMode,
+        protectedTokens: tokenReport.protectedTokens,
+        missingProtectedTokens: tokenReport.missingTokens,
+      },
     };
   }
 
-  const suggestedAfter = sourceText.replace(targetBefore, replacementAfter);
+  if (introducesUnsafeMarker(matchedTarget, replacementAfter)) {
+    return {
+      ok: false,
+      reason: 'model_localized_patch_introduces_unsafe_marker_or_english_term',
+      suggestionStatus: 'insufficient_context',
+      patchMode: 'localized_patch',
+      validationDetails: {
+        targetBeforePreview: preview(targetBefore),
+        matchedTargetPreview: preview(matchedTarget),
+        replacementAfterPreview: preview(replacementAfter),
+        matchMode: targetMatch.matchMode,
+      },
+    };
+  }
+
+  const overlap = textOverlapRatio(matchedTarget, replacementAfter);
+  const minOverlap = 0.58;
+  if (overlap < minOverlap) {
+    return {
+      ok: false,
+      reason: `model_localized_patch_semantic_overlap_too_low:${overlap.toFixed(2)}`,
+      suggestionStatus: 'insufficient_context',
+      patchMode: 'localized_patch',
+      validationDetails: {
+        targetBeforePreview: preview(targetBefore),
+        matchedTargetPreview: preview(matchedTarget),
+        replacementAfterPreview: preview(replacementAfter),
+        matchMode: targetMatch.matchMode,
+        overlap: Number(overlap.toFixed(3)),
+        minOverlap,
+      },
+    };
+  }
+
+  if (item.origin === 'semantic_audit' && looksLikeStyleOnlyModelReason(modelReason)) {
+    return {
+      ok: false,
+      reason: 'model_localized_patch_style_only_reason',
+      suggestionStatus: 'insufficient_context',
+      patchMode: 'localized_patch',
+      validationDetails: {
+        targetBeforePreview: preview(targetBefore),
+        matchedTargetPreview: preview(matchedTarget),
+        replacementAfterPreview: preview(replacementAfter),
+        matchMode: targetMatch.matchMode,
+        reasonPreview: preview(modelReason),
+      },
+    };
+  }
+
+  const suggestedAfter = sourceText.replace(matchedTarget, replacementAfter);
   const fullRatio = lengthRatio(sourceText, suggestedAfter);
-  if (fullRatio < 0.45 || fullRatio > 1.8) {
+  const minFullRatio = 0.45;
+  const maxFullRatio = 1.8;
+  if (fullRatio < minFullRatio || fullRatio > maxFullRatio) {
     return {
       ok: false,
       reason: `model_localized_patch_full_length_ratio_out_of_range:${fullRatio.toFixed(2)}`,
       suggestionStatus: 'insufficient_context',
       patchMode: 'localized_patch',
+      validationDetails: {
+        ...validationDetailBase(sourceText, suggestedAfter),
+        ratio: Number(fullRatio.toFixed(3)),
+        minRatio: minFullRatio,
+        maxRatio: maxFullRatio,
+        sourceLength: normalizeWhitespace(sourceText).length,
+        suggestedLength: normalizeWhitespace(suggestedAfter).length,
+      },
     };
   }
 
@@ -360,7 +614,8 @@ function validateLocalizedPatchSuggestion(item, parsed, common) {
     targetBefore,
     replacementAfter,
     suggestedAfter,
-    reason: normalizeWhitespace(parsed?.reason) || 'Patch localizado gerado por modelo opcional; requer aprovacao humana.',
+    matchMode: targetMatch.matchMode,
+    reason: modelReason || 'Patch localizado gerado por modelo opcional; requer aprovacao humana.',
     confidence: common.confidence,
     risks: common.risks,
   };
@@ -495,6 +750,7 @@ export async function buildAssistedReviewSuggestions({
             parsedResponse: modelResult.parsed,
             finalSuggestionId: finalSuggestion.id,
             patchMode: validation.patchMode,
+            matchMode: validation.matchMode || null,
             targetBefore: validation.targetBefore || null,
             replacementAfter: validation.replacementAfter || null,
             reason: validation.reason,
@@ -517,6 +773,7 @@ export async function buildAssistedReviewSuggestions({
             rawResponse: modelResult.rawResponse,
             parsedResponse: modelResult.parsed,
             rejectionReason: validation.reason,
+            validationDetails: validation.validationDetails || null,
             patchMode: validation.patchMode,
             usedFallback: true,
           });

@@ -1,16 +1,16 @@
 {
   "schemaVersion": "1.0",
-  "refactorVersion": "0.24.0",
+  "refactorVersion": "0.25.0",
   "workflow": "audit-translation-epub",
   "currentPhase": {
-    "id": "phase-23",
-    "name": "Review semantica testada com Ollama",
+    "id": "phase-24",
+    "name": "Validacao do modelo endurecida",
     "status": "active",
-    "description": "Itens semantic_audit foram processados pelo Ollama como sugestoes assistidas, mantendo approval humano e sem alterar EPUB."
+    "description": "Sugestoes do Ollama continuam apenas assistidas, com prompt mais explicito e validacao rastreavel contra falsos positivos."
   },
   "timestamps": {
     "createdAt": "2026-05-24T23:37:47Z",
-    "updatedAt": "2026-05-25T22:45:00Z"
+    "updatedAt": "2026-05-26T01:10:00Z"
   },
   "completedTasks": [
     {
@@ -166,6 +166,11 @@
     {
       "id": "semantic-review-with-ollama",
       "title": "Testar review semantica com Ollama habilitado",
+      "status": "done"
+    },
+    {
+      "id": "model-validation-hardening",
+      "title": "Endurecer contrato e validacao das sugestoes do modelo",
       "status": "done"
     }
   ],
@@ -546,6 +551,48 @@
         },
         "epubOutputChanged": false
       }
+    },
+    {
+      "id": "m24-model-validation-hardening",
+      "name": "Endurecimento da validacao do modelo",
+      "status": "done",
+      "deliverables": [
+        "prompt do Ollama reforcado para targetBefore literal e patches proporcionais",
+        "validationDetails no assisted-review-model-trace.json",
+        "match seguro entre aspas retas e tipograficas",
+        "bloqueio de numeros alterados",
+        "bloqueio de marcadores/termos ingleses inseguros",
+        "bloqueio de sugestoes semanticas puramente estilisticas",
+        "0 alteracoes em EPUB/output/input-fixed"
+      ],
+      "result": {
+        "before": {
+          "accepted": 19,
+          "rejected": 14,
+          "rejectionReasons": {
+            "model_localized_patch_length_ratio_out_of_range:0.31": 3,
+            "model_localized_patch_target_not_found": 3,
+            "model_localized_patch_length_ratio_out_of_range:0.34": 1,
+            "model_localized_patch_does_not_preserve_protected_tokens": 7
+          }
+        },
+        "after": {
+          "accepted": 13,
+          "rejected": 20,
+          "rejectionReasons": {
+            "model_localized_patch_does_not_preserve_protected_tokens": 8,
+            "model_localized_patch_target_not_found": 5,
+            "model_localized_patch_introduces_unsafe_marker_or_english_term": 2,
+            "model_localized_patch_semantic_overlap_too_low:0.00": 1,
+            "model_localized_patch_does_not_preserve_numbers": 1,
+            "model_localized_patch_style_only_reason": 3
+          },
+          "suggestionAvailable": 13,
+          "insufficientContext": 20
+        },
+        "perceivedFalsePositiveIncrease": false,
+        "epubOutputChanged": false
+      }
     }
   ],
   "priorities": {
@@ -609,9 +656,9 @@
     "epubVersionWorkflow.js": "missing",
     "reviewQueueValidator": "implemented_validates_manual_review_queue",
     "validateReviewQueue.js": "implemented_cli_validation",
-    "assistedReview": "validated_ollama_semantic_audit_suggestions",
+    "assistedReview": "hardened_ollama_validation_with_trace_details",
     "modelAdapter": "implemented_optional_model_contract",
-    "ollamaAdapter": "implemented_optional_assisted_review_provider_with_patch_contract",
+    "ollamaAdapter": "implemented_optional_assisted_review_provider_with_hardened_patch_prompt",
     "reviewQueue": "validated_semantic_audit_pending_items_with_ollama",
     "chapterAligner": "implemented_safe_chapter_and_paragraph_alignment",
     "validatePipeline": "implemented_contract_validation_script",

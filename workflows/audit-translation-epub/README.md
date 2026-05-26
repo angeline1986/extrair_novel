@@ -139,6 +139,8 @@ Variaveis aceitas: `EPUB_AUDIT_OLLAMA`, `OLLAMA_HOST`, `OLLAMA_MODEL`, `OLLAMA_E
 
 O contrato de saida do modelo aceita dois modos. Em `full_paragraph`, `suggestedAfter` deve conter o paragrafo completo corrigido. Em `localized_patch`, o modelo deve preencher `targetBefore` com um trecho existente exatamente no paragrafo atual e `replacementAfter` com a substituicao localizada. Patches localizados sao rejeitados se `targetBefore` nao for encontrado literalmente no paragrafo atual.
 
+A validacao do modelo e conservadora por design. O trace registra detalhes de rejeicao, incluindo tokens protegidos ausentes, numeros alterados, `targetBefore` esperado, preview do paragrafo atual, modo de match e ratios calculados. O workflow aceita equivalencia segura entre aspas retas e tipograficas para localizar patches, mas rejeita alvos truncados com reticencias, mudancas numericas, insercao de marcadores/termos ingleses inseguros e sugestoes semanticas justificadas apenas por estilo/fluencia.
+
 A auditoria semantica gera `logs/json/semantic-candidates.json` como uma camada separada de revisao. Esses candidatos procuram sinais de mudanca de sentido, omissao relevante, repeticao anormal, literalidade, inconsistencia terminologica, tratamento inconsistente e drift semantico usando alinhamento, contexto expandido, glossario e entidades. Eles nao entram automaticamente no `correction-plan.json`, nao alteram EPUB e sempre exigem revisao humana.
 
 Os `semanticCandidates` mais relevantes podem ser copiados para `logs/json/review-queue.json` com `origin: semantic_audit`, sempre como `status: pending` e `mode: auto_review`. Eles nunca viram `auto_safe` e qualquer sugestao assistida gerada para esses itens continua com `requiresHumanApproval: true`.

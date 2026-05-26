@@ -424,3 +424,18 @@ Em 2026-05-25T22:45:00Z foi executada a milestone operacional `m23-semantic-revi
 - motivos de rejeicao: `target_not_found`, `length_ratio_out_of_range` e `does_not_preserve_protected_tokens`;
 - nenhuma sugestao entrou no `correctionPlan`;
 - nenhum EPUB/output/input-fixed foi alterado.
+
+Em 2026-05-26T01:10:00Z foi implementada a milestone `m24-model-validation-hardening`:
+
+- analisado `logs/json/assisted-review-model-trace.json` gerado na m23;
+- rejeicoes da m23 classificadas como mistura de protecao correta, alvo impreciso do modelo e prompt ainda ambiguo para patches localizados;
+- prompt do Ollama reforcado para copiar `targetBefore` literalmente, preservar tokens protegidos, numeros, termos canonicos e evitar patches excessivamente curtos;
+- validacao passou a registrar detalhes explicitos de rejeicao: token protegido faltante, trecho esperado/retornado, modo de match, ratio calculado e numeros alterados;
+- `localized_patch` passou a aceitar match seguro compativel com aspas tipograficas (`"` vs `“”`) sem aceitar reticencias usadas como placeholder;
+- validacao foi endurecida para rejeitar mudanca de numeros, insercao de marcador/termo ingles inseguro e justificativa puramente estilistica em achados semanticos;
+- auditoria final com Ollama respondeu 33 requisicoes, aceitou 13 sugestoes e rejeitou 20;
+- motivos finais de rejeicao: 8 `protected_tokens`, 5 `target_not_found`, 2 `unsafe_marker_or_english_term`, 1 `semantic_overlap_too_low`, 1 `numbers` e 3 `style_only_reason`;
+- as sugestoes aceitas ficaram apenas como `suggestion_available`, sempre com `requiresHumanApproval: true`;
+- nenhuma sugestao entrou no `correctionPlan`;
+- nenhum EPUB/output/input-fixed foi alterado.
+- decisao operacional: parar a calibracao da m24 neste ponto. A milestone melhorou diagnostico e validacao, mas novas calibracoes devem ser feitas futuramente com base em uso real e exemplos revisados manualmente, nao buscando metrica perfeita agora.

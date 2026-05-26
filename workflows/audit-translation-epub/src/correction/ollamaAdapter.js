@@ -56,9 +56,13 @@ Regras:
 - Use patchMode="full_paragraph" quando conseguir devolver o PARAGRAFO ATUAL completo com a correcao aplicada.
 - Em full_paragraph, suggestedAfter deve conter o paragrafo completo corrigido, nao apenas a frase ou palavra alterada.
 - Use patchMode="localized_patch" quando a correcao for pequena e localizada.
-- Em localized_patch, targetBefore deve existir exatamente no PARAGRAFO ATUAL e replacementAfter deve ser apenas o trecho corrigido.
+- Em localized_patch, targetBefore deve ser copiado literalmente do PARAGRAFO ATUAL. Nao use "...", reticencias, resumo, correcao ortografica, aspas trocadas ou trecho aproximado em targetBefore.
+- Em localized_patch, replacementAfter deve substituir somente targetBefore, mas precisa ser proporcional ao trecho substituido. Nao substitua um paragrafo inteiro por uma frase curta.
+- Se a correcao for apenas uma palavra ou uma frase curta dentro de um paragrafo longo, use targetBefore curto e exato ao redor do problema, nao o paragrafo inteiro.
+- Preserve exatamente nomes proprios, nomes de personagens, nomes de locais, termos canonicos, numeros, tags entre colchetes e marcas como *[T/N. Se a sugestao exigir renomear/remover esses tokens, nao sugira correcao.
 - Se nao houver contexto suficiente, use suggestedAfter vazio e confidence <= 0.5.
-- Nao altere nomes proprios, numeros ou termos canonicos sem evidencia clara.`;
+- Nao altere nomes proprios, numeros ou termos canonicos sem evidencia clara.
+- Em caso de duvida entre duas leituras possiveis, retorne confidence <= 0.5 e deixe a decisao para revisao humana.`;
 }
 
 function extractJson(rawResponse) {
