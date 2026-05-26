@@ -1,5 +1,5 @@
 {
-  "currentVersion": 10,
+  "currentVersion": 13,
   "currentPath": "output",
   "origin": "input/translated",
   "versions": [
@@ -157,6 +157,75 @@
       "finalFile": "Show Me Your Stats ptbr_v10_fixed.epub",
       "createdAt": "2026-05-26T12:48:15.329Z",
       "step": 10,
+      "metadata": {
+        "replacementsApplied": 6,
+        "changedEntries": 6,
+        "packageValidation": {
+          "mimetypeFirst": true,
+          "mimetypeValid": true,
+          "hasContainer": true
+        },
+        "postCorrectionValidation": {
+          "status": "OK",
+          "textChanged": true,
+          "confirmedCorrections": 6
+        }
+      }
+    },
+    {
+      "version": 11,
+      "source": "input/translated/Show Me Your Stats ptbr.epub",
+      "output": "input-fixed/v11",
+      "file": "Show Me Your Stats ptbr_v11_fixed.epub",
+      "finalFile": "Show Me Your Stats ptbr_v11_fixed.epub",
+      "createdAt": "2026-05-26T15:44:41.420Z",
+      "step": 11,
+      "metadata": {
+        "replacementsApplied": 7,
+        "changedEntries": 7,
+        "packageValidation": {
+          "mimetypeFirst": true,
+          "mimetypeValid": true,
+          "hasContainer": true
+        },
+        "postCorrectionValidation": {
+          "status": "OK",
+          "textChanged": true,
+          "confirmedCorrections": 7
+        }
+      }
+    },
+    {
+      "version": 12,
+      "source": "input/translated/Show Me Your Stats ptbr.epub",
+      "output": "input-fixed/v12",
+      "file": "Show Me Your Stats ptbr_v12_fixed.epub",
+      "finalFile": "Show Me Your Stats ptbr_v12_fixed.epub",
+      "createdAt": "2026-05-26T15:46:35.505Z",
+      "step": 12,
+      "metadata": {
+        "replacementsApplied": 2,
+        "changedEntries": 2,
+        "packageValidation": {
+          "mimetypeFirst": true,
+          "mimetypeValid": true,
+          "hasContainer": true
+        },
+        "postCorrectionValidation": {
+          "status": "OK",
+          "textChanged": true,
+          "confirmedCorrections": 2
+        }
+      }
+    },
+    {
+      "version": 13,
+      "source": "input/translated/Show Me Your Stats ptbr.epub",
+      "output": "input-fixed/v13",
+      "file": "Show Me Your Stats ptbr_v13_fixed.epub",
+      "finalFile": "Show Me Your Stats ptbr_v13_fixed.epub",
+      "createdAt": "2026-05-26T15:47:49.965Z",
+      "step": 13,
       "metadata": {
         "replacementsApplied": 6,
         "changedEntries": 6,

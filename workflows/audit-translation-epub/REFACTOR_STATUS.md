@@ -452,3 +452,16 @@ Em 2026-05-26T12:50:00Z foi executada uma validacao pratica do pipeline com lote
 - validacao pos-correcao retornou `OK`, EPUB tecnico valido, texto alterado e 6/6 correcoes aplicadas confirmadas;
 - reauditoria retornou `improvement`: issues 0 -> 0, warnings 3 -> 3, correctionCandidates 3 -> 2;
 - percepcao qualitativa: as duas mudancas semanticas aplicadas ficaram naturais no paragrafo e melhoram consistencia local; a terceira reforcou a necessidade de conferir se a sugestao ainda existe literalmente no XHTML antes de aprovar.
+
+Em 2026-05-26T15:50:00Z foi executado novo lote pratico incremental de revisao semantica:
+
+- auditoria regenerada com Ollama habilitado para obter sugestoes atuais de `semantic_audit`;
+- sugestoes aprovadas manualmente: `ars-0006/srq-0004` (`este seu senhor -> esse seu senhor`) e `ars-0016/srq-0015` (`pensando direito -> pensando com clareza`);
+- sugestao rejeitada manualmente: `ars-0023/srq-0022` (`intenções assassinas -> intenção assassina`), pois a aplicacao em apenas uma ocorrencia de uma sequencia repetida deixou o trecho inconsistente;
+- itens restantes permaneceram `pending`;
+- `npm run review:translation:epub:validate` retornou `OK`;
+- `npm run fix:translation:epub` gerou `output/Show Me Your Stats ptbr_v13_fixed.epub`;
+- foram aplicadas 6 substituicoes: 4 normalizacoes `T/N -> N/T` e 2 correcoes semanticas aprovadas;
+- validacao pos-correcao retornou `OK`, EPUB tecnico valido, texto alterado e 6/6 correcoes confirmadas;
+- reauditoria retornou `improvement`: issues 0 -> 0, warnings 3 -> 3, correctionCandidates 3 -> 2;
+- percepcao qualitativa: as duas correcoes semanticas ficaram naturais e localizadas; a rejeicao da repeticao mostrou que sugestoes em blocos repetidos precisam tratar todas as ocorrencias de forma consistente ou ficar pendentes para revisao manual mais cuidadosa.
