@@ -1,16 +1,16 @@
 {
   "schemaVersion": "1.0",
-  "refactorVersion": "0.25.0",
+  "refactorVersion": "0.26.0",
   "workflow": "audit-translation-epub",
   "currentPhase": {
-    "id": "phase-24",
-    "name": "Validacao do modelo endurecida",
+    "id": "phase-practical-organization",
+    "name": "Saidas separadas em reports/state/logs",
     "status": "active",
-    "description": "Sugestoes do Ollama continuam apenas assistidas, com prompt mais explicito e validacao rastreavel contra falsos positivos."
+    "description": "Estado operacional foi separado de relatorios e logs para facilitar limpeza e uso incremental."
   },
   "timestamps": {
     "createdAt": "2026-05-24T23:37:47Z",
-    "updatedAt": "2026-05-26T01:10:00Z"
+    "updatedAt": "2026-05-26T16:10:00Z"
   },
   "completedTasks": [
     {
@@ -171,6 +171,11 @@
     {
       "id": "model-validation-hardening",
       "title": "Endurecer contrato e validacao das sugestoes do modelo",
+      "status": "done"
+    },
+    {
+      "id": "separate-reports-state-logs",
+      "title": "Separar reports, state e logs no workflow EPUB",
       "status": "done"
     }
   ],
@@ -663,11 +668,12 @@
     "chapterAligner": "implemented_safe_chapter_and_paragraph_alignment",
     "validatePipeline": "implemented_contract_validation_script",
     "approvedCorrectionsReader": "validated_applies_assisted_review_approved_item",
-    "fixEpub": "validated_manual_approved_suggestion_application",
+    "fixEpub": "reads_state_and_reports_separately",
     "semanticConsistencyAudit": "implemented_generates_separate_semantic_candidates",
-    "audit_js": "emits_semantic_candidates_and_semantic_review_items",
+    "audit_js": "writes_reports_state_and_logs_separately",
     "epubDashboardWriter": "implemented_semantic_review_origin_visibility",
-    "epubValidationWriter": "implemented_semantic_review_origin_visibility"
+    "epubValidationWriter": "implemented_semantic_review_origin_visibility",
+    "menu": "cleans_reports_without_removing_operational_state"
   },
   "risks": [
     {

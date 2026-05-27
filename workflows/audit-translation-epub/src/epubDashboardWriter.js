@@ -441,7 +441,7 @@ function buildDiagnostics(report, previousReport) {
       : 'A auditoria segue sem regras declaradas no log.',
     actions: report.logInput?.exists
       ? ['Conferir se termos e trocas do log foram aplicados no EPUB.']
-      : ['Adicionar Log_Traducao.txt em input/logs para validação auxiliar.'],
+      : ['Adicionar Log_Traducao.txt em input/translation-log para validação auxiliar.'],
   });
 
   diagnostics.push({
@@ -774,15 +774,15 @@ function readJsonIfExists(logsDir, filename) {
   }
 }
 
-function loadCorrectionArtifacts(logsDir) {
+function loadCorrectionArtifacts(stateDir, traceDir = stateDir) {
   return {
-    correctionReport: readJsonIfExists(logsDir, 'correction-report.json'),
-    postValidation: readJsonIfExists(logsDir, 'post-correction-validation.json'),
-    reauditoriaSummary: readJsonIfExists(logsDir, 'reauditoria-summary.json'),
-    reviewQueue: readJsonIfExists(logsDir, 'review-queue.json'),
-    assistedReview: readJsonIfExists(logsDir, 'assisted-review-suggestions.json'),
-    assistedReviewModelTrace: readJsonIfExists(logsDir, 'assisted-review-model-trace.json'),
-    semanticCandidates: readJsonIfExists(logsDir, 'semantic-candidates.json'),
+    correctionReport: readJsonIfExists(stateDir, 'correction-report.json'),
+    postValidation: readJsonIfExists(stateDir, 'post-correction-validation.json'),
+    reauditoriaSummary: readJsonIfExists(stateDir, 'reauditoria-summary.json'),
+    reviewQueue: readJsonIfExists(stateDir, 'review-queue.json'),
+    assistedReview: readJsonIfExists(stateDir, 'assisted-review-suggestions.json'),
+    assistedReviewModelTrace: readJsonIfExists(traceDir, 'assisted-review-model-trace.json'),
+    semanticCandidates: readJsonIfExists(stateDir, 'semantic-candidates.json'),
   };
 }
 
@@ -1229,6 +1229,8 @@ function getEpubTabReports(logsDir, report) {
 
 export function writeEpubHtmlDashboard(report, htmlPath, {
   logsDir,
+  stateDir = logsDir,
+  traceDir = stateDir,
   sourceDocs = [],
   translatedDocs = [],
   alignedDocs = [],
@@ -1236,7 +1238,7 @@ export function writeEpubHtmlDashboard(report, htmlPath, {
 } = {}) {
   const previousReport = logsDir ? getLatestJsonReport(logsDir, report.stats?.timestamp) : null;
   const { sourceReport, currentReport } = getEpubTabReports(logsDir, report);
-  const correctionArtifacts = loadCorrectionArtifacts(logsDir);
+  const correctionArtifacts = loadCorrectionArtifacts(stateDir, traceDir);
   const version = getVersionInfo(report);
   const fileLabel = [
     report.stats?.sourceFile,

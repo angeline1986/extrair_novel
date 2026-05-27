@@ -10,7 +10,7 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workflowRoot = path.resolve(__dirname, '..');
-const defaultQueuePath = path.join(workflowRoot, 'logs/json/review-queue.json');
+const defaultQueuePath = path.join(workflowRoot, 'state/review-queue.json');
 
 function parseArgs(argv) {
   const args = { file: defaultQueuePath };

@@ -8,7 +8,7 @@ Compara um `.epub` original em ingles com a versao traduzida em portugues e usa 
 workflows/audit-translation-epub/
 ├── input/source/       # EPUB original em ingles
 ├── input/translated/   # EPUB traduzido para portugues
-├── input/logs/         # TXT com log/observacoes da traducao
+├── input/translation-log/         # TXT com log/observacoes da traducao
 ├── input-fixed/        # Versoes corrigidas v1, v2, v3...
 ├── output/             # EPUB final revisado mais recente
 ├── logs/               # Relatorios gerados
@@ -17,7 +17,7 @@ workflows/audit-translation-epub/
 
 ## Uso simples
 
-Coloque um EPUB em `input/source/`, um EPUB em `input/translated/` e um TXT em `input/logs/`.
+Coloque um EPUB em `input/source/`, um EPUB em `input/translated/` e um TXT em `input/translation-log/`.
 
 ```bash
 npm run audit:translation:epub
@@ -77,7 +77,7 @@ lord -> lorde
 stats -> estatisticas
 ```
 
-Copie o template em `templates/Log_Traducao.example.txt` para `input/logs/Log_Traducao.txt` e adapte os termos da obra atual.
+Copie o template em `templates/Log_Traducao.example.txt` para `input/translation-log/Log_Traducao.txt` e adapte os termos da obra atual.
 
 O auditor usa esse arquivo para:
 
@@ -88,24 +88,30 @@ O auditor usa esse arquivo para:
 
 ## Saidas
 
+As saidas sao separadas por finalidade:
+
+- `reports/`: relatorios legiveis e historicos de auditoria;
+- `state/`: estado operacional atual usado pelo pipeline;
+- `logs/`: eventos e traces de execucao.
+
 ```txt
 logs/workflow-events.jsonl
-logs/json/audit-report-*.json
-logs/json/correction-plan.json
-logs/json/semantic-candidates.json
-logs/json/review-queue.json
-logs/json/assisted-review-suggestions.json
-logs/json/assisted-review-model-trace.json
-logs/json/correction-report.json
-logs/json/post-correction-validation.json
-logs/json/reaudit-report.json
-logs/json/reauditoria-summary.json
-logs/txt/epub-audit-summary-latest.txt
-logs/txt/correction-report-latest.md
-logs/txt/review-queue-latest.md
-logs/txt/assisted-review-suggestions-latest.md
-logs/html/audit-dashboard-latest.html
-logs/html/validation-report-latest.html
+reports/json/audit-report-*.json
+state/correction-plan.json
+state/semantic-candidates.json
+state/review-queue.json
+state/assisted-review-suggestions.json
+logs/assisted-review-model-trace.json
+state/correction-report.json
+state/post-correction-validation.json
+state/reaudit-report.json
+state/reauditoria-summary.json
+reports/txt/epub-audit-summary-latest.txt
+reports/txt/correction-report-latest.md
+reports/txt/review-queue-latest.md
+reports/txt/assisted-review-suggestions-latest.md
+reports/html/audit-dashboard-latest.html
+reports/html/validation-report-latest.html
 input-fixed/manifest.json
 ```
 
@@ -117,11 +123,11 @@ Os relatorios HTML exibem uma secao de correcoes com:
 - comparativo da reauditoria antes/depois;
 - status final `improvement`, `regression`, `neutral` ou `unknown`.
 
-O arquivo `logs/json/review-queue.json` registra acoes `auto_review` e `manual_only` que ainda nao devem ser aplicadas automaticamente. Cada item nasce como `pending` e pode ser preparado futuramente para `approved`, `rejected` ou `needs_context`, sem alterar o EPUB nesta milestone.
+O arquivo `state/review-queue.json` registra acoes `auto_review` e `manual_only` que ainda nao devem ser aplicadas automaticamente. Cada item nasce como `pending` e pode ser preparado futuramente para `approved`, `rejected` ou `needs_context`, sem alterar o EPUB nesta milestone.
 
 Quando um item da review queue for marcado manualmente como `approved`, ele so sera aplicado pelo `fixEpub` se tambem tiver `before` e `after` preenchidos e uma localizacao XHTML valida. Itens `pending`, `rejected` e `needs_context` continuam registrados, mas nao sao aplicados.
 
-O arquivo `logs/json/assisted-review-suggestions.json` traz sugestoes assistidas para itens `pending` + `auto_review`. Todas as sugestoes possuem `requiresHumanApproval: true` e nao sao aplicadas automaticamente. Cada sugestao e classificada como `suggestion_available`, `needs_human_translation` ou `insufficient_context`; `suggestedAfter` so e preenchido quando houver heuristica segura ou `before/after` explicito na review queue.
+O arquivo `state/assisted-review-suggestions.json` traz sugestoes assistidas para itens `pending` + `auto_review`. Todas as sugestoes possuem `requiresHumanApproval: true` e nao sao aplicadas automaticamente. Cada sugestao e classificada como `suggestion_available`, `needs_human_translation` ou `insufficient_context`; `suggestedAfter` so e preenchido quando houver heuristica segura ou `before/after` explicito na review queue.
 
 Os itens de review e as sugestoes assistidas incluem contexto expandido limitado: `previousParagraph`, `currentParagraph`, `nextParagraph` e, quando houver alinhamento confiavel por numero/titulo de capitulo, `originalAlignedText`. O alinhamento registra `alignmentConfidence` e `alignmentReason`; fallback por indice e tratado como baixa confianca e nao preenche `originalAlignedText`.
 
@@ -135,15 +141,15 @@ Opcionalmente, as sugestoes assistidas podem chamar um modelo local Ollama. O ad
 EPUB_AUDIT_OLLAMA=1 OLLAMA_MODEL=qwen2.5:7b npm run audit:translation:epub:run
 ```
 
-Variaveis aceitas: `EPUB_AUDIT_OLLAMA`, `OLLAMA_HOST`, `OLLAMA_MODEL`, `OLLAMA_ENDPOINT` e `OLLAMA_TIMEOUT_MS`. O modelo recebe apenas itens `pending` + `auto_review` e contexto limitado (`originalAlignedText`, paragrafo anterior/atual/posterior e preview). Todas as respostas do modelo sao gravadas em `logs/json/assisted-review-model-trace.json`, passam por validacao conservadora e continuam com `requiresHumanApproval: true`; nenhuma sugestao e aplicada automaticamente.
+Variaveis aceitas: `EPUB_AUDIT_OLLAMA`, `OLLAMA_HOST`, `OLLAMA_MODEL`, `OLLAMA_ENDPOINT` e `OLLAMA_TIMEOUT_MS`. O modelo recebe apenas itens `pending` + `auto_review` e contexto limitado (`originalAlignedText`, paragrafo anterior/atual/posterior e preview). Todas as respostas do modelo sao gravadas em `logs/assisted-review-model-trace.json`, passam por validacao conservadora e continuam com `requiresHumanApproval: true`; nenhuma sugestao e aplicada automaticamente.
 
 O contrato de saida do modelo aceita dois modos. Em `full_paragraph`, `suggestedAfter` deve conter o paragrafo completo corrigido. Em `localized_patch`, o modelo deve preencher `targetBefore` com um trecho existente exatamente no paragrafo atual e `replacementAfter` com a substituicao localizada. Patches localizados sao rejeitados se `targetBefore` nao for encontrado literalmente no paragrafo atual.
 
 A validacao do modelo e conservadora por design. O trace registra detalhes de rejeicao, incluindo tokens protegidos ausentes, numeros alterados, `targetBefore` esperado, preview do paragrafo atual, modo de match e ratios calculados. O workflow aceita equivalencia segura entre aspas retas e tipograficas para localizar patches, mas rejeita alvos truncados com reticencias, mudancas numericas, insercao de marcadores/termos ingleses inseguros e sugestoes semanticas justificadas apenas por estilo/fluencia.
 
-A auditoria semantica gera `logs/json/semantic-candidates.json` como uma camada separada de revisao. Esses candidatos procuram sinais de mudanca de sentido, omissao relevante, repeticao anormal, literalidade, inconsistencia terminologica, tratamento inconsistente e drift semantico usando alinhamento, contexto expandido, glossario e entidades. Eles nao entram automaticamente no `correction-plan.json`, nao alteram EPUB e sempre exigem revisao humana.
+A auditoria semantica gera `state/semantic-candidates.json` como uma camada separada de revisao. Esses candidatos procuram sinais de mudanca de sentido, omissao relevante, repeticao anormal, literalidade, inconsistencia terminologica, tratamento inconsistente e drift semantico usando alinhamento, contexto expandido, glossario e entidades. Eles nao entram automaticamente no `correction-plan.json`, nao alteram EPUB e sempre exigem revisao humana.
 
-Os `semanticCandidates` mais relevantes podem ser copiados para `logs/json/review-queue.json` com `origin: semantic_audit`, sempre como `status: pending` e `mode: auto_review`. Eles nunca viram `auto_safe` e qualquer sugestao assistida gerada para esses itens continua com `requiresHumanApproval: true`.
+Os `semanticCandidates` mais relevantes podem ser copiados para `state/review-queue.json` com `origin: semantic_audit`, sempre como `status: pending` e `mode: auto_review`. Eles nunca viram `auto_safe` e qualquer sugestao assistida gerada para esses itens continua com `requiresHumanApproval: true`.
 
 ## Checklist De Validacao
 

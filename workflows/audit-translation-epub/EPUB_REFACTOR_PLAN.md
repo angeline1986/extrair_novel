@@ -101,7 +101,7 @@ Arquitetura desejada:
 ```txt
 input/source/*.epub
 input/translated/*.epub
-input/logs/Log_Traducao.txt
+input/translation-log/Log_Traducao.txt
 input/glossary/*.json
         ↓
 epubReader + xhtmlMapper
@@ -184,7 +184,7 @@ Ele deve conter:
   "source": {
     "original": "input/source/Show Me Your Stats.EPUB",
     "translated": "input/translated/Show Me Your Stats ptbr.epub",
-    "log": "input/logs/Log_Traducao.txt"
+    "log": "input/translation-log/Log_Traducao.txt"
   },
   "summary": {
     "totalCandidates": 12,
@@ -276,7 +276,7 @@ Nem todo achado deve ser corrigido automaticamente. Exemplo:
 
 Fontes de normalizacao, em ordem de prioridade:
 
-1. `input/logs/Log_Traducao.txt`
+1. `input/translation-log/Log_Traducao.txt`
 2. `input/glossary/entities.json`
 3. `input/glossary/terms.json`
 4. biblioteca compartilhada de regras seguras
@@ -671,7 +671,7 @@ A primeira milestone implementavel foi concluida com escopo limitado:
 - `src/correction/correctionTypes.js`;
 - `src/correction/correctionPlanner.js`;
 - `audit.js` emitindo `correctionCandidates`;
-- `logs/json/correction-plan.json` gerado sem aplicar correcoes;
+- `state/correction-plan.json` gerado sem aplicar correcoes;
 - resumo TXT incluindo contagem de candidates por modo;
 - evento `AUDIT_REPORT_CREATED` registrando caminho do correction plan.
 
@@ -687,7 +687,7 @@ src/correction/correctionPlanner.js
 Saida nova:
 
 ```txt
-logs/json/correction-plan.json
+state/correction-plan.json
 ```
 
 Proxima milestone recomendada:
@@ -758,14 +758,14 @@ A milestone `m3-safe-terminology-application` foi concluida com escopo restrito:
 Entregas:
 
 - `src/correction/xhtmlCorrectionEngine.js`;
-- `fixEpub.js` consumindo `logs/json/correction-plan.json`;
+- `fixEpub.js` consumindo `state/correction-plan.json`;
 - filtro de aplicacao restrito a:
   - `mode === "auto_safe"`;
   - `confidence >= 0.9`;
   - `before` e `after` presentes;
 - edicao somente de nos de texto mapeados;
 - preservacao de tags XHTML;
-- registro de correcoes em `logs/json/correction-report.json`;
+- registro de correcoes em `state/correction-report.json`;
 - registro de acoes ignoradas quando `mode` e `auto_review` ou `manual_only`;
 - geracao de EPUB corrigido em `output/`;
 - atualizacao de `input-fixed/manifest.json`.
@@ -888,7 +888,7 @@ Entregas:
 - comparacao entre EPUB traduzido base e EPUB corrigido;
 - deteccao de mudanca textual real;
 - confirmacao de correcoes aplicadas no texto final;
-- geracao de `logs/json/post-correction-validation.json`;
+- geracao de `state/post-correction-validation.json`;
 - integracao da validacao ao final de `fixEpub.js`.
 
 Resultado validado:
@@ -938,8 +938,8 @@ A milestone `m6-automatic-reaudit` foi concluida com reauditoria automatica ao f
 Entregas:
 
 - `fixEpub.js` executando `audit.js --translated=<EPUB corrigido>`;
-- geracao de `logs/json/reaudit-report.json`;
-- geracao de `logs/json/reauditoria-summary.json`;
+- geracao de `state/reaudit-report.json`;
+- geracao de `state/reauditoria-summary.json`;
 - comparacao entre audit report anterior e reauditoria;
 - resumo com:
   - `issuesBefore`;
@@ -984,15 +984,15 @@ A milestone `m7-correction-report-dashboard` foi concluida como camada de rastre
 
 Entregas:
 
-- secao de correcoes em `logs/html/audit-dashboard-latest.html`;
-- aba `Correcoes` em `logs/html/validation-report-latest.html`;
-- leitura integrada de `logs/json/correction-report.json`;
-- leitura integrada de `logs/json/post-correction-validation.json`;
-- leitura integrada de `logs/json/reauditoria-summary.json`;
+- secao de correcoes em `reports/html/audit-dashboard-latest.html`;
+- aba `Correcoes` em `reports/html/validation-report-latest.html`;
+- leitura integrada de `state/correction-report.json`;
+- leitura integrada de `state/post-correction-validation.json`;
+- leitura integrada de `state/reauditoria-summary.json`;
 - listagem de correcoes aplicadas com `type`, `before`, `after`, `filePath`, `nodeId` e `confidence`;
 - listagem de actions ignoradas por `auto_review` ou `manual_only`;
 - status final `improvement`, `regression`, `neutral` ou `unknown`;
-- resumo Markdown em `logs/txt/correction-report-latest.md`.
+- resumo Markdown em `reports/txt/correction-report-latest.md`.
 
 Esta milestone nao implementa Ollama, reescrita semantica, genero/concordancia ampla ou aplicacao de actions ambiguas. Ela apenas torna visivel o que o pipeline seguro ja decidiu, aplicou, ignorou e validou.
 
@@ -1011,8 +1011,8 @@ A milestone `m8-review-queue` foi concluida como preparacao para aprovacao manua
 Entregas:
 
 - `src/correction/reviewQueue.js`;
-- `logs/json/review-queue.json`;
-- `logs/txt/review-queue-latest.md`;
+- `state/review-queue.json`;
+- `reports/txt/review-queue-latest.md`;
 - inclusao de actions `auto_review` e `manual_only` na fila;
 - campos por item: tipo, modo, status, `filePath`, `nodeId`, indices XHTML, `textPreview`, motivo, confianca, risco e sugestao;
 - status permitidos: `pending`, `approved`, `rejected`, `needs_context`;
@@ -1037,7 +1037,7 @@ A milestone `m9-review-approval-application` foi concluida como mecanismo contro
 Entregas:
 
 - `src/correction/approvedCorrectionsReader.js`;
-- leitura de `logs/json/review-queue.json` pelo `fixEpub.js`;
+- leitura de `state/review-queue.json` pelo `fixEpub.js`;
 - conversao apenas de itens `approved` em actions aplicaveis;
 - validacao obrigatoria de `before`, `after` e localizacao XHTML antes da aplicacao;
 - bloqueio explicito de itens `pending`, `rejected` e `needs_context`;
@@ -1088,8 +1088,8 @@ A milestone `m11-assisted-review-suggestions` foi concluida como camada de suges
 Entregas:
 
 - `src/correction/assistedReview.js`;
-- `logs/json/assisted-review-suggestions.json`;
-- `logs/txt/assisted-review-suggestions-latest.md`;
+- `state/assisted-review-suggestions.json`;
+- `reports/txt/assisted-review-suggestions-latest.md`;
 - processamento apenas de itens `pending` e `auto_review` da review queue;
 - sugestoes com `before`, `suggestedAfter`, `reason`, `confidence` e `requiresHumanApproval: true`;
 - fallback deterministico conservador quando nao ha `before/after` confiavel;
@@ -1268,7 +1268,7 @@ Entregas:
 - prompt com `originalAlignedText`, `previousParagraph`, `currentParagraph`, `nextParagraph` e `textPreview`;
 - resposta estruturada com `suggestedAfter`, `reason`, `confidence`, `risks` e `requiresHumanApproval: true`;
 - validacao conservadora contra sugestao vazia, baixa confianca, mudanca excessiva de tamanho e perda de nomes/termos protegidos;
-- trace em `logs/json/assisted-review-model-trace.json`;
+- trace em `logs/assisted-review-model-trace.json`;
 - dashboards e relatorios atualizados para exibir origem, riscos, aceite/rejeicao do modelo e fallback.
 
 Esta milestone nao aplica sugestoes automaticamente, nao altera o EPUB e nao substitui a aprovacao humana.
@@ -1288,7 +1288,7 @@ A milestone `m21-semantic-consistency-audit` foi concluida como camada separada 
 Entregas:
 
 - `src/semanticConsistencyAudit.js`;
-- `logs/json/semantic-candidates.json`;
+- `state/semantic-candidates.json`;
 - `semanticCandidates` separados dos `correctionCandidates`;
 - nenhum `semanticCandidate` entra automaticamente no `correctionPlan`;
 - deteccao heuristica/deterministica de omissao/expansao, drift semantico, repeticao anormal, literalidade, inconsistencia terminologica e tratamento inconsistente;
@@ -1343,3 +1343,21 @@ Comparativo m23 -> m24:
 - falsos positivos percebidos foram reduzidos ao bloquear numeros alterados, termos ingleses inseguros e sugestoes puramente estilisticas.
 
 Esta milestone nao aplica sugestoes automaticamente, nao altera EPUB/output/input-fixed e nao coloca itens semanticos no `correctionPlan`.
+
+## 46. Organizacao Operacional reports/state/logs
+
+Implementado em: 2026-05-26T16:10:00Z
+
+As saidas do workflow EPUB foram separadas por finalidade para evitar que JSON operacional fique misturado com logs:
+
+- `reports/`: relatorios HTML/TXT e historico de `audit-report-*.json`;
+- `state/`: estado operacional atual do pipeline, como `correction-plan.json`, `review-queue.json`, `semantic-candidates.json`, `assisted-review-suggestions.json`, `correction-report.json`, `post-correction-validation.json`, `reaudit-report.json` e `reauditoria-summary.json`;
+- `logs/`: eventos e traces de execucao, como `workflow-events.jsonl` e `assisted-review-model-trace.json`.
+
+Decisoes:
+
+- `state/` nao deve ser limpo pela opcao de limpar relatorios antigos;
+- `reports/` pode ser limpo sem apagar a fila operacional;
+- `output/` continua fora do git;
+- `state/` tambem fica fora do git, exceto `.gitkeep`;
+- o fluxo incremental deve continuar versionando apenas documentacao/rastreabilidade quando fizer sentido.

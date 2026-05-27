@@ -805,7 +805,7 @@ export async function buildAssistedReviewSuggestions({
       enabled: Boolean(modelAdapter?.enabled),
       provider: modelAdapter?.provider || modelAdapter?.name || 'none',
       model: modelAdapter?.model || null,
-      traceFile: 'logs/json/assisted-review-model-trace.json',
+      traceFile: 'logs/assisted-review-model-trace.json',
       requiresHumanApproval: true,
     },
     source: {

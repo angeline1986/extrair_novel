@@ -86,15 +86,15 @@ function readJsonIfExists(logsDir, filename) {
   }
 }
 
-function loadCorrectionArtifacts(logsDir) {
+function loadCorrectionArtifacts(stateDir, traceDir = stateDir) {
   return {
-    correctionReport: readJsonIfExists(logsDir, 'correction-report.json'),
-    postValidation: readJsonIfExists(logsDir, 'post-correction-validation.json'),
-    reauditoriaSummary: readJsonIfExists(logsDir, 'reauditoria-summary.json'),
-    reviewQueue: readJsonIfExists(logsDir, 'review-queue.json'),
-    assistedReview: readJsonIfExists(logsDir, 'assisted-review-suggestions.json'),
-    assistedReviewModelTrace: readJsonIfExists(logsDir, 'assisted-review-model-trace.json'),
-    semanticCandidates: readJsonIfExists(logsDir, 'semantic-candidates.json'),
+    correctionReport: readJsonIfExists(stateDir, 'correction-report.json'),
+    postValidation: readJsonIfExists(stateDir, 'post-correction-validation.json'),
+    reauditoriaSummary: readJsonIfExists(stateDir, 'reauditoria-summary.json'),
+    reviewQueue: readJsonIfExists(stateDir, 'review-queue.json'),
+    assistedReview: readJsonIfExists(stateDir, 'assisted-review-suggestions.json'),
+    assistedReviewModelTrace: readJsonIfExists(traceDir, 'assisted-review-model-trace.json'),
+    semanticCandidates: readJsonIfExists(stateDir, 'semantic-candidates.json'),
   };
 }
 
@@ -440,7 +440,7 @@ function renderLogTab(report) {
         ${issueExamplesTable(item)}
       `)).join('')}
       ${actionList('Próximas ações', !report?.logInput?.exists
-        ? ['Adicionar Log_Traducao.txt em input/logs para validação auxiliar.']
+        ? ['Adicionar Log_Traducao.txt em input/translation-log para validação auxiliar.']
         : logItems.length
           ? ['Confirmar se termos e trocas do log foram aplicados no EPUB.', 'Atualizar o log ou o EPUB conforme as regras declaradas.']
           : ['Log presente sem achados. Manter o arquivo atualizado nas próximas rodadas.'])}
@@ -480,10 +480,10 @@ function renderVersioningTab(report) {
         })),
       ), 'flow'))}
       ${validationSection('OK', '5.4 Saídas geradas', fileList([
-        { name: 'audit-dashboard-latest.html', meta: 'logs/html/' },
-        { name: 'validation-report-latest.html', meta: 'logs/html/' },
-        { name: 'audit-report-*.json', meta: 'logs/json/' },
-        { name: 'epub-audit-summary-latest.txt', meta: 'logs/txt/' },
+        { name: 'audit-dashboard-latest.html', meta: 'reports/html/' },
+        { name: 'validation-report-latest.html', meta: 'reports/html/' },
+        { name: 'audit-report-*.json', meta: 'reports/json/' },
+        { name: 'epub-audit-summary-latest.txt', meta: 'reports/txt/' },
       ], 'out'))}
       ${actionList('Próximo ciclo', [
         workflow.workingInput?.includes('input-fixed/v')
@@ -813,6 +813,8 @@ function renderTabs() {
 
 export function writeEpubValidationTabsDashboard(report, htmlPath, {
   logsDir,
+  stateDir = logsDir,
+  traceDir = stateDir,
   relativeWorkflowPath = (value) => value,
 } = {}) {
   const sourceReport = logsDir
@@ -820,7 +822,7 @@ export function writeEpubValidationTabsDashboard(report, htmlPath, {
     : null;
   const activeReport = report || sourceReport;
   const fileLabel = getFileLabel(activeReport);
-  const correctionArtifacts = loadCorrectionArtifacts(logsDir);
+  const correctionArtifacts = loadCorrectionArtifacts(stateDir, traceDir);
 
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">

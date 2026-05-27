@@ -3,12 +3,13 @@ import { alignedOriginalParagraphByText } from '../chapterAligner.js';
 const REVIEW_STATUSES = new Set(['pending', 'approved', 'rejected', 'needs_context']);
 const CONTEXT_PREVIEW_LIMIT = 520;
 
-function reviewItemId(index) {
-  return `rq-${String(index + 1).padStart(4, '0')}`;
-}
-
-function semanticReviewItemId(index) {
-  return `srq-${String(index + 1).padStart(4, '0')}`;
+function stableReviewId(stableKey) {
+  let hash = 5381;
+  for (const char of String(stableKey || 'review-item')) {
+    hash = ((hash << 5) + hash) + char.charCodeAt(0);
+    hash >>>= 0;
+  }
+  return `id${String(hash % 100000).padStart(5, '0')}`;
 }
 
 function actionNeedsReview(action) {
@@ -161,7 +162,7 @@ export function buildReviewQueue({
     const context = contextForAction(action, { xhtmlMap, sourceDoc, chapterAlignment });
 
     return {
-      id: reviewItemId(index),
+      id: stableReviewId(stableKey),
       stableKey,
       actionId: action.id,
       candidateId: action.candidateId,
@@ -201,13 +202,13 @@ export function buildReviewQueue({
     };
   });
   const semanticCandidates = (semanticAudit?.semanticCandidates || []).filter(semanticCandidateEligible);
-  const semanticItems = semanticCandidates.map((candidate, index) => {
+  const semanticItems = semanticCandidates.map((candidate) => {
     const stableKey = stableKeyFromSemanticCandidate(candidate);
     const previousItem = previousItems.get(stableKey) || {};
     const previousStatus = REVIEW_STATUSES.has(previousItem.status) ? previousItem.status : 'pending';
 
     return {
-      id: semanticReviewItemId(index),
+      id: stableReviewId(stableKey),
       stableKey,
       actionId: null,
       candidateId: candidate.id,

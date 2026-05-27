@@ -1,6 +1,6 @@
 # Review Queue EPUB
 
-Este arquivo documenta como revisar manualmente `logs/json/review-queue.json`.
+Este arquivo documenta como revisar manualmente `state/review-queue.json`.
 
 ## Quando Usar
 
@@ -92,7 +92,7 @@ textNodeIndex
 
 ## Validar A Fila
 
-Depois de editar `logs/json/review-queue.json`, rode:
+Depois de editar `state/review-queue.json`, rode:
 
 ```bash
 npm run review:translation:epub:validate

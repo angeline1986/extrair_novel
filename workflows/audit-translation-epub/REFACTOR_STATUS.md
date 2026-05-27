@@ -2,6 +2,8 @@
 
 Atualizado em: 2026-05-25T01:08:39Z
 
+Atualizacao operacional em 2026-05-26: as saidas do workflow foram separadas em `reports/`, `state/` e `logs/`. Arquivos JSON operacionais como `review-queue.json`, `correction-plan.json` e `semantic-candidates.json` agora pertencem a `state/`; relatorios HTML/TXT e `audit-report-*.json` pertencem a `reports/`; `logs/` fica reservado para `workflow-events.jsonl` e traces de execucao.
+
 ## Fase Atual
 
 Fase 6 - Reauditoria automatica implementada.
@@ -21,10 +23,10 @@ O workflow EPUB agora possui contrato de correcao, mapeamento XHTML, motor inici
 - Geracao de relatorio de validacao HTML.
 - Geracao de resumo TXT.
 - Menu interativo.
-- Estrutura de logs em subpastas:
-  - `logs/json`
-  - `logs/html`
-  - `logs/txt`
+- Estrutura de saidas separada por finalidade:
+  - `reports` para relatorios
+  - `state` para estado operacional
+  - `logs` para eventos e traces
 - Aplicacao conservadora de replacements definidos no log.
 - Reempacotamento EPUB com cuidado para `mimetype`.
 - Versionamento basico em `input-fixed/vN`.
@@ -35,7 +37,7 @@ O workflow EPUB agora possui contrato de correcao, mapeamento XHTML, motor inici
 - `src/correction/correctionTypes.js`.
 - `src/correction/correctionPlanner.js`.
 - Emissao de `correctionCandidates` no `audit-report`.
-- Geracao de `logs/json/correction-plan.json`.
+- Geracao de `state/correction-plan.json`.
 - Registro de `correctionCandidates` e caminho do plano em `workflow-events.jsonl`.
 - `src/xhtmlMapper.js`.
 - Mapeamento de spine/ordem de leitura.
@@ -45,7 +47,7 @@ O workflow EPUB agora possui contrato de correcao, mapeamento XHTML, motor inici
 - `src/correction/xhtmlCorrectionEngine.js`.
 - Aplicacao exclusiva de actions `auto_safe` com confianca minima de 0.9.
 - Edicao restrita a nos de texto XHTML mapeados.
-- Geracao de `logs/json/correction-report.json`.
+- Geracao de `state/correction-report.json`.
 - Registro de `before`, `after`, `filePath`, `nodeId` e tipo de correcao para cada aplicacao.
 - Garantia inicial de que `auto_review` e `manual_only` nao sao aplicadas.
 - `input/glossary/terms.json`.
@@ -61,10 +63,10 @@ O workflow EPUB agora possui contrato de correcao, mapeamento XHTML, motor inici
 - Reextracao de texto da versao corrigida.
 - Comparacao textual entre traducao de entrada e EPUB corrigido.
 - Confirmacao de correcoes aplicadas no texto final.
-- Geracao de `logs/json/post-correction-validation.json`.
+- Geracao de `state/post-correction-validation.json`.
 - Reauditoria automatica usando o EPUB corrigido como `translated`.
-- Geracao de `logs/json/reaudit-report.json`.
-- Geracao de `logs/json/reauditoria-summary.json`.
+- Geracao de `state/reaudit-report.json`.
+- Geracao de `state/reauditoria-summary.json`.
 - Classificacao do resultado como `improvement`, `regression`, `neutral` ou `unknown`.
 
 ## Funcionalidades Em Andamento
@@ -100,12 +102,12 @@ Possiveis bloqueios futuros:
 
 ## Ultimas Decisoes Arquiteturais
 
-- O EPUB deve manter logs organizados em subpastas:
-  - `logs/json`
-  - `logs/html`
-  - `logs/txt`
+- O EPUB deve manter saidas separadas por finalidade:
+  - `reports/` para relatorios HTML/TXT e `audit-report-*.json`;
+  - `state/` para JSON operacional atual;
+  - `logs/` para eventos e traces de execucao.
 - `workflow-events.jsonl` permanece na raiz de `logs`.
-- O JSON de auditoria deve manter apenas o relatorio mais recente em `logs/json`.
+- O JSON de auditoria deve manter apenas o relatorio mais recente em `reports/json`.
 - O pipeline EPUB nao deve herdar regras DOCX especificas de obra.
 - Inteligencia compartilhavel deve futuramente ir para `workflows/shared`.
 - Correcoes devem ser dirigidas por `correctionPlan`, nao por heuristicas soltas dentro de `fixEpub.js`.
@@ -178,7 +180,7 @@ Em 2026-05-24T23:48:44Z foi implementada a primeira milestone tecnica:
 - criacao de `src/correction/correctionPlanner.js`;
 - geracao de candidates a partir de replacements do log e achados de auditoria;
 - inclusao de `correctionCandidates` no JSON de auditoria;
-- geracao de `logs/json/correction-plan.json`;
+- geracao de `state/correction-plan.json`;
 - atualizacao do resumo TXT com contagem de candidates por modo.
 
 Em 2026-05-24T23:57:13Z foi implementada a milestone `m2-xhtml-mapping`:
@@ -193,9 +195,9 @@ Em 2026-05-24T23:57:13Z foi implementada a milestone `m2-xhtml-mapping`:
 Em 2026-05-25T00:03:42Z foi implementada a milestone `m3-safe-terminology-application`:
 
 - criacao de `src/correction/xhtmlCorrectionEngine.js`;
-- integracao do `fixEpub.js` com `logs/json/correction-plan.json`;
+- integracao do `fixEpub.js` com `state/correction-plan.json`;
 - aplicacao restrita a actions `auto_safe` com confianca minima 0.9;
-- geracao de `logs/json/correction-report.json`;
+- geracao de `state/correction-report.json`;
 - geracao de EPUB corrigido em `output/`;
 - validacao com o plano atual: 2 actions totais, 0 auto_safe, 0 correcoes aplicadas, 2 actions `auto_review` ignoradas corretamente.
 
@@ -214,7 +216,7 @@ Em 2026-05-25T00:43:09Z foi implementada a milestone `m5-post-correction-validat
 
 - criacao de `src/correction/postCorrectionValidator.js`;
 - integracao ao final de `fixEpub.js`;
-- geracao de `logs/json/post-correction-validation.json`;
+- geracao de `state/post-correction-validation.json`;
 - validacao tecnica do EPUB corrigido;
 - comparacao textual entre traducao base e output corrigido;
 - confirmacao das correcoes aplicadas no texto final;
@@ -223,8 +225,8 @@ Em 2026-05-25T00:43:09Z foi implementada a milestone `m5-post-correction-validat
 Em 2026-05-25T01:08:39Z foi implementada a milestone `m6-automatic-reaudit`:
 
 - `fixEpub.js` passou a executar reauditoria automatica com o EPUB corrigido como `translated`;
-- geracao de `logs/json/reaudit-report.json`;
-- geracao de `logs/json/reauditoria-summary.json`;
+- geracao de `state/reaudit-report.json`;
+- geracao de `state/reauditoria-summary.json`;
 - comparativo antes/depois com issues, warnings e correction candidates;
 - validacao real: issues 0 -> 0, warnings 3 -> 3, candidates 3 -> 2, resultado `improvement`.
 
@@ -232,15 +234,15 @@ Em 2026-05-25T01:32:18Z foi implementada a milestone `m7-correction-report-dashb
 
 - `audit-dashboard-latest.html` passou a exibir correcoes aplicadas, acoes ignoradas, validacao pos-correcao e reauditoria;
 - `validation-report-latest.html` ganhou aba `Correcoes` com o mesmo rastreamento operacional;
-- geracao de `logs/txt/correction-report-latest.md` como resumo Markdown das correcoes;
+- geracao de `reports/txt/correction-report-latest.md` como resumo Markdown das correcoes;
 - README atualizado com as novas saidas e informacoes exibidas;
 - a milestone manteve o escopo restrito a visualizacao/rastreabilidade, sem aplicar correcao contextual ampla.
 
 Em 2026-05-25T01:57:41Z foi implementada a milestone `m8-review-queue`:
 
 - criacao de `src/correction/reviewQueue.js`;
-- geracao de `logs/json/review-queue.json` a partir de actions `auto_review` e `manual_only`;
-- geracao de `logs/txt/review-queue-latest.md`;
+- geracao de `state/review-queue.json` a partir de actions `auto_review` e `manual_only`;
+- geracao de `reports/txt/review-queue-latest.md`;
 - itens da fila incluem tipo, `filePath`, `nodeId`, `textPreview`, motivo de nao aplicar automaticamente, confianca e sugestao;
 - status preparados para revisao futura: `pending`, `approved`, `rejected`, `needs_context`;
 - dashboard principal e aba `Correcoes` passaram a exibir resumo da review queue;
@@ -249,7 +251,7 @@ Em 2026-05-25T01:57:41Z foi implementada a milestone `m8-review-queue`:
 Em 2026-05-25T02:26:08Z foi implementada a milestone `m9-review-approval-application`:
 
 - criacao de `src/correction/approvedCorrectionsReader.js`;
-- `fixEpub.js` passou a ler `logs/json/review-queue.json` antes de aplicar correcoes;
+- `fixEpub.js` passou a ler `state/review-queue.json` antes de aplicar correcoes;
 - somente itens `approved` com `before`, `after` e localizacao XHTML valida sao convertidos em actions aplicaveis;
 - itens `pending`, `rejected` e `needs_context` sao registrados como ignorados e nao alteram o EPUB;
 - `xhtmlCorrectionEngine.js` passou a aceitar actions com origem `review_queue_approved`;
@@ -272,8 +274,8 @@ Em 2026-05-25T02:49:11Z foi implementada a milestone `m10-review-queue-workflow-
 Em 2026-05-25T03:12:04Z foi implementada a milestone `m11-assisted-review-suggestions`:
 
 - criacao de `src/correction/assistedReview.js`;
-- geracao de `logs/json/assisted-review-suggestions.json`;
-- geracao de `logs/txt/assisted-review-suggestions-latest.md`;
+- geracao de `state/assisted-review-suggestions.json`;
+- geracao de `reports/txt/assisted-review-suggestions-latest.md`;
 - processamento restrito a itens `pending` com `mode: auto_review`;
 - sugestoes estruturadas com `before`, `suggestedAfter`, `reason`, `confidence` e `requiresHumanApproval: true`;
 - fallback deterministico conservador, sem dependencia obrigatoria de modelo;
@@ -355,7 +357,7 @@ Em 2026-05-25T17:25:00Z foi implementada a milestone `m18-assisted-model-adapter
 - respostas do modelo sao validadas para evitar `suggestedAfter` vazio, baixa confianca, mudanca excessiva de tamanho ou perda de nomes/termos protegidos;
 - resultados aceitos continuam com `requiresHumanApproval: true` e origem `ollama`;
 - falhas, baixa confianca ou sugestoes rejeitadas retornam ao fallback deterministico;
-- criado `logs/json/assisted-review-model-trace.json` para registrar prompts, respostas, rejeicoes e fallback;
+- criado `logs/assisted-review-model-trace.json` para registrar prompts, respostas, rejeicoes e fallback;
 - dashboards e relatorios passaram a exibir origem das sugestoes, riscos, contagem de Ollama e fallback;
 - nenhuma sugestao e aplicada automaticamente e nenhum EPUB e alterado nesta milestone.
 
@@ -372,7 +374,7 @@ Em 2026-05-25T17:45:00Z foi implementada a milestone `m19-model-output-contract`
 
 Em 2026-05-25T21:05:00Z foi executada a milestone operacional `m20-manual-approved-suggestion-test`:
 
-- analisado `logs/json/assisted-review-suggestions.json`;
+- analisado `state/assisted-review-suggestions.json`;
 - escolhida uma unica sugestao `suggestion_available`: `ars-0001`, ligada ao item `rq-0001`;
 - item `rq-0001` foi marcado como `approved` em `review-queue.json` usando `targetBefore` como `before` e `replacementAfter` como `after`;
 - `npm run review:translation:epub:validate` retornou `OK` com 1 approved e 1 pending;
@@ -386,7 +388,7 @@ Em 2026-05-25T21:05:00Z foi executada a milestone operacional `m20-manual-approv
 Em 2026-05-25T21:30:00Z foi implementada a milestone `m21-semantic-consistency-audit`:
 
 - criado `src/semanticConsistencyAudit.js`;
-- geracao de `logs/json/semantic-candidates.json`;
+- geracao de `state/semantic-candidates.json`;
 - `semanticCandidates` ficam separados de `correctionCandidates` e nao alimentam automaticamente o `correctionPlan`;
 - camada detecta sinais de omissao/expansao, drift semantico, repeticao anormal, literalidade, inconsistencia terminologica e tratamento inconsistente;
 - candidatos usam `originalAlignedText` quando o alinhamento e confiavel, `currentParagraph`, contexto expandido, glossario e entidades;
@@ -427,7 +429,7 @@ Em 2026-05-25T22:45:00Z foi executada a milestone operacional `m23-semantic-revi
 
 Em 2026-05-26T01:10:00Z foi implementada a milestone `m24-model-validation-hardening`:
 
-- analisado `logs/json/assisted-review-model-trace.json` gerado na m23;
+- analisado `logs/assisted-review-model-trace.json` gerado na m23;
 - rejeicoes da m23 classificadas como mistura de protecao correta, alvo impreciso do modelo e prompt ainda ambiguo para patches localizados;
 - prompt do Ollama reforcado para copiar `targetBefore` literalmente, preservar tokens protegidos, numeros, termos canonicos e evitar patches excessivamente curtos;
 - validacao passou a registrar detalhes explicitos de rejeicao: token protegido faltante, trecho esperado/retornado, modo de match, ratio calculado e numeros alterados;

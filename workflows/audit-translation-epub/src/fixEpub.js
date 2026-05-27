@@ -22,19 +22,20 @@ const projectRoot = path.resolve(workflowRoot, '../..');
 
 const paths = {
   translatedDir: path.join(workflowRoot, 'input/translated'),
-  logsInputDir: path.join(workflowRoot, 'input/logs'),
+  translationLogInputDir: path.join(workflowRoot, 'input/translation-log'),
   inputFixedDir: path.join(workflowRoot, 'input-fixed'),
   outputDir: path.join(workflowRoot, 'output'),
   logsDir: path.join(workflowRoot, 'logs'),
-  logsJsonDir: path.join(workflowRoot, 'logs/json'),
+  reportsJsonDir: path.join(workflowRoot, 'reports/json'),
+  stateDir: path.join(workflowRoot, 'state'),
   workflowEventsPath: path.join(workflowRoot, 'logs/workflow-events.jsonl'),
   manifestPath: path.join(workflowRoot, 'input-fixed/manifest.json'),
-  correctionPlanPath: path.join(workflowRoot, 'logs/json/correction-plan.json'),
-  correctionReportPath: path.join(workflowRoot, 'logs/json/correction-report.json'),
-  postCorrectionValidationPath: path.join(workflowRoot, 'logs/json/post-correction-validation.json'),
-  reauditReportPath: path.join(workflowRoot, 'logs/json/reaudit-report.json'),
-  reauditoriaSummaryPath: path.join(workflowRoot, 'logs/json/reauditoria-summary.json'),
-  reviewQueuePath: path.join(workflowRoot, 'logs/json/review-queue.json'),
+  correctionPlanPath: path.join(workflowRoot, 'state/correction-plan.json'),
+  correctionReportPath: path.join(workflowRoot, 'state/correction-report.json'),
+  postCorrectionValidationPath: path.join(workflowRoot, 'state/post-correction-validation.json'),
+  reauditReportPath: path.join(workflowRoot, 'state/reaudit-report.json'),
+  reauditoriaSummaryPath: path.join(workflowRoot, 'state/reauditoria-summary.json'),
+  reviewQueuePath: path.join(workflowRoot, 'state/review-queue.json'),
 };
 
 function parseArgs(argv) {
@@ -51,11 +52,12 @@ function parseArgs(argv) {
 function ensureDirs() {
   const dirs = [
     paths.translatedDir,
-    paths.logsInputDir,
+    paths.translationLogInputDir,
     paths.inputFixedDir,
     paths.outputDir,
     paths.logsDir,
-    paths.logsJsonDir,
+    paths.reportsJsonDir,
+    paths.stateDir,
   ];
 
   for (const dir of dirs) {
@@ -338,10 +340,10 @@ function attachReviewQueueResult(correctionResult, approvedCorrections) {
 }
 
 function latestAuditReportPath() {
-  if (!fs.existsSync(paths.logsJsonDir)) return null;
-  const reports = fs.readdirSync(paths.logsJsonDir)
+  if (!fs.existsSync(paths.reportsJsonDir)) return null;
+  const reports = fs.readdirSync(paths.reportsJsonDir)
     .filter((file) => /^audit-report-\d{2}-\d{2}-\d{4}_\d{2}-\d{2}-\d{2}\.json$/i.test(file))
-    .map((file) => path.join(paths.logsJsonDir, file))
+    .map((file) => path.join(paths.reportsJsonDir, file))
     .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs);
   return reports[0] || null;
 }

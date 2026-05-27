@@ -7,12 +7,17 @@ workflows/*/input/*
 !workflows/*/input/.gitkeep
 !workflows/audit-translation-epub/input/glossary/
 !workflows/audit-translation-epub/input/glossary/*.json
+!workflows/audit-translation-epub/input/translation-log/
+workflows/audit-translation-epub/input/translation-log/*
+!workflows/audit-translation-epub/input/translation-log/.gitkeep
 workflows/*/output/*
 !workflows/*/output/.gitkeep
 workflows/*/logs/*
 !workflows/*/logs/.gitkeep
 workflows/*/reports/*
 !workflows/*/reports/.gitkeep
+workflows/*/state/*
+!workflows/*/state/.gitkeep
 workflows/*/assets/*
 !workflows/*/assets/.gitkeep
 workflows/audit-translation-docx/input-fixed/*

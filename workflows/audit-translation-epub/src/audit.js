@@ -17,6 +17,7 @@ import {
   writeEpubHtmlDashboard,
 } from './epubDashboardWriter.js';
 import { writeEpubValidationTabsDashboard } from './epubValidationWriter.js';
+import { writeEpubReaderReport } from './epubReaderReportWriter.js';
 import {
   buildCorrectionCandidates,
   buildCorrectionPlan,
@@ -41,16 +42,19 @@ const workflowRoot = path.resolve(__dirname, '..');
 const paths = {
   sourceDir: path.join(workflowRoot, 'input/source'),
   translatedDir: path.join(workflowRoot, 'input/translated'),
-  logsInputDir: path.join(workflowRoot, 'input/logs'),
+  translationLogInputDir: path.join(workflowRoot, 'input/translation-log'),
   glossaryDir: path.join(workflowRoot, 'input/glossary'),
   termsGlossaryPath: path.join(workflowRoot, 'input/glossary/terms.json'),
   entitiesGlossaryPath: path.join(workflowRoot, 'input/glossary/entities.json'),
   logsDir: path.join(workflowRoot, 'logs'),
-  logsTxtDir: path.join(workflowRoot, 'logs/txt'),
-  logsJsonDir: path.join(workflowRoot, 'logs/json'),
-  logsHtmlDir: path.join(workflowRoot, 'logs/html'),
+  reportsDir: path.join(workflowRoot, 'reports'),
+  reportsTxtDir: path.join(workflowRoot, 'reports/txt'),
+  reportsJsonDir: path.join(workflowRoot, 'reports/json'),
+  reportsHtmlDir: path.join(workflowRoot, 'reports/html'),
+  stateDir: path.join(workflowRoot, 'state'),
   outputDir: path.join(workflowRoot, 'output'),
   workflowEventsPath: path.join(workflowRoot, 'logs/workflow-events.jsonl'),
+  assistedReviewModelTracePath: path.join(workflowRoot, 'logs/assisted-review-model-trace.json'),
 };
 
 function parseArgs(argv) {
@@ -70,12 +74,14 @@ function ensureDirs() {
   const dirs = [
     paths.sourceDir,
     paths.translatedDir,
-    paths.logsInputDir,
+    paths.translationLogInputDir,
     paths.glossaryDir,
     paths.logsDir,
-    paths.logsTxtDir,
-    paths.logsJsonDir,
-    paths.logsHtmlDir,
+    paths.reportsDir,
+    paths.reportsTxtDir,
+    paths.reportsJsonDir,
+    paths.reportsHtmlDir,
+    paths.stateDir,
     paths.outputDir,
   ];
 
@@ -189,12 +195,12 @@ function appendWorkflowEvent(event, payload = {}) {
 }
 
 function pruneOldAuditReports(keepPath) {
-  if (!fs.existsSync(paths.logsJsonDir)) return;
+  if (!fs.existsSync(paths.reportsJsonDir)) return;
 
-  for (const file of fs.readdirSync(paths.logsJsonDir)) {
+  for (const file of fs.readdirSync(paths.reportsJsonDir)) {
     if (!/^audit-report-\d{2}-\d{2}-\d{4}_\d{2}-\d{2}-\d{2}\.json$/i.test(file)) continue;
 
-    const filePath = path.join(paths.logsJsonDir, file);
+    const filePath = path.join(paths.reportsJsonDir, file);
     if (filePath !== keepPath) fs.unlinkSync(filePath);
   }
 }
@@ -288,9 +294,9 @@ function readJsonIfExists(filePath) {
 }
 
 function writeCorrectionMarkdownReport(outputPath) {
-  const correctionReport = readJsonIfExists(path.join(paths.logsJsonDir, 'correction-report.json'));
-  const postValidation = readJsonIfExists(path.join(paths.logsJsonDir, 'post-correction-validation.json'));
-  const reauditoriaSummary = readJsonIfExists(path.join(paths.logsJsonDir, 'reauditoria-summary.json'));
+  const correctionReport = readJsonIfExists(path.join(paths.stateDir, 'correction-report.json'));
+  const postValidation = readJsonIfExists(path.join(paths.stateDir, 'post-correction-validation.json'));
+  const reauditoriaSummary = readJsonIfExists(path.join(paths.stateDir, 'reauditoria-summary.json'));
   const applied = correctionReport?.appliedCorrections || [];
   const skipped = correctionReport?.skippedActions || [];
   const correctionValidation = postValidation?.correctionValidation || {};
@@ -334,7 +340,7 @@ function writeCorrectionMarkdownReport(outputPath) {
 }
 
 function writeReviewQueueReports({ correctionPlan, semanticAudit, sourceDoc, xhtmlMap, chapterAlignment, createdAt }) {
-  const reviewQueuePath = path.join(paths.logsJsonDir, 'review-queue.json');
+  const reviewQueuePath = path.join(paths.stateDir, 'review-queue.json');
   const existingQueue = readJsonIfExists(reviewQueuePath);
   const reviewQueue = buildReviewQueue({
     correctionPlan,
@@ -347,7 +353,7 @@ function writeReviewQueueReports({ correctionPlan, semanticAudit, sourceDoc, xht
   });
   fs.writeFileSync(reviewQueuePath, JSON.stringify(reviewQueue, null, 2), 'utf8');
 
-  const reviewQueueMarkdownPath = path.join(paths.logsTxtDir, 'review-queue-latest.md');
+  const reviewQueueMarkdownPath = path.join(paths.reportsTxtDir, 'review-queue-latest.md');
   fs.writeFileSync(reviewQueueMarkdownPath, renderReviewQueueMarkdown(reviewQueue), 'utf8');
 
   return {
@@ -364,13 +370,13 @@ async function writeAssistedReviewReports({ reviewQueue, createdAt }) {
     createdAt,
     modelAdapter,
   });
-  const assistedReviewPath = path.join(paths.logsJsonDir, 'assisted-review-suggestions.json');
+  const assistedReviewPath = path.join(paths.stateDir, 'assisted-review-suggestions.json');
   fs.writeFileSync(assistedReviewPath, JSON.stringify(assistedReview, null, 2), 'utf8');
 
-  const assistedReviewMarkdownPath = path.join(paths.logsTxtDir, 'assisted-review-suggestions-latest.md');
+  const assistedReviewMarkdownPath = path.join(paths.reportsTxtDir, 'assisted-review-suggestions-latest.md');
   fs.writeFileSync(assistedReviewMarkdownPath, renderAssistedReviewMarkdown(assistedReview), 'utf8');
 
-  const assistedReviewModelTracePath = path.join(paths.logsJsonDir, 'assisted-review-model-trace.json');
+  const assistedReviewModelTracePath = paths.assistedReviewModelTracePath;
   fs.writeFileSync(assistedReviewModelTracePath, JSON.stringify(modelTrace, null, 2), 'utf8');
 
   return {
@@ -499,12 +505,12 @@ async function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, is
     workflowTrace,
   };
 
-  const jsonPath = path.join(paths.logsJsonDir, `audit-report-${timestamp}.json`);
+  const jsonPath = path.join(paths.reportsJsonDir, `audit-report-${timestamp}.json`);
   fs.writeFileSync(jsonPath, JSON.stringify(report, null, 2), 'utf8');
   pruneOldAuditReports(jsonPath);
-  const correctionPlanPath = path.join(paths.logsJsonDir, 'correction-plan.json');
+  const correctionPlanPath = path.join(paths.stateDir, 'correction-plan.json');
   fs.writeFileSync(correctionPlanPath, JSON.stringify(correctionPlan, null, 2), 'utf8');
-  const semanticCandidatesPath = path.join(paths.logsJsonDir, 'semantic-candidates.json');
+  const semanticCandidatesPath = path.join(paths.stateDir, 'semantic-candidates.json');
   fs.writeFileSync(semanticCandidatesPath, JSON.stringify(semanticAudit, null, 2), 'utf8');
   const { reviewQueue, reviewQueuePath, reviewQueueMarkdownPath } = writeReviewQueueReports({
     correctionPlan,
@@ -547,17 +553,26 @@ async function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, is
     translation: translationDoc.filename,
     timestamp: isoTimestamp,
   });
-  const dashboardHtmlPath = path.join(paths.logsHtmlDir, 'audit-dashboard-latest.html');
-  const validationHtmlPath = path.join(paths.logsHtmlDir, 'validation-report-latest.html');
+  const dashboardHtmlPath = path.join(paths.reportsHtmlDir, 'audit-dashboard-latest.html');
+  const validationHtmlPath = path.join(paths.reportsHtmlDir, 'validation-report-latest.html');
+  const readerHtmlPath = path.join(paths.reportsHtmlDir, 'reader-report-latest.html');
   writeEpubHtmlDashboard(report, dashboardHtmlPath, {
-    logsDir: paths.logsJsonDir,
+    logsDir: paths.reportsJsonDir,
+    stateDir: paths.stateDir,
+    traceDir: paths.logsDir,
     sourceDocs: [sourceDoc],
     translatedDocs: [translationDoc],
     alignedDocs: [alignedDoc],
     relativeWorkflowPath,
   });
   writeEpubValidationTabsDashboard(report, validationHtmlPath, {
-    logsDir: paths.logsJsonDir,
+    logsDir: paths.reportsJsonDir,
+    stateDir: paths.stateDir,
+    traceDir: paths.logsDir,
+    relativeWorkflowPath,
+  });
+  writeEpubReaderReport(report, readerHtmlPath, {
+    stateDir: paths.stateDir,
     relativeWorkflowPath,
   });
 
@@ -606,11 +621,12 @@ async function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, is
     `JSON completo: ${jsonPath}`,
     `Dashboard HTML: ${dashboardHtmlPath}`,
     `Validacao: ${validationHtmlPath}`,
+    `Relatorio editorial: ${readerHtmlPath}`,
   ];
 
-  const summaryPath = path.join(paths.logsTxtDir, 'epub-audit-summary-latest.txt');
+  const summaryPath = path.join(paths.reportsTxtDir, 'epub-audit-summary-latest.txt');
   fs.writeFileSync(summaryPath, summaryLines.join('\n'), 'utf8');
-  const correctionMarkdownPath = path.join(paths.logsTxtDir, 'correction-report-latest.md');
+  const correctionMarkdownPath = path.join(paths.reportsTxtDir, 'correction-report-latest.md');
   writeCorrectionMarkdownReport(correctionMarkdownPath);
 
   return {
@@ -625,6 +641,7 @@ async function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, is
     assistedReviewModelTracePath,
     dashboardHtmlPath,
     validationHtmlPath,
+    readerHtmlPath,
     summaryPath,
     correctionMarkdownPath,
   };
@@ -636,7 +653,7 @@ async function main() {
 
   const sourceDoc = args.source ? readEpubFile(args.source) : readFirstEpubFromDir(paths.sourceDir);
   const translationDoc = args.translated ? readEpubFile(args.translated) : readFirstEpubFromDir(paths.translatedDir);
-  const logInfo = readTranslationLog(args.log || readFirstTxtFromDir(paths.logsInputDir));
+  const logInfo = readTranslationLog(args.log || readFirstTxtFromDir(paths.translationLogInputDir));
 
   if (!sourceDoc) throw new Error(`Nenhum EPUB original encontrado em ${paths.sourceDir}`);
   if (!translationDoc) throw new Error(`Nenhum EPUB traduzido encontrado em ${paths.translatedDir}`);
@@ -701,7 +718,7 @@ async function main() {
     glossary,
   });
 
-  const { report, jsonPath, dashboardHtmlPath, validationHtmlPath, summaryPath } = await writeReports({
+  const { report, jsonPath, dashboardHtmlPath, validationHtmlPath, readerHtmlPath, summaryPath } = await writeReports({
     sourceDoc,
     translationDoc,
     logInfo,
@@ -724,6 +741,7 @@ async function main() {
   console.log(`JSON: ${jsonPath}`);
   console.log(`Dashboard: ${dashboardHtmlPath}`);
   console.log(`Validação: ${validationHtmlPath}`);
+  console.log(`Relatório editorial: ${readerHtmlPath}`);
 
   process.exit(report.status === 'FAIL' ? 1 : 0);
 }
