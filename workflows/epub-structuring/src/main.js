@@ -31,9 +31,14 @@ async function main() {
   const outputFile = path.join(ROOT, 'output', `${bookName}-structured.epub`);
 
   buildStructuredEpub(epub, chapterReport, outputFile);
+  
+  // Reanalisar TOC do EPUB final estruturado
+  const finalEpub = readEpub(outputFile);
+  const finalTocReport = analyzeToc(finalEpub);
+
   await writeJsonReport(path.join(ROOT, 'reports', 'structure_report.json'), structureReport);
   await writeJsonReport(path.join(ROOT, 'reports', 'chapter_report.json'), chapterReport);
-  await writeJsonReport(path.join(ROOT, 'reports', 'toc_report.json'), tocReport);
+  await writeJsonReport(path.join(ROOT, 'reports', 'toc_report.json'), finalTocReport);
   await writeJsonReport(path.join(ROOT, 'reports', 'language_report.json'), languageReport);
   await writeJsonReport(path.join(ROOT, 'reports', 'pdf_toc_report.json'), pdfTocReport);
   await writeJsonReport(path.join(ROOT, 'reports', 'validation_report.json'), validationReport);
