@@ -87,7 +87,7 @@ export async function cleanOldReports() {
   }
   
   console.log();
-  const confirm = await askUser('Tem certeza? (s/N): ');
+  const confirm = await askUser('Tem certeza? (S/N): ');
   
   if (confirm !== 's' && confirm !== 'sim' && confirm !== 'y') {
     log('✨ Operação cancelada.', 'yellow');

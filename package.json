@@ -10,18 +10,13 @@
   },
   "scripts": {
     "start": "node src/cli.js",
-    
     "translate:one": "node workflows/translate-docx/scripts/translateOne.js",
     "translate:folder": "node workflows/translate-docx/scripts/translateFolder.js",
     "translate:sequential": "node workflows/translate-docx/scripts/translateSequential.js",
-    
     "extract:epub": "node workflows/epub-to-docx/scripts/extractEpubInChapterGroups.cjs",
     "extract:epub:groups": "node workflows/epub-to-docx/scripts/extractEpubInChapterGroups.cjs",
-    
     "build:epub": "node workflows/docx-to-epub/scripts/buildEpubFromDocx.js",
-    
     "analyze:translation": "node workflows/review-translation/scripts/analyzeTranslation.js",
-    
     "audit:translation": "node workflows/audit-translation-docx/src/audit.js",
     "audit:translation:verbose": "node workflows/audit-translation-docx/src/audit.js --verbose",
     "audit:translation:epub": "node workflows/audit-translation-epub/src/menu.js",
@@ -32,14 +27,11 @@
     "fix:translation:epub": "node workflows/audit-translation-epub/src/fixEpub.js",
     "review:translation:epub:validate": "node workflows/audit-translation-epub/src/validateReviewQueue.js",
     "validate:translation:epub": "node workflows/audit-translation-epub/src/validatePipeline.js",
-    
     "fix:gender": "node workflows/audit-translation-docx/src/fix-gender-issues.js",
     "fix:gender:verbose": "node workflows/audit-translation-docx/src/fix-gender-issues.js --verbose",
     "fix:gender:step": "node workflows/audit-translation-docx/src/fix-gender-issues.js --step",
-    
     "audit:menu": "node workflows/audit-translation-docx/src/menu.js",
     "logs:view": "node workflows/audit-translation-docx/src/observability/viewLog.js",
-    
     "version:status": "node workflows/audit-translation-docx/src/version-cli.js status",
     "version:current": "node workflows/audit-translation-docx/src/version-cli.js current",
     "version:list": "node workflows/audit-translation-docx/src/version-cli.js list",
@@ -50,7 +42,6 @@
     "version:clean": "node workflows/audit-translation-docx/src/version-cli.js clean",
     "version:create": "node workflows/audit-translation-docx/src/version-cli.js create",
     "version:help": "node workflows/audit-translation-docx/src/version-cli.js help",
-    
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:audit": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config workflows/audit-translation-docx/jest.config.js",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
@@ -76,7 +67,10 @@
     "archiver": "^7.0.1",
     "cheerio": "^1.2.0",
     "docx": "^9.6.1",
+    "fast-xml-parser": "^5.8.0",
+    "fs-extra": "^11.3.5",
     "mammoth": "^1.12.0",
+    "pdf-parse": "^2.4.5",
     "puppeteer": "^24.42.0",
     "uuid": "^14.0.0",
     "xlsx": "^0.18.5"
