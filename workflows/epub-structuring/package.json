@@ -1,0 +1,16 @@
+{
+  "name": "epub-structuring",
+  "version": "7.1.0",
+  "description": "Workflow EPUB 3 executável com extração avançada de títulos.",
+  "type": "module",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node src/main.js"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "cheerio": "^1.1.2",
+    "fast-xml-parser": "^5.2.5",
+    "fs-extra": "^11.3.0"
+  }
+}
