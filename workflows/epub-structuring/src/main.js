@@ -11,6 +11,8 @@ import { analyzeStructure } from './analyzers/structure-analyzer.js';
 import { extractPdfCanonicalChapters } from './analyzers/pdf-toc-extractor.js';
 import { validateEpub3 } from './validators/epub3-validator.js';
 import { buildStructuredEpub } from './builders/epub-builder.js';
+import { analyzeChapterBoundaries } from './analyzers/chapter-boundary-analyzer.js';
+import { buildChapterRanges } from './analyzers/chapter-range-builder.js';
 
 const ROOT = process.cwd();
 
@@ -27,6 +29,13 @@ async function main() {
   const chapterReport = detectChapters(epub, htmlDocs, tocReport, pdfTocReport);
   const structureReport = analyzeStructure(epub, htmlDocs, chapterReport, tocReport, languageReport);
   const validationReport = validateEpub3(structureReport, chapterReport, tocReport, languageReport);
+  
+  // Analisar limites reais dos capítulos no DOM (diagnóstico)
+  const boundaryReport = analyzeChapterBoundaries(epub, chapterReport);
+  
+  // Construir ranges reais dos capítulos a partir dos boundaries
+  const rangeReport = buildChapterRanges(boundaryReport, epub);
+  
   const bookName = safeFileName(epub.opf.metadata.title || path.basename(inputFile, '.epub'));
   const outputFile = path.join(ROOT, 'output', `${bookName}-structured.epub`);
 
@@ -41,6 +50,8 @@ async function main() {
   await writeJsonReport(path.join(ROOT, 'reports', 'toc_report.json'), finalTocReport);
   await writeJsonReport(path.join(ROOT, 'reports', 'language_report.json'), languageReport);
   await writeJsonReport(path.join(ROOT, 'reports', 'pdf_toc_report.json'), pdfTocReport);
+  await writeJsonReport(path.join(ROOT, 'reports', 'chapter_boundary_report.json'), boundaryReport);
+  await writeJsonReport(path.join(ROOT, 'reports', 'chapter_range_report.json'), rangeReport);
   await writeJsonReport(path.join(ROOT, 'reports', 'validation_report.json'), validationReport);
 
   console.log('EPUB processado pela v7.2 PDF canonical.');
