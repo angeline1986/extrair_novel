@@ -13,6 +13,7 @@ import { validateEpub3 } from './validators/epub3-validator.js';
 import { buildStructuredEpub } from './builders/epub-builder.js';
 import { analyzeChapterBoundaries } from './analyzers/chapter-boundary-analyzer.js';
 import { buildChapterRanges } from './analyzers/chapter-range-builder.js';
+import { performCanonicalResplit } from './segmenters/canonical-resplitter.js';
 
 const ROOT = process.cwd();
 
@@ -36,6 +37,10 @@ async function main() {
   // Construir ranges reais dos capítulos a partir dos boundaries
   const rangeReport = buildChapterRanges(boundaryReport, epub);
   
+  // Realizar resplit canônico dos capítulos
+  const chaptersDir = path.join(ROOT, 'output', 'chapters');
+  const resplitReport = performCanonicalResplit(rangeReport, boundaryReport, epub, chaptersDir);
+  
   const bookName = safeFileName(epub.opf.metadata.title || path.basename(inputFile, '.epub'));
   const outputFile = path.join(ROOT, 'output', `${bookName}-structured.epub`);
 
@@ -52,6 +57,7 @@ async function main() {
   await writeJsonReport(path.join(ROOT, 'reports', 'pdf_toc_report.json'), pdfTocReport);
   await writeJsonReport(path.join(ROOT, 'reports', 'chapter_boundary_report.json'), boundaryReport);
   await writeJsonReport(path.join(ROOT, 'reports', 'chapter_range_report.json'), rangeReport);
+  await writeJsonReport(path.join(ROOT, 'reports', 'chapter_resplit_report.json'), resplitReport);
   await writeJsonReport(path.join(ROOT, 'reports', 'validation_report.json'), validationReport);
 
   console.log('EPUB processado pela v7.2 PDF canonical.');
