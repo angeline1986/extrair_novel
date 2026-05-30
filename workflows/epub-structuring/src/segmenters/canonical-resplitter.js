@@ -123,8 +123,8 @@ function writeChapterFile(range, xhtml, outputDir) {
   const wordCount = wordCountFromXhtml(xhtml);
   const firstTextPreview = textPreviewFromXhtml(xhtml, 'first', 160);
   const lastTextPreview = textPreviewFromXhtml(xhtml, 'last', 160);
-  const containsNextChapterMarker = range.endBeforeChapterNumber
-    ? containsChapterMarker(xhtml, `${range.endBeforeChapterNumber}.`)
+  const containsNextChapterMarker = range.endBeforeChapterTitle
+    ? containsChapterMarker(xhtml, range.endBeforeChapterTitle)
     : false;
 
   return {

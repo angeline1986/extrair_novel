@@ -24,7 +24,7 @@ export function buildChapterRanges(boundaryReport, epub) {
     const next = sortedBoundaries[i + 1];
     
     // Determinar onde o capítulo termina
-    let endFile, endSpineIndex, endNode, endNodeIndex, endDomPath, endBeforeChapterNumber;
+    let endFile, endSpineIndex, endNode, endNodeIndex, endDomPath, endBeforeChapterNumber, endBeforeChapterTitle;
     
     if (next) {
       // Capítulo termina imediatamente antes do próximo boundary
@@ -34,6 +34,7 @@ export function buildChapterRanges(boundaryReport, epub) {
       endNodeIndex = next.nodeIndex;
       endDomPath = next.domPath;
       endBeforeChapterNumber = next.chapterNumber;
+      endBeforeChapterTitle = next.title;
     } else {
       // Último capítulo termina no final do último arquivo
       const lastFile = spineFiles[spineFiles.length - 1];
@@ -43,6 +44,7 @@ export function buildChapterRanges(boundaryReport, epub) {
       endNodeIndex = null;
       endDomPath = null;
       endBeforeChapterNumber = null;
+      endBeforeChapterTitle = null;
     }
     
     // Determinar quais arquivos este capítulo atravessa
@@ -62,6 +64,7 @@ export function buildChapterRanges(boundaryReport, epub) {
       endNodeIndex: endNodeIndex,
       endDomPath: endDomPath,
       endBeforeChapterNumber: endBeforeChapterNumber,
+      endBeforeChapterTitle: endBeforeChapterTitle,
       files: files,
       ok: true
     });
