@@ -1,14 +1,10 @@
-import { cleanText, isFileNameTitle, isGenericTitle } from '../utils/text-utils.js';
-
-export function detectFrontmatter(item, doc, title) {
-  const source = `${item.href} ${title}`.toLowerCase();
-  const text = cleanText(`${doc?.firstParagraph || ''} ${doc?.firstBold || ''}`);
-
-  if (source.includes('titlepage') || source.includes('cover')) return true;
-  if (source.includes('toc') || source.includes('sumário') || source.includes('indice')) return true;
-  if (doc?.isEmpty) return true;
-  if ((doc?.wordCount || 0) <= 10 && (isFileNameTitle(title) || isGenericTitle(title))) return true;
-  if ((doc?.wordCount || 0) <= 10 && !text) return true;
-
+export function detectFrontmatter(item, doc, title = '') {
+  const href = String(item?.href || item?.fullPath || '').toLowerCase();
+  const text = String(doc?.text || '').toLowerCase();
+  const label = String(title || '').toLowerCase();
+  if (item?.linear === 'no') return true;
+  if (/titlepage|cover|copyright|dedication|toc|nav|index_split_000/.test(href)) return true;
+  if (/^(começar|start|cover|capa|title page|converted ebook)$/.test(label.trim())) return true;
+  if ((doc?.wordCount || 0) < 60 && /copyright|índice|indice|sumário|sumario/.test(text)) return true;
   return false;
 }

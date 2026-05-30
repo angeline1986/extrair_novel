@@ -3,14 +3,13 @@ import { escapeXml } from '../utils/xml-utils.js';
 export function buildNcx(chapterReport, metadata) {
   const uid = escapeXml(metadata.identifier || 'generated-id');
   const title = escapeXml(metadata.title || 'Livro');
-
   const navPoints = chapterReport.chapters.map((chapter, index) => {
+    const label = escapeXml(chapter.finalTitle || chapter.title);
     return `    <navPoint id="navPoint-${index + 1}" playOrder="${index + 1}">
-      <navLabel><text>${escapeXml(chapter.title)}</text></navLabel>
+      <navLabel><text>${label}</text></navLabel>
       <content src="${escapeXml(chapter.href)}"/>
     </navPoint>`;
   }).join('\n');
-
   return `<?xml version="1.0" encoding="UTF-8"?>
 <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
   <head>
@@ -23,6 +22,5 @@ export function buildNcx(chapterReport, metadata) {
   <navMap>
 ${navPoints}
   </navMap>
-</ncx>
-`;
+</ncx>`;
 }

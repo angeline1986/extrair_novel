@@ -2,11 +2,12 @@ import { escapeXml } from '../utils/xml-utils.js';
 
 export function buildNavXhtml(chapterReport, language) {
   const items = chapterReport.chapters.map((chapter) => {
-    return `      <li><a href="${escapeXml(chapter.href)}">${escapeXml(chapter.title)}</a></li>`;
+    const title = escapeXml(chapter.finalTitle || chapter.title);
+    return `      <li><a href="${escapeXml(chapter.href)}">${title}</a></li>`;
   }).join('\n');
-
   return `<?xml version="1.0" encoding="utf-8"?>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="${escapeXml(language)}">
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="${escapeXml(language || 'pt')}">
 <head>
   <title>Sumário</title>
 </head>
@@ -18,6 +19,5 @@ ${items}
     </ol>
   </nav>
 </body>
-</html>
-`;
+</html>`;
 }

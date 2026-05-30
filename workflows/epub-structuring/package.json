@@ -1,7 +1,7 @@
 {
   "name": "epub-structuring",
-  "version": "7.1.0",
-  "description": "Workflow EPUB 3 executável com extração avançada de títulos.",
+  "version": "7.2.0-pdf-canonical",
+  "description": "Workflow EPUB 3 com mapa canônico opcional via PDF.",
   "type": "module",
   "main": "src/main.js",
   "scripts": {
@@ -11,6 +11,7 @@
     "adm-zip": "^0.5.16",
     "cheerio": "^1.1.2",
     "fast-xml-parser": "^5.2.5",
-    "fs-extra": "^11.3.0"
+    "fs-extra": "^11.3.0",
+    "pdf-parse": "^1.1.1"
   }
 }

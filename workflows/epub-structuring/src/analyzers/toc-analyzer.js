@@ -6,10 +6,9 @@ import { cleanText } from '../utils/text-utils.js';
 const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
 
 export function analyzeToc(epub) {
-  const ncxItem = epub.ncxItems[0];
-
+  const ncxItem = epub.ncxItems?.[0];
   if (!ncxItem) {
-    return { hasNcx: false, hasNav: epub.navItems.length > 0, entries: [] };
+    return { hasNcx: false, hasNav: epub.navItems?.length > 0, entries: [] };
   }
 
   const xml = readZipText(epub.zip, ncxItem.fullPath);
@@ -19,7 +18,7 @@ export function analyzeToc(epub) {
 
   return {
     hasNcx: true,
-    hasNav: epub.navItems.length > 0,
+    hasNav: epub.navItems?.length > 0,
     ncxPath: ncxItem.fullPath,
     entryCount: entries.length,
     entries
@@ -35,7 +34,6 @@ function flattenNavPoints(points, level = 1) {
       label: cleanText(getLabel(point)),
       src: point.content?.['@_src'] || ''
     };
-
     return [entry, ...flattenNavPoints(toArray(point.navPoint), level + 1)];
   });
 }

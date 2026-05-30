@@ -16,7 +16,6 @@ export function buildStructuredEpub(epub, chapterReport, outputFile) {
   const opfXml = buildEpub3Opf(epub, navHref, ncxHref);
 
   addMimetypeFirst(epub, outputZip);
-
   for (const entry of epub.zip.getEntries()) {
     if (entry.isDirectory || entry.entryName === 'mimetype') continue;
     if (entry.entryName === epub.opf.path) outputZip.addFile(entry.entryName, Buffer.from(opfXml, 'utf8'));
@@ -24,10 +23,8 @@ export function buildStructuredEpub(epub, chapterReport, outputFile) {
     else if (entry.entryName === ncxPath) outputZip.addFile(ncxPath, Buffer.from(ncxXml, 'utf8'));
     else outputZip.addFile(entry.entryName, entry.getData());
   }
-
   if (!epub.navItems.length) outputZip.addFile(navPath, Buffer.from(navXhtml, 'utf8'));
   if (!epub.ncxItems.length) outputZip.addFile(ncxPath, Buffer.from(ncxXml, 'utf8'));
-
   fs.ensureDirSync(path.dirname(outputFile));
   outputZip.writeZip(outputFile);
 }

@@ -15,21 +15,15 @@ export function readEpub(epubPath) {
   const spineItems = getSpineItems(opf.raw, manifestItems);
   const htmlItems = manifestItems.filter((item) => isHtml(item.mediaType));
   const ncxItems = manifestItems.filter((item) => item.mediaType === 'application/x-dtbncx+xml');
-  const navItems = manifestItems.filter((item) => item.properties.includes('nav'));
-
-  return { sourcePath: epubPath, zip, container, opf: { ...opf, directory: opfDir },
-    manifestItems, spineItems, htmlItems, ncxItems, navItems };
+  const navItems = manifestItems.filter((item) => String(item.properties).split(/\s+/).includes('nav'));
+  return { sourcePath: epubPath, zip, container, opf: { ...opf, directory: opfDir }, manifestItems, spineItems, htmlItems, ncxItems, navItems };
 }
 
 function readContainer(zip) {
   const data = parser.parse(readZipText(zip, 'META-INF/container.xml'));
   const rootfile = toArray(data.container?.rootfiles?.rootfile).find((item) => item['@_full-path']);
   if (!rootfile) throw new Error('container.xml não possui rootfile válido.');
-
-  return {
-    rootfilePath: normalizeZipPath(rootfile['@_full-path']),
-    mediaType: rootfile['@_media-type'] || ''
-  };
+  return { rootfilePath: normalizeZipPath(rootfile['@_full-path']), mediaType: rootfile['@_media-type'] || '' };
 }
 
 function readOpf(zip, opfPath) {
@@ -37,15 +31,7 @@ function readOpf(zip, opfPath) {
   const data = parser.parse(xml);
   const pkg = data.package;
   if (!pkg) throw new Error('OPF inválido: elemento package ausente.');
-
-  return {
-    path: opfPath,
-    xml,
-    raw: pkg,
-    version: pkg['@_version'] || '',
-    uniqueIdentifier: pkg['@_unique-identifier'] || '',
-    metadata: parseMetadata(pkg.metadata || {})
-  };
+  return { path: opfPath, xml, raw: pkg, version: pkg['@_version'] || '', uniqueIdentifier: pkg['@_unique-identifier'] || '', metadata: parseMetadata(pkg.metadata || {}) };
 }
 
 function parseMetadata(metadata) {
@@ -70,17 +56,9 @@ function getManifestItems(pkg, opfDir) {
 
 function getSpineItems(pkg, manifestItems) {
   const byId = new Map(manifestItems.map((item) => [item.id, item]));
-
   return toArray(pkg.spine?.itemref).map((itemref, index) => {
     const item = byId.get(itemref['@_idref'] || '');
-    return {
-      index,
-      idref: itemref['@_idref'] || '',
-      linear: itemref['@_linear'] || 'yes',
-      href: item?.href || '',
-      fullPath: item?.fullPath || '',
-      mediaType: item?.mediaType || ''
-    };
+    return { index, idref: itemref['@_idref'] || '', linear: itemref['@_linear'] || 'yes', href: item?.href || '', fullPath: item?.fullPath || '', mediaType: item?.mediaType || '' };
   });
 }
 

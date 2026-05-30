@@ -1,66 +1,37 @@
-import { escapeXml } from '../utils/xml-utils.js';
+import { XMLParser, XMLBuilder } from 'fast-xml-parser';
+import { toArray } from '../utils/object-utils.js';
+
+const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
+const builder = new XMLBuilder({ ignoreAttributes: false, attributeNamePrefix: '@_', format: true, suppressEmptyNode: true });
 
 export function buildEpub3Opf(epub, navHref, ncxHref) {
-  const metadata = buildMetadata(epub.opf.metadata);
-  const manifest = buildManifest(epub, navHref, ncxHref);
-  const spine = buildSpine(epub);
-
-  return `<?xml version="1.0" encoding="utf-8"?>
-<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="bookid">
-  ${metadata}
-  ${manifest}
-  ${spine}
-</package>
-`;
+  const data = parser.parse(epub.opf.xml);
+  const pkg = data.package;
+  pkg['@_version'] = '3.0';
+  pkg.manifest = pkg.manifest || {};
+  const items = toArray(pkg.manifest.item);
+  ensureManifestItem(items, { id: 'nav', href: navHref, mediaType: 'application/xhtml+xml', properties: 'nav' });
+  ensureManifestItem(items, { id: 'ncx', href: ncxHref, mediaType: 'application/x-dtbncx+xml' });
+  pkg.manifest.item = items.map((item) => cleanItem(item));
+  pkg.spine = pkg.spine || {};
+  pkg.spine['@_toc'] = findIdByHref(pkg.manifest.item, ncxHref) || 'ncx';
+  return `<?xml version="1.0" encoding="UTF-8"?>\n${builder.build(data)}`;
 }
 
-function buildMetadata(data) {
-  const title = escapeXml(data.title || 'Livro');
-  const creator = data.creator ? `<dc:creator>${escapeXml(data.creator)}</dc:creator>` : '';
-  const lang = escapeXml(data.language || 'pt');
-  const id = escapeXml(data.identifier || `urn:uuid:${fallbackId()}`);
-  const modified = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
-
-  return `<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
-    <dc:identifier id="bookid">${id}</dc:identifier>
-    <dc:title>${title}</dc:title>
-    ${creator}
-    <dc:language>${lang}</dc:language>
-    <meta property="dcterms:modified">${modified}</meta>
-  </metadata>`;
-}
-
-function buildManifest(epub, navHref, ncxHref) {
-  const byHref = new Map();
-
-  for (const item of epub.manifestItems) {
-    if (!item.href || item.properties.includes('nav')) continue;
-    byHref.set(item.href, item);
+function ensureManifestItem(items, expected) {
+  const found = items.find((item) => item['@_href'] === expected.href || item['@_id'] === expected.id);
+  if (found) {
+    found['@_media-type'] = expected.mediaType;
+    if (expected.properties) found['@_properties'] = expected.properties;
+    return;
   }
-
-  byHref.set(navHref, { id: 'nav', href: navHref, mediaType: 'application/xhtml+xml', properties: 'nav' });
-
-  if (!byHref.has(ncxHref)) {
-    byHref.set(ncxHref, { id: 'ncx', href: ncxHref, mediaType: 'application/x-dtbncx+xml', properties: '' });
-  }
-
-  const items = [...byHref.values()].map((item) => {
-    const prop = item.properties ? ` properties="${escapeXml(item.properties)}"` : '';
-    return `    <item id="${escapeXml(item.id)}" href="${escapeXml(item.href)}" media-type="${escapeXml(item.mediaType)}"${prop}/>`;
-  }).join('\n');
-
-  return `<manifest>\n${items}\n  </manifest>`;
+  items.push({ '@_id': expected.id, '@_href': expected.href, '@_media-type': expected.mediaType, ...(expected.properties ? { '@_properties': expected.properties } : {}) });
 }
 
-function buildSpine(epub) {
-  const items = epub.spineItems.map((item) => {
-    const linear = item.linear && item.linear !== 'yes' ? ` linear="${escapeXml(item.linear)}"` : '';
-    return `    <itemref idref="${escapeXml(item.idref)}"${linear}/>`;
-  }).join('\n');
-
-  return `<spine>\n${items}\n  </spine>`;
+function findIdByHref(items, href) {
+  return toArray(items).find((item) => item['@_href'] === href)?.['@_id'];
 }
 
-function fallbackId() {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+function cleanItem(item) {
+  return Object.fromEntries(Object.entries(item).filter(([, value]) => value !== undefined && value !== null));
 }

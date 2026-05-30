@@ -1,48 +1,35 @@
 import * as cheerio from 'cheerio';
 import { readZipText } from '../utils/zip-utils.js';
-import { cleanText, isGenericTitle } from '../utils/text-utils.js';
+import { cleanText } from '../utils/text-utils.js';
 
 export function readHtmlDocuments(epub) {
-  return epub.htmlItems.map((item) => {
-    const html = readZipText(epub.zip, item.fullPath);
-    const $ = cheerio.load(html, { xmlMode: false });
-    const blockTexts = getBlockTexts($);
-    const bodyText = cleanText($('body').text());
+  return epub.htmlItems.map((item) => readHtmlDocument(epub, item)).filter(Boolean);
+}
 
+function readHtmlDocument(epub, item) {
+  try {
+    const html = readZipText(epub.zip, item.fullPath);
+    const $ = cheerio.load(html, { xmlMode: true, decodeEntities: true });
+    const title = cleanText($('title').first().text());
+    const heading = cleanText($('h1,h2,h3').first().text());
+    const firstBold = cleanText($('b,strong').first().text());
+    const paragraphs = $('p').map((_, el) => cleanText($(el).text())).get().filter(Boolean);
+    const blockTexts = $('h1,h2,h3,h4,p,div').slice(0, 12).map((_, el) => cleanText($(el).text())).get().filter(Boolean);
+    const text = cleanText($('body').text() || $.root().text());
     return {
       id: item.id,
       href: item.href,
       fullPath: item.fullPath,
-      title: cleanText($('title').first().text()),
-      heading: getHeading($),
-      firstBold: cleanText($('strong,b').first().text()),
-      firstParagraph: cleanText($('p').first().text()),
+      title,
+      heading,
+      firstBold,
+      firstParagraph: paragraphs[0] || '',
       blockTexts,
-      bodyTextPreview: bodyText.slice(0, 1000),
-      textLength: bodyText.length,
-      wordCount: countWords(bodyText),
-      isEmpty: bodyText.length < 20
+      text,
+      textLength: text.length,
+      wordCount: text ? text.split(/\s+/).filter(Boolean).length : 0
     };
-  });
-}
-
-function getHeading($) {
-  const heading = $('h1,h2,h3,h4,h5,h6').filter((_, el) => {
-    return !isGenericTitle(cleanText($(el).text()));
-  }).first();
-
-  return cleanText(heading.text());
-}
-
-function getBlockTexts($) {
-  return $('h1,h2,h3,h4,h5,h6,p,div,strong,b,span')
-    .map((_, el) => cleanText($(el).text()))
-    .get()
-    .filter(Boolean)
-    .slice(0, 40);
-}
-
-function countWords(value) {
-  const text = cleanText(value);
-  return text ? text.split(' ').length : 0;
+  } catch (error) {
+    return { id: item.id, href: item.href, fullPath: item.fullPath, error: error.message, text: '', textLength: 0, wordCount: 0, blockTexts: [] };
+  }
 }
