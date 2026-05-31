@@ -10,6 +10,7 @@ import { detectChapters } from './analyzers/chapter-detector.js';
 import { analyzeStructure } from './analyzers/structure-analyzer.js';
 import { extractPdfCanonicalChapters } from './analyzers/pdf-toc-extractor.js';
 import { validateEpub3 } from './validators/epub3-validator.js';
+import { runFinalRegressionValidation } from './validators/final-regression-validator.js';
 import { buildStructuredEpub } from './builders/epub-builder.js';
 import { analyzeChapterBoundaries } from './analyzers/chapter-boundary-analyzer.js';
 import { buildChapterRanges } from './analyzers/chapter-range-builder.js';
@@ -44,13 +45,32 @@ async function main() {
   const bookName = safeFileName(epub.opf.metadata.title || path.basename(inputFile, '.epub'));
   const outputFile = path.join(ROOT, 'output', `${bookName}-structured.epub`);
 
-  buildStructuredEpub(epub, chapterReport, outputFile);
-  
-  // Reanalisar TOC do EPUB final estruturado
-  const finalEpub = readEpub(outputFile);
-  const finalTocReport = analyzeToc(finalEpub);
+  buildStructuredEpub(epub, chapterReport, resplitReport, chaptersDir, outputFile);
 
-  await writeJsonReport(path.join(ROOT, 'reports', 'structure_report.json'), structureReport);
+  // Atualizar chapterReport com novos hrefs para reanálise
+  const hrefMap = new Map();
+  for (const resplitChapter of resplitReport.chapters) {
+    hrefMap.set(resplitChapter.chapterNumber, resplitChapter.outputFile);
+  }
+  const updatedChapters = chapterReport.chapters.map(chapter => {
+    if (chapter.role === 'chapter' && chapter.chapterNumber) {
+      const newHref = hrefMap.get(chapter.chapterNumber);
+      if (newHref) {
+        return { ...chapter, href: newHref, fullPath: newHref };
+      }
+    }
+    return chapter;
+  });
+  const updatedChapterReport = { ...chapterReport, chapters: updatedChapters };
+
+  // Reanalisar EPUB final estruturado completamente
+  const finalEpub = readEpub(outputFile);
+  const finalHtmlDocs = readHtmlDocuments(finalEpub);
+  const finalTocReport = analyzeToc(finalEpub);
+  const finalStructureReport = analyzeStructure(finalEpub, finalHtmlDocs, updatedChapterReport, finalTocReport, languageReport);
+  const finalValidationReport = validateEpub3(finalStructureReport, updatedChapterReport, finalTocReport, languageReport);
+
+  await writeJsonReport(path.join(ROOT, 'reports', 'structure_report.json'), finalStructureReport);
   await writeJsonReport(path.join(ROOT, 'reports', 'chapter_report.json'), chapterReport);
   await writeJsonReport(path.join(ROOT, 'reports', 'toc_report.json'), finalTocReport);
   await writeJsonReport(path.join(ROOT, 'reports', 'language_report.json'), languageReport);
@@ -58,7 +78,11 @@ async function main() {
   await writeJsonReport(path.join(ROOT, 'reports', 'chapter_boundary_report.json'), boundaryReport);
   await writeJsonReport(path.join(ROOT, 'reports', 'chapter_range_report.json'), rangeReport);
   await writeJsonReport(path.join(ROOT, 'reports', 'chapter_resplit_report.json'), resplitReport);
-  await writeJsonReport(path.join(ROOT, 'reports', 'validation_report.json'), validationReport);
+  await writeJsonReport(path.join(ROOT, 'reports', 'validation_report.json'), finalValidationReport);
+
+  // Validação final de regressão
+  const finalRegressionReport = runFinalRegressionValidation(path.join(ROOT, 'reports'), outputFile);
+  await writeJsonReport(path.join(ROOT, 'reports', 'final_regression_report.json'), finalRegressionReport);
 
   console.log('EPUB processado pela v7.2 PDF canonical.');
   console.log(`Entrada: ${path.relative(ROOT, inputFile)}`);

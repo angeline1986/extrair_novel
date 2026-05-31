@@ -4,7 +4,7 @@ import { toArray } from '../utils/object-utils.js';
 const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
 const builder = new XMLBuilder({ ignoreAttributes: false, attributeNamePrefix: '@_', format: true, suppressEmptyNode: true });
 
-export function buildEpub3Opf(epub, navHref, ncxHref) {
+export function buildEpub3Opf(epub, navHref, ncxHref, updatedChapterReport) {
   const data = parser.parse(epub.opf.xml);
   const pkg = data.package;
   pkg['@_version'] = '3.0';
@@ -12,9 +12,36 @@ export function buildEpub3Opf(epub, navHref, ncxHref) {
   const items = toArray(pkg.manifest.item);
   ensureManifestItem(items, { id: 'nav', href: navHref, mediaType: 'application/xhtml+xml', properties: 'nav' });
   ensureManifestItem(items, { id: 'ncx', href: ncxHref, mediaType: 'application/x-dtbncx+xml' });
+
+  // Adicionar chapter_XXX.xhtml ao manifest (não remover index_split_XXX.html)
+  for (const chapter of updatedChapterReport.chapters) {
+    if (chapter.role === 'chapter') {
+      ensureManifestItem(items, {
+        id: `chapter-${String(chapter.chapterNumber).padStart(3, '0')}`,
+        href: chapter.href,
+        mediaType: 'application/xhtml+xml'
+      });
+    }
+  }
+
   pkg.manifest.item = items.map((item) => cleanItem(item));
   pkg.spine = pkg.spine || {};
   pkg.spine['@_toc'] = findIdByHref(pkg.manifest.item, ncxHref) || 'ncx';
+
+  // Reconstruir spine usando frontmatter de chapterReport + novos capítulos
+  // index_split_XXX.html antigos não entram no spine
+  const frontmatterDocs = updatedChapterReport.documents.filter(doc => doc.role === 'frontmatter');
+  const frontmatterItems = frontmatterDocs.map(doc => {
+    const id = findIdByHref(items, doc.href) || doc.idref;
+    return { '@_idref': id };
+  });
+
+  const chapterDocs = updatedChapterReport.chapters.filter(ch => ch.role === 'chapter');
+  const chapterItems = chapterDocs.map(chapter => ({
+    '@_idref': `chapter-${String(chapter.chapterNumber).padStart(3, '0')}`
+  }));
+
+  pkg.spine.itemref = [...frontmatterItems, ...chapterItems];
   return `<?xml version="1.0" encoding="UTF-8"?>\n${builder.build(data)}`;
 }
 

@@ -1,7 +1,7 @@
 import { escapeXml } from '../utils/xml-utils.js';
 
-export function buildNavXhtml(chapterReport, language) {
-  const items = chapterReport.chapters.map((chapter) => {
+export function buildNavXhtml(updatedChapterReport, language) {
+  const items = updatedChapterReport.chapters.map((chapter) => {
     const title = escapeXml(chapter.finalTitle || chapter.title);
     return `      <li><a href="${escapeXml(chapter.href)}">${title}</a></li>`;
   }).join('\n');

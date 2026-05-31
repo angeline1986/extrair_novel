@@ -1,9 +1,9 @@
 import { escapeXml } from '../utils/xml-utils.js';
 
-export function buildNcx(chapterReport, metadata) {
+export function buildNcx(updatedChapterReport, metadata) {
   const uid = escapeXml(metadata.identifier || 'generated-id');
   const title = escapeXml(metadata.title || 'Livro');
-  const navPoints = chapterReport.chapters.map((chapter, index) => {
+  const navPoints = updatedChapterReport.chapters.map((chapter, index) => {
     const label = escapeXml(chapter.finalTitle || chapter.title);
     return `    <navPoint id="navPoint-${index + 1}" playOrder="${index + 1}">
       <navLabel><text>${label}</text></navLabel>
