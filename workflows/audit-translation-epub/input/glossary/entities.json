@@ -1,5 +1,140 @@
 {
   "schemaVersion": "1.0",
-  "entities": []
+  "entities": [
+    {
+      "canonical": "Do Yi-hyeon",
+      "note": "Nome oficial do protagonista; aliases mantidos em revisao manual para evitar trocas indevidas em contexto espanhol residual.",
+      "aliases": [
+        {
+          "from": "Doihyeon",
+          "to": "Do Yi-hyeon",
+          "mode": "auto_review",
+          "confidence": 0.88,
+          "note": "Forma sem espaco encontrada na traducao."
+        },
+        {
+          "from": "Doihyun",
+          "to": "Do Yi-hyeon",
+          "mode": "auto_review",
+          "confidence": 0.82,
+          "note": "Variação de romanização hyun/hyeon."
+        },
+        {
+          "from": "Do Yi-hyun",
+          "to": "Do Yi-hyeon",
+          "mode": "auto_review",
+          "confidence": 0.84,
+          "note": "Variação de romanização hyun/hyeon."
+        },
+        {
+          "from": "Doi-Hyeon",
+          "to": "Do Yi-hyeon",
+          "mode": "auto_review",
+          "confidence": 0.86,
+          "note": "Forma hifenizada sem espaco."
+        },
+        {
+          "from": "Doi-hyeon",
+          "to": "Do Yi-hyeon",
+          "mode": "auto_review",
+          "confidence": 0.86,
+          "note": "Forma hifenizada sem espaco."
+        },
+        {
+          "from": "Doi-Hyun",
+          "to": "Do Yi-hyeon",
+          "mode": "auto_review",
+          "confidence": 0.82,
+          "note": "Forma hifenizada e com variação hyun/hyeon."
+        },
+        {
+          "from": "Yi-hyun Seo",
+          "to": "Do Yi-hyeon",
+          "mode": "auto_review",
+          "confidence": 0.72,
+          "note": "Alias composto suspeito; revisar contexto antes de aplicar."
+        },
+        {
+          "from": "Yi-hyeon Seo",
+          "to": "Do Yi-hyeon",
+          "mode": "auto_review",
+          "confidence": 0.72,
+          "note": "Alias composto suspeito; revisar contexto antes de aplicar."
+        },
+        {
+          "from": "Yi-hyeon Lee",
+          "to": "Do Yi-hyeon",
+          "mode": "auto_review",
+          "confidence": 0.72,
+          "note": "Alias composto suspeito; revisar contexto antes de aplicar."
+        },
+        {
+          "from": "Lee Hyun",
+          "to": "Do Yi-hyeon",
+          "mode": "auto_review",
+          "confidence": 0.68,
+          "note": "Pode ser tratamento/endereço ao protagonista; revisar contexto antes de aplicar."
+        },
+        {
+          "from": "Lee Hyeon",
+          "to": "Do Yi-hyeon",
+          "mode": "auto_review",
+          "confidence": 0.68,
+          "note": "Pode ser tratamento/endereço ao protagonista; revisar contexto antes de aplicar."
+        },
+        {
+          "from": "Lee Hyeon-i",
+          "to": "Do Yi-hyeon",
+          "mode": "auto_review",
+          "confidence": 0.64,
+          "note": "Forma com sufixo coreano; revisar contexto antes de aplicar."
+        },
+        {
+          "from": "Lee Hyeon-ah",
+          "to": "Do Yi-hyeon",
+          "mode": "auto_review",
+          "confidence": 0.64,
+          "note": "Forma vocativa com sufixo coreano; revisar contexto antes de aplicar."
+        }
+      ]
+    },
+    {
+      "canonical": "Seo Jeongwoon",
+      "note": "Nome oficial; nao substituir ocorrencias de Jeongwoon sozinho, pois pode ser uso legitimo do primeiro nome.",
+      "aliases": []
+    },
+    {
+      "canonical": "Lee Tae-jun",
+      "note": "Nome oficial do personagem citado como Taejun Lee/Lee Tae-jun.",
+      "aliases": [
+        {
+          "from": "Taejun Lee",
+          "to": "Lee Tae-jun",
+          "mode": "auto_review",
+          "confidence": 0.78,
+          "note": "Ordem ocidental encontrada na traducao; revisar antes de aplicar."
+        },
+        {
+          "from": "Lee Taejun",
+          "to": "Lee Tae-jun",
+          "mode": "auto_review",
+          "confidence": 0.86,
+          "note": "Forma sem hifen."
+        }
+      ]
+    },
+    {
+      "canonical": "Yu-min",
+      "note": "Nome oficial; manter aliases em revisao manual.",
+      "aliases": [
+        {
+          "from": "Yumin",
+          "to": "Yu-min",
+          "mode": "auto_review",
+          "confidence": 0.86,
+          "note": "Forma sem hifen."
+        }
+      ]
+    }
+  ]
 }
-

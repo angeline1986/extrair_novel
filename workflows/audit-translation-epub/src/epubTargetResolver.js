@@ -10,6 +10,24 @@ function firstEpubInDir(dirPath) {
   return file ? path.join(dirPath, file) : null;
 }
 
+function versionFromFilename(file) {
+  const match = String(file || '').match(/_v(\d+)/i);
+  return match ? Number(match[1]) : 0;
+}
+
+function latestEpubInDir(dirPath) {
+  if (!fs.existsSync(dirPath)) return null;
+  const files = fs.readdirSync(dirPath)
+    .filter((name) => name.toLowerCase().endsWith('.epub'))
+    .sort((a, b) => {
+      const versionDiff = versionFromFilename(b) - versionFromFilename(a);
+      if (versionDiff !== 0) return versionDiff;
+      return fs.statSync(path.join(dirPath, b)).mtimeMs - fs.statSync(path.join(dirPath, a)).mtimeMs;
+    });
+
+  return files[0] ? path.join(dirPath, files[0]) : null;
+}
+
 function latestEpubInVersionDir(inputFixedDir, manifest) {
   if (!manifest?.currentVersion) return null;
 
@@ -47,7 +65,7 @@ export function resolveEpubTarget({
   if (!workflowRoot) throw new Error('workflowRoot e obrigatorio para resolver EPUB alvo.');
 
   const attempts = [];
-  const outputPath = firstEpubInDir(outputDir);
+  const outputPath = latestEpubInDir(outputDir);
   attempts.push({
     source: 'output',
     dir: outputDir,

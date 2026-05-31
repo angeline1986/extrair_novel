@@ -25,7 +25,7 @@ Este plano existe para permitir retomada segura caso a implementacao seja interr
 - Correcao automatica do EPUB com base no relatorio.
 - Uso obrigatorio de Ollama.
 - Substituicao do `reader-report-latest.html`.
-- Aplicar automaticamente achados aprovados da fila `state/pdf-epub-review-queue.json`; proxima etapa prevista: criar fluxo "Aplicar achados PDF x EPUB aprovados".
+- Aplicar automaticamente achados aprovados sem validacao humana previa.
 
 ## Milestone 1 - Lexicos de Idioma
 
@@ -222,12 +222,14 @@ Opcao de menu prevista:
 - `Gerar relatorio PDF x EPUB`
 - `Validar achados PDF x EPUB`, dentro do submenu de revisao, gerando fila separada:
   - `state/pdf-epub-review-queue.json`
+- `Aplicar achados PDF x EPUB aprovados`, gerando nova versao do EPUB a partir da fila separada.
 
 Criterios de aceite:
 
 - Rodar sem afetar auditoria atual.
 - Fluxo principal do menu tambem deve gerar `reports/html/pdf-epub-comparison-latest.html` ao final, quando houver PDF disponivel.
 - Achados aprovados do relatorio PDF x EPUB devem ficar em fila separada, sem misturar com `state/review-queue.json`.
+- Achados PDF x EPUB aprovados podem ser aplicados em nova versao do EPUB quando houver substituicao clara.
 - Exibir no final apenas o caminho:
   - `reports/html/pdf-epub-comparison-latest.html`
 - Exit code deve indicar erro real de execucao, nao quantidade de achados.

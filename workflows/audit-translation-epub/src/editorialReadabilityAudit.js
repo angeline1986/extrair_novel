@@ -406,14 +406,19 @@ function detectNameInconsistency(translationDoc) {
   for (const paragraph of text.split(/\n+/)) {
     const sentences = paragraph.split(/[.!?…“”"()]+/);
     for (const sentence of sentences) {
-      const rawTokens = sentence.match(/[\p{Lu}][\p{L}]+(?:-[\p{L}]+)?/gu) || [];
-      for (let i = 0; i < rawTokens.length; i++) {
-        const single = rawTokens[i];
-        const next = rawTokens[i + 1] || '';
+      const rawTokenMatches = [...sentence.matchAll(/[\p{Lu}][\p{L}]+(?:-[\p{L}]+)?/gu)];
+      for (let i = 0; i < rawTokenMatches.length; i++) {
+        const single = rawTokenMatches[i][0];
+        const nextMatch = rawTokenMatches[i + 1] || null;
+        const next = nextMatch?.[0] || '';
         const candidates = [single];
         const nextNormalized = normalizeWord(next);
+        const betweenTokens = nextMatch
+          ? sentence.slice(rawTokenMatches[i].index + single.length, nextMatch.index)
+          : '';
         const canPair =
           next &&
+          /^[\s]+$/.test(betweenTokens) &&
           !PORTUGUESE_NAME_STOPWORDS.has(nextNormalized) &&
           !normalizeWord(next).startsWith(normalizeWord(single)) &&
           (isLikelyNameToken(single) || KOREAN_FAMILY_NAMES.has(normalizeWord(single))) &&

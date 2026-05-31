@@ -6,6 +6,7 @@ import readline from 'readline';
 import { fileURLToPath } from 'url';
 import { spawnSync } from 'child_process';
 import { fixEpub } from './fixEpub.js';
+import { applyApprovedPdfEpubFindings as applyApprovedPdfEpubFindingsToEpub } from './applyPdfEpubApprovedFindings.js';
 import { runPdfEpubComparisonReport as generatePdfEpubComparisonReport } from './auditPdfEpubReport.js';
 import {
   buildPdfEpubReviewQueue,
@@ -531,6 +532,7 @@ async function applyApprovedPdfEpubFindings() {
   }
 
   const approvedItems = (queue.items || []).filter((item) => item.status === 'approved');
+  const pendingApplicationItems = approvedItems.filter((item) => !item.application?.finalPath && !item.application?.appliedAt);
   if (!approvedItems.length) {
     log('\nNenhum achado PDF x EPUB aprovado para aplicar.', 'yellow');
     return;
@@ -543,10 +545,33 @@ async function applyApprovedPdfEpubFindings() {
   }
   if (approvedItems.length > 10) console.log(`   ... e mais ${approvedItems.length - 10} achados`);
 
+  if (!pendingApplicationItems.length) {
+    log('\nTodos os achados PDF x EPUB aprovados ja foram aplicados anteriormente.', 'green');
+    log(`Fila: ${displayPath(pdfEpubReviewQueuePath)}`, 'cyan');
+    return;
+  }
+
   console.log();
-  log('A aplicacao automatica desses achados ainda nao foi implementada.', 'yellow');
-  log('Eles estao preservados na fila separada para a proxima etapa.', 'dim');
-  log(`Fila: ${displayPath(pdfEpubReviewQueuePath)}`, 'cyan');
+  const answer = (await ask(color(`Gerar nova versao do EPUB com ${pendingApplicationItems.length} achado(s) aprovado(s) pendente(s)? (S/N): `, 'yellow'))).trim().toLowerCase();
+  if (answer !== 's' && answer !== 'sim' && answer !== 'y') {
+    log('Aplicacao cancelada. Os achados continuam aprovados na fila separada.', 'dim');
+    return;
+  }
+
+  try {
+    const report = await applyApprovedPdfEpubFindingsToEpub();
+    if (report.noOp) {
+      log(report.message, 'green');
+      return;
+    }
+    log(`Nova versao criada: ${report.version}`, 'green');
+    log(`Substituicoes aplicadas: ${report.totalReplacements}`, 'green');
+    log(`Arquivo final: ${displayPath(report.finalPath)}`, 'cyan');
+
+    await generatePdfEpubComparisonReportFromMenu({ warnOnly: true });
+  } catch (error) {
+    log(`Aplicacao PDF x EPUB nao executada: ${error.message}`, 'yellow');
+  }
 }
 
 async function offerApplyApprovedPdfEpubFindings(queue) {
