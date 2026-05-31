@@ -47,6 +47,7 @@ claro clara escuro escura branco branca preto preta vermelho vermelha azul certo
 gravidez reuniao reunião mal-entendido reconhecimento promessa viagem negocios negócios verdade contrato contratos rumores tratamento noticias notícias
 perturbacao perturbação ciume ciúme mudanca mudança introducao introdução vazamento agua água rachadura consequencia consequência conclusao conclusão
 historia história amor casamento materiais enjoo matinal cantigas ninar capitulo capítulo titulo título
+nausea náusea nauseas náuseas fuga
 `));
 
 export const SPANISH_COMMON_WORDS = new Set(wordsFromList(`

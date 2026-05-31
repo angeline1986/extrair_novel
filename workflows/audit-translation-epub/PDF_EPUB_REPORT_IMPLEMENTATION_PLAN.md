@@ -122,6 +122,8 @@ Criterios de aceite:
 
 ## Milestone 4 - Auditoria PDF x EPUB
 
+Status: implementado em `src/pdfEpubComparisonAudit.js`.
+
 Criar motor de comparacao entre PDF original e EPUB PT-BR.
 
 Arquivo previsto:
