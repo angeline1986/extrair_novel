@@ -58,13 +58,14 @@ const paths = {
 };
 
 function parseArgs(argv) {
-  const args = { source: null, translated: null, log: null, verbose: false };
+  const args = { source: null, translated: null, log: null, sourceLanguage: 'en', verbose: false };
 
   for (const arg of argv) {
     if (arg === '--verbose') args.verbose = true;
     else if (arg.startsWith('--source=')) args.source = path.resolve(arg.slice('--source='.length));
     else if (arg.startsWith('--translated=')) args.translated = path.resolve(arg.slice('--translated='.length));
     else if (arg.startsWith('--log=')) args.log = path.resolve(arg.slice('--log='.length));
+    else if (arg.startsWith('--source-language=')) args.sourceLanguage = arg.slice('--source-language='.length);
   }
 
   return args;
@@ -684,7 +685,7 @@ async function main() {
   allIssues.push(...structural.issues);
   allWarnings.push(...structural.warnings);
 
-  const content = runEpubContentChecks(sourceDoc, translationDoc);
+  const content = runEpubContentChecks(sourceDoc, translationDoc, args.sourceLanguage);
   allIssues.push(...content.issues);
   allWarnings.push(...content.warnings);
 

@@ -1,3 +1,5 @@
+import { getLanguageConfig } from './languageConfig.js';
+
 function collectExamples(text, regex, limit = 5) {
   const examples = [];
   const globalRegex = new RegExp(regex.source, regex.flags.includes('g') ? regex.flags : `${regex.flags}g`);
@@ -128,7 +130,7 @@ export function runEpubStructuralChecks(sourceDoc, translationDoc, alignment) {
   return { issues, warnings };
 }
 
-export function runEpubContentChecks(sourceDoc, translationDoc) {
+export function runEpubContentChecks(sourceDoc, translationDoc, sourceLang = 'en') {
   const issues = [];
   const warnings = [];
   const sourceChars = sourceDoc.charCount;
@@ -151,7 +153,7 @@ export function runEpubContentChecks(sourceDoc, translationDoc) {
     });
   }
 
-  warnings.push(...detectResidualEnglishBlocks(translationDoc.rawText));
+  warnings.push(...detectResidualSourceLanguageBlocks(translationDoc.rawText, sourceLang));
   return { issues, warnings };
 }
 
@@ -200,20 +202,26 @@ export function runEpubLanguageChecks(text) {
   return { issues, warnings };
 }
 
-function detectResidualEnglishBlocks(text) {
+export function detectResidualSourceLanguageBlocks(text, sourceLang = 'en') {
+  const config = getLanguageConfig(sourceLang);
   const paragraphs = String(text || '').split(/\n{2,}/);
-  const commonEnglish = /\b(the|and|with|that|this|would|could|should|have|been|from|they|their|there|while|after|before|because)\b/gi;
-  const portugueseMarkers = /\b(que|com|para|uma|não|nao|ele|ela|dos|das|por|como|mais|muito|quando)\b/iu;
+  const sourcePattern = new RegExp(`\\b(${config.residualMarkers.join('|')})\\b`, 'gi');
+  const portugueseMarkers = /\b(que|com|para|uma|não|nao|ele|ela|dos|das|por|como|mais|muito|quando)\b/giu;
   const examples = [];
 
   for (const paragraph of paragraphs) {
     const compact = paragraph.replace(/\s+/g, ' ').trim();
     if (compact.length < 120) continue;
 
-    const englishHits = [...compact.matchAll(commonEnglish)].length;
-    if (englishHits >= 8 && !portugueseMarkers.test(compact)) {
+    const sourceHits = [...compact.matchAll(sourcePattern)].length;
+    // Para espanhol, relaxar a verificação de marcadores portugueses pois há muitas palavras comuns
+    const hasPortugueseMarkers = sourceLang === 'es' 
+      ? portugueseMarkers.test(compact) && [...compact.matchAll(portugueseMarkers)].length > sourceHits
+      : portugueseMarkers.test(compact);
+    
+    if (sourceHits >= config.residualThreshold && !hasPortugueseMarkers) {
       examples.push({
-        match: 'english paragraph',
+        match: `${config.name.toLowerCase()} paragraph`,
         context: compact.slice(0, 240),
         index: text.indexOf(paragraph),
       });
@@ -224,9 +232,9 @@ function detectResidualEnglishBlocks(text) {
 
   return examples.length > 0
     ? [{
-        type: 'epub_residual_english_block',
+        type: `epub_residual_${sourceLang}_block`,
         severity: 'WARN',
-        description: 'Possiveis blocos longos em ingles permaneceram na traducao.',
+        description: `Possiveis blocos longos em ${config.name.toLowerCase()} permaneceram na traducao.`,
         occurrences: examples.length,
         examples,
       }]

@@ -64,6 +64,16 @@ Tambem e possivel passar caminhos explicitos:
 npm run audit:translation:epub -- --source=livro-en.epub --translated=livro-pt.epub --log=log-traducao.txt
 ```
 
+Para auditoria de espanhol para portugues, use o parametro `--source-language`:
+
+```bash
+npm run audit:translation:epub -- --source-language=es
+```
+
+Idiomas suportados:
+- `en` (ingles) - default
+- `es` (espanhol)
+
 ## Formato recomendado do TXT
 
 O log aceita texto livre, mas aproveita melhor linhas estruturadas. Exemplo para *Show Me Your Stats*:
