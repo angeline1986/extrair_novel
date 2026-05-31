@@ -58,6 +58,8 @@ Criterios de aceite:
 
 ## Milestone 2 - Leitura do PDF
 
+Status: implementado em `src/pdfReader.js`.
+
 Criar leitor simples para extrair texto do PDF original.
 
 Arquivo previsto:
@@ -71,6 +73,8 @@ Funcionalidades previstas:
 - normalizar texto;
 - extrair blocos/linhas;
 - tentar identificar titulos/capitulos por padrao numerico;
+- manter `paragraphs` por compatibilidade com `epubReader.js`, mas no PDF esse campo representa linhas/blocos textuais extraidos, nao paragrafos editoriais reais;
+- expor `textBlocks` como alias mais explicito de `paragraphs`;
 - retornar objeto parecido com:
 
 ```js
@@ -80,7 +84,10 @@ Funcionalidades previstas:
   rawText,
   pages,
   sections,
+  paragraphs,
+  textBlocks,
   paragraphCount,
+  textBlockCount,
   charCount
 }
 ```
