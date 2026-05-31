@@ -23,6 +23,7 @@
     "audit:translation:epub:run": "node workflows/audit-translation-epub/src/audit.js",
     "audit:translation:epub:verbose": "node workflows/audit-translation-epub/src/audit.js --verbose",
     "audit:translation:epub:menu": "node workflows/audit-translation-epub/src/menu.js",
+    "audit:translation:epub:pdf-report": "node workflows/audit-translation-epub/src/auditPdfEpubReport.js",
     "audit:epub:menu": "node workflows/audit-translation-epub/src/menu.js",
     "fix:translation:epub": "node workflows/audit-translation-epub/src/fixEpub.js",
     "review:translation:epub:validate": "node workflows/audit-translation-epub/src/validateReviewQueue.js",

@@ -200,6 +200,8 @@ Criterios de aceite:
 
 ## Milestone 6 - CLI e Menu
 
+Status: implementado em `src/auditPdfEpubReport.js`, `src/menu.js` e `../../package.json`.
+
 Criar comando dedicado para gerar o novo relatorio.
 
 Arquivos previstos:
@@ -221,6 +223,7 @@ Opcao de menu prevista:
 Criterios de aceite:
 
 - Rodar sem afetar auditoria atual.
+- Fluxo principal do menu tambem deve gerar `reports/html/pdf-epub-comparison-latest.html` ao final, quando houver PDF disponivel.
 - Exibir no final apenas o caminho:
   - `reports/html/pdf-epub-comparison-latest.html`
 - Exit code deve indicar erro real de execucao, nao quantidade de achados.
