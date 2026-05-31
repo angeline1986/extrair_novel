@@ -28,6 +28,8 @@ Este plano existe para permitir retomada segura caso a implementacao seja interr
 
 ## Milestone 1 - Lexicos de Idioma
 
+Status: implementado em `src/languageLexicons.js`.
+
 Criar uma camada leve de idioma para reduzir falsos positivos.
 
 Arquivo previsto:
