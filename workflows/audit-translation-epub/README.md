@@ -109,6 +109,7 @@ logs/workflow-events.jsonl
 reports/json/audit-report-*.json
 state/correction-plan.json
 state/semantic-candidates.json
+state/editorial-findings.json
 state/review-queue.json
 state/assisted-review-suggestions.json
 logs/assisted-review-model-trace.json
@@ -122,6 +123,7 @@ reports/txt/review-queue-latest.md
 reports/txt/assisted-review-suggestions-latest.md
 reports/html/audit-dashboard-latest.html
 reports/html/validation-report-latest.html
+reports/html/reader-report-latest.html
 input-fixed/manifest.json
 ```
 
@@ -160,6 +162,32 @@ A validacao do modelo e conservadora por design. O trace registra detalhes de re
 A auditoria semantica gera `state/semantic-candidates.json` como uma camada separada de revisao. Esses candidatos procuram sinais de mudanca de sentido, omissao relevante, repeticao anormal, literalidade, inconsistencia terminologica, tratamento inconsistente e drift semantico usando alinhamento, contexto expandido, glossario e entidades. Eles nao entram automaticamente no `correction-plan.json`, nao alteram EPUB e sempre exigem revisao humana.
 
 Os `semanticCandidates` mais relevantes podem ser copiados para `state/review-queue.json` com `origin: semantic_audit`, sempre como `status: pending` e `mode: auto_review`. Eles nunca viram `auto_safe` e qualquer sugestao assistida gerada para esses itens continua com `requiresHumanApproval: true`.
+
+## Achados Editoriais Informativos
+
+A auditoria gera `state/editorial-findings.json` com problemas editoriais detectados na traducao, separados em duas categorias:
+
+- **Confirmados**: problemas objetivamente comprovados (titulos duplicados, resquicios do idioma original, inconsistencia de nomes)
+- **Heuristicos**: suspeitas editoriais que exigem validacao humana (traducao literal, problemas de estilo, localizacao pouco natural)
+
+Esses achados sao puramente informativos e **nao sao aplicados como correcao automatica**. Eles nao entram na review queue e nao alteram o EPUB.
+
+O relatorio `reports/html/reader-report-latest.html` exibe uma nova secao "Achados editoriais informativos" com:
+
+- Metrica de "Saúde editorial" (0-10) no topo do relatorio
+- Separacao entre achados Confirmados e Heuristicos
+- Detalhes por categoria com exemplos
+- Aviso claro de que itens heurísticos exigem validacao humana
+
+Categorias detectadas:
+
+1. **Títulos duplicados origem/tradução** (confirmed, high): Capítulos que mantêm o título original junto do título traduzido
+2. **Resquícios do idioma original** (confirmed, high): Termos/frases em espanhol que permaneceram no EPUB traduzido
+3. **Possível divergência de tradução em títulos** (heuristic, high, medium): Títulos onde a tradução parece não corresponder ao significado do original
+4. **Inconsistência de nomes e romanização** (confirmed, medium): Variantes diferentes do mesmo nome ao longo do texto
+5. **Tradução excessivamente literal** (heuristic, medium): Estruturas pouco naturais em português
+6. **Pequenos problemas de estilo** (heuristic, low): Pontuação estranha, aspas mal formatadas, espaços duplicados
+7. **Localização pouco natural** (heuristic, low): Trechos que parecem pouco naturais em português
 
 ## Checklist De Validacao
 

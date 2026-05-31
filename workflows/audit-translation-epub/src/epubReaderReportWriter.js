@@ -326,6 +326,79 @@ function semanticExamplesSummary(semanticAudit) {
   return `${formatNumber(mediumHigh)} exemplo${mediumHigh === 1 ? '' : 's'} medio/alto para leitura humana`;
 }
 
+function editorialFindingsSummary(editorialFindings) {
+  const total = editorialFindings?.summary?.totalFindings || 0;
+  const confirmed = editorialFindings?.summary?.confirmed || 0;
+  const heuristic = editorialFindings?.summary?.heuristic || 0;
+  if (!total) return 'nenhum achado editorial registrado';
+  return `${formatNumber(total)} achado${total === 1 ? '' : 's'} editorial${total === 1 ? '' : 'is'} (${formatNumber(confirmed)} confirmados, ${formatNumber(heuristic)} heurísticos)`;
+}
+
+function renderEditorialCategory(cat) {
+  const tone = cat.severity === 'high' ? 'bad' : cat.severity === 'medium' ? 'warn' : 'soft';
+  const classificationLabel = cat.classification === 'confirmed' ? 'Confirmado' : 'Heurístico';
+
+  return `
+    <article class="issue-card">
+      <div class="change-head">
+        ${renderPill(cat.label, tone)}
+        ${renderPill(cat.severity, tone)}
+        ${renderPill(classificationLabel, cat.classification === 'confirmed' ? 'good' : 'soft')}
+        ${renderPill(cat.confidence, 'soft')}
+      </div>
+      <p class="reason">${escapeHtml(cat.description)}</p>
+      <div class="metric-grid">
+        ${renderMetric('Ocorrências', formatNumber(cat.count), 'total detectado')}
+      </div>
+      ${cat.examples?.length ? `
+        <div class="context-block">
+          <strong>Exemplos</strong>
+          ${cat.examples.slice(0, 5).map(ex => `<p>${escapeHtml(ex)}</p>`).join('')}
+        </div>` : ''}
+      ${cat.classification === 'heuristic' ? `
+        <div class="action-line" style="color: #9a5b00;">
+          <strong>Ação:</strong> Requer validação humana.
+        </div>` : ''}
+    </article>`;
+}
+
+function renderEditorialFindings(editorialFindings) {
+  const categories = editorialFindings?.categories || [];
+  if (!categories.length) {
+    return '<div class="empty">Nenhum achado editorial detectado nesta rodada.</div>';
+  }
+
+  const confirmed = categories.filter(c => c.classification === 'confirmed');
+  const heuristic = categories.filter(c => c.classification === 'heuristic');
+
+  let html = '';
+
+  // Aviso obrigatório
+  html += `
+    <div class="panel" style="background: #fbfaf7; border-color: #e4af3a; margin-bottom: 16px;">
+      <p style="color: #9a5b00; font-size: 13px; margin: 0;">
+        ⚠️ <strong>Atenção:</strong> Estes itens são <em>informativos</em> e <strong>não foram aplicados como correção automática</strong>.
+      </p>
+      <p style="color: #9a5b00; font-size: 13px; margin: 8px 0 0 0;">
+        ℹ️ <strong>Itens classificados como heurísticos exigem validação humana.</strong>
+      </p>
+    </div>`;
+
+  // Achados Confirmados
+  if (confirmed.length) {
+    html += '<h3 style="margin: 20px 0 10px; color: var(--text);">Achados Confirmados</h3>';
+    html += confirmed.map(cat => renderEditorialCategory(cat)).join('');
+  }
+
+  // Achados Heurísticos
+  if (heuristic.length) {
+    html += '<h3 style="margin: 20px 0 10px; color: var(--text);">Achados Heurísticos</h3>';
+    html += heuristic.map(cat => renderEditorialCategory(cat)).join('');
+  }
+
+  return html;
+}
+
 function renderNextSteps({ assistedReview, reviewQueue, semanticAudit }) {
   const available = assistedReview?.summary?.suggestionAvailable || 0;
   const pending = reviewQueue?.summary?.pending || 0;
@@ -351,7 +424,7 @@ function renderNextSteps({ assistedReview, reviewQueue, semanticAudit }) {
   return `<ol class="steps">${steps.map((step) => `<li>${escapeHtml(step)}</li>`).join('')}</ol>`;
 }
 
-function buildReaderSummary({ report, correctionReport, postValidation, reauditoriaSummary, reviewQueue, assistedReview, semanticAudit }) {
+function buildReaderSummary({ report, correctionReport, postValidation, reauditoriaSummary, reviewQueue, assistedReview, semanticAudit, editorialFindings }) {
   const verdict = statusLabel({ report, postValidation, reviewQueue, assistedReview, semanticAudit });
   const scores = readingScores({ report, postValidation, reviewQueue, assistedReview, semanticAudit });
   const applied = correctionReport?.appliedCorrections?.length || 0;
@@ -361,9 +434,19 @@ function buildReaderSummary({ report, correctionReport, postValidation, reaudito
   const available = assistedReview?.summary?.suggestionAvailable || 0;
   const pending = reviewQueue?.summary?.pending || 0;
 
+  // Calcular saúde editorial (0-10)
+  const editorialTotal = editorialFindings?.summary?.totalFindings || 0;
+  const editorialHigh = editorialFindings?.summary?.high || 0;
+  const editorialMedium = editorialFindings?.summary?.medium || 0;
+  const editorialLow = editorialFindings?.summary?.low || 0;
+  const editorialHealth = editorialTotal === 0 ? 10 : Math.max(0, Math.min(10, 10 - (editorialHigh * 2 + editorialMedium * 1 + editorialLow * 0.5) / 10));
+
   return {
     verdict,
-    scores,
+    scores: {
+      ...scores,
+      editorialHealth: Math.round(editorialHealth * 10) / 10,
+    },
     applied,
     confirmed,
     textChanged,
@@ -371,6 +454,7 @@ function buildReaderSummary({ report, correctionReport, postValidation, reaudito
     available,
     pending,
     improvement: reauditoriaSummary?.result || 'unknown',
+    editorialTotal,
   };
 }
 
@@ -384,6 +468,7 @@ export function writeEpubReaderReport(report, htmlPath, {
   const reviewQueue = readJsonIfExists(stateDir, 'review-queue.json');
   const assistedReview = readJsonIfExists(stateDir, 'assisted-review-suggestions.json');
   const semanticAudit = readJsonIfExists(stateDir, 'semantic-candidates.json');
+  const editorialFindings = readJsonIfExists(stateDir, 'editorial-findings.json');
   const summary = buildReaderSummary({
     report,
     correctionReport,
@@ -392,6 +477,7 @@ export function writeEpubReaderReport(report, htmlPath, {
     reviewQueue,
     assistedReview,
     semanticAudit,
+    editorialFindings,
   });
   const sourceFile = report?.stats?.sourceFile || report?.files?.[0]?.source?.name || '-';
   const translatedFile = report?.stats?.translatedFile || report?.files?.[0]?.translated?.name || '-';
@@ -506,6 +592,7 @@ export function writeEpubReaderReport(report, htmlPath, {
         ${renderScore('Leiturabilidade', summary.scores.readability, 'quanto menor a pendencia semantica, melhor')}
         ${renderScore('Validade tecnica', summary.scores.technical, 'EPUB, estrutura e achados FAIL/WARN')}
         ${renderScore('Consistencia', summary.scores.consistency, 'nomes, tratamento, termos e sentido')}
+        ${renderScore('Saúde editorial', summary.scores.editorialHealth, 'achados editoriais detectados')}
         ${renderScore('Potencial de proximo lote', summary.scores.revisionPotential, 'sugestoes boas para aprovar')}
       </div>
     </section>
@@ -552,6 +639,15 @@ export function writeEpubReaderReport(report, htmlPath, {
         'Exemplos de risco semantico',
         semanticExamplesSummary(semanticAudit),
         renderSemanticExamples(semanticAudit),
+      )}
+    </section>
+
+    <section>
+      ${renderExpandableSection(
+        'Achados editoriais informativos',
+        editorialFindingsSummary(editorialFindings),
+        renderEditorialFindings(editorialFindings),
+        { open: false },
       )}
     </section>
 

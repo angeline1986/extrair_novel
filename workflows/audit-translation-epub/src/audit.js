@@ -35,6 +35,7 @@ import { createOllamaAdapter } from './correction/ollamaAdapter.js';
 import { buildXhtmlMap } from './xhtmlMapper.js';
 import { buildChapterAlignment } from './chapterAligner.js';
 import { buildSemanticConsistencyAudit } from './semanticConsistencyAudit.js';
+import { buildEditorialReadabilityAudit } from './editorialReadabilityAudit.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workflowRoot = path.resolve(__dirname, '..');
@@ -389,7 +390,7 @@ async function writeAssistedReviewReports({ reviewQueue, createdAt }) {
   };
 }
 
-async function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, warnings, correctionCandidates, semanticAudit, xhtmlMap, chapterAlignment, glossary }) {
+async function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, issues, warnings, correctionCandidates, semanticAudit, editorialAudit, xhtmlMap, chapterAlignment, glossary }) {
   const runDate = new Date();
   const timestamp = formatTimestampForFile(runDate);
   const isoTimestamp = runDate.toISOString();
@@ -513,6 +514,8 @@ async function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, is
   fs.writeFileSync(correctionPlanPath, JSON.stringify(correctionPlan, null, 2), 'utf8');
   const semanticCandidatesPath = path.join(paths.stateDir, 'semantic-candidates.json');
   fs.writeFileSync(semanticCandidatesPath, JSON.stringify(semanticAudit, null, 2), 'utf8');
+  const editorialFindingsPath = path.join(paths.stateDir, 'editorial-findings.json');
+  fs.writeFileSync(editorialFindingsPath, JSON.stringify(editorialAudit, null, 2), 'utf8');
   const { reviewQueue, reviewQueuePath, reviewQueueMarkdownPath } = writeReviewQueueReports({
     correctionPlan,
     semanticAudit,
@@ -540,11 +543,13 @@ async function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, is
     report: path.relative(workflowRoot, jsonPath).replaceAll('\\', '/'),
     correctionPlan: path.relative(workflowRoot, correctionPlanPath).replaceAll('\\', '/'),
     semanticCandidates: path.relative(workflowRoot, semanticCandidatesPath).replaceAll('\\', '/'),
+    editorialFindings: path.relative(workflowRoot, editorialFindingsPath).replaceAll('\\', '/'),
     reviewQueue: path.relative(workflowRoot, reviewQueuePath).replaceAll('\\', '/'),
     assistedReview: path.relative(workflowRoot, assistedReviewPath).replaceAll('\\', '/'),
     assistedReviewModelTrace: path.relative(workflowRoot, assistedReviewModelTracePath).replaceAll('\\', '/'),
     correctionCandidates: correctionCandidates.length,
     semanticCandidatesCount: semanticAudit.summary.total,
+    editorialFindingsCount: editorialAudit.summary.totalFindings,
     reviewQueueItems: reviewQueue.summary.totalItems,
     reviewQueueSemanticItems: reviewQueue.summary.semanticAuditItems,
     assistedReviewSuggestions: assistedReview.summary.totalSuggestions,
@@ -719,6 +724,12 @@ async function main() {
     glossary,
   });
 
+  const editorialAudit = buildEditorialReadabilityAudit({
+    sourceDoc,
+    translationDoc,
+    sourceLanguage: args.sourceLanguage,
+  });
+
   const { report, jsonPath, dashboardHtmlPath, validationHtmlPath, readerHtmlPath, summaryPath } = await writeReports({
     sourceDoc,
     translationDoc,
@@ -728,6 +739,7 @@ async function main() {
     warnings: allWarnings,
     correctionCandidates,
     semanticAudit,
+    editorialAudit,
     xhtmlMap,
     chapterAlignment,
     glossary,
@@ -738,6 +750,7 @@ async function main() {
   console.log(`Issues: ${allIssues.length} | Warnings: ${allWarnings.length}`);
   console.log(`Correction candidates: ${correctionCandidates.length}`);
   console.log(`Semantic candidates: ${semanticAudit.summary.total}`);
+  console.log(`Editorial findings: ${editorialAudit.summary.totalFindings}`);
   console.log(`Resumo: ${summaryPath}`);
   console.log(`JSON: ${jsonPath}`);
   console.log(`Dashboard: ${dashboardHtmlPath}`);
