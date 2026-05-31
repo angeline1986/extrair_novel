@@ -58,12 +58,17 @@ function displayPath(filePath) {
   return path.relative(projectRoot, filePath).replaceAll('\\', '/');
 }
 
+function getLanguageName(code) {
+  const names = { en: 'Inglês', es: 'Espanhol' };
+  return names[code] || code.toUpperCase();
+}
+
 function printHeader() {
   console.clear();
   log('\n╔════════════════════════════════════════════════════════════════╗', 'cyan');
   log('║                  AUDITORIA DE TRADUCAO EPUB                   ║', 'cyan');
   log('║                                                                ║', 'cyan');
-  log('║  Compara EPUB ingles + portugues e usa Log_Traducao.txt       ║', 'cyan');
+  log('║  Compara EPUB original + portugues e usa Log_Traducao.txt     ║', 'cyan');
   log('║  como insumo para validar termos, trocas e pendencias.         ║', 'cyan');
   log('║                                                                ║', 'cyan');
   log('║  Relatorios: TXT, JSON e HTML                                  ║', 'cyan');
@@ -101,9 +106,10 @@ function printHeader() {
   console.log();
 }
 
-function runAudit({ verbose = false } = {}) {
+function runAudit({ verbose = false, sourceLanguage } = {}) {
   const args = ['workflows/audit-translation-epub/src/audit.js'];
   if (verbose) args.push('--verbose');
+  if (sourceLanguage) args.push(`--source-language=${sourceLanguage}`);
 
   const result = spawnSync(process.execPath, args, {
     cwd: projectRoot,
@@ -130,13 +136,36 @@ function runAuditForFile(filePath, { verbose = false } = {}) {
   return result.status || 0;
 }
 
+async function selectSourceLanguage() {
+  console.log();
+  log('Selecione o idioma de origem:', 'yellow');
+  log('  1. Inglês (en)', 'white');
+  log('  2. Espanhol (es)', 'white');
+  console.log();
+
+  const choice = (await ask(color('Opcao (1/2): ', 'yellow'))).trim();
+
+  if (choice === '1') {
+    return 'en';
+  } else if (choice === '2') {
+    return 'es';
+  } else {
+    log('Opcao invalida. Usando ingles como padrao.', 'yellow');
+    return 'en';
+  }
+}
+
 async function runRevisionWorkflow() {
   console.log();
-  log('1/2 Auditoria da traducao atual', 'cyan');
-  runAudit();
+  log('1/3 Selecionar idioma de origem', 'cyan');
+  const sourceLanguage = await selectSourceLanguage();
 
   console.log();
-  log('2/2 Gerando EPUB revisado, validando e reauditando', 'cyan');
+  log('2/3 Auditoria da traducao atual', 'cyan');
+  runAudit({ sourceLanguage });
+
+  console.log();
+  log('3/3 Gerando EPUB revisado, validando e reauditando', 'cyan');
   const report = await fixEpub();
   log(`Versao criada: ${report.version}`, 'green');
   log(`Substituicoes aplicadas: ${report.totalReplacements}`, 'green');
@@ -599,6 +628,16 @@ async function pause() {
   await ask(color('\nPressione Enter para continuar...', 'dim'));
 }
 
+async function runAuditWithLanguageSelection(verbose = false) {
+  console.log();
+  log('1/2 Selecionar idioma de origem', 'cyan');
+  const sourceLanguage = await selectSourceLanguage();
+
+  console.log();
+  log('2/2 Auditoria da traducao atual', 'cyan');
+  runAudit({ verbose, sourceLanguage });
+}
+
 async function main() {
   while (true) {
     printHeader();
@@ -614,10 +653,10 @@ async function main() {
       await viewContextItems();
       await pause();
     } else if (choice === '4') {
-      runAudit();
+      await runAuditWithLanguageSelection(false);
       await pause();
     } else if (choice === '5') {
-      runAudit({ verbose: true });
+      await runAuditWithLanguageSelection(true);
       await pause();
     } else if (choice === '6') {
       await cleanOldReports();
