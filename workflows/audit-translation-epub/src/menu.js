@@ -7,6 +7,10 @@ import { fileURLToPath } from 'url';
 import { spawnSync } from 'child_process';
 import { fixEpub } from './fixEpub.js';
 import { runPdfEpubComparisonReport as generatePdfEpubComparisonReport } from './auditPdfEpubReport.js';
+import {
+  buildPdfEpubReviewQueue,
+  refreshPdfEpubReviewQueueSummary,
+} from './pdfEpubReviewQueue.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workflowRoot = path.resolve(__dirname, '..');
@@ -24,6 +28,8 @@ const reportPattern = path.join(reportsJsonDir, 'audit-report-*.json');
 const readerReportPath = path.join(reportsHtmlDir, 'reader-report-latest.html');
 const reviewQueuePath = path.join(stateDir, 'review-queue.json');
 const assistedReviewPath = path.join(stateDir, 'assisted-review-suggestions.json');
+const pdfEpubComparisonStatePath = path.join(stateDir, 'pdf-epub-comparison.json');
+const pdfEpubReviewQueuePath = path.join(stateDir, 'pdf-epub-review-queue.json');
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -91,8 +97,8 @@ function printHeader() {
   console.log();
 
   log('  ┌───────────── REVISÃO ───────────────┐', 'dim');
-  log('  4. ✅ Revisar sugestões prontas', 'cyan');
-  log('     Aprovar sugestão ou manter texto atual', 'dim');
+  log('  4. ✅ Revisar sugestões', 'cyan');
+  log('     Auditoria EPUB ou achados PDF x EPUB', 'dim');
   log('  5. 👀 Ver itens que precisam de leitura/contexto', 'cyan');
   log('     Mostra pendências sem sugestão segura', 'dim');
   console.log();
@@ -485,6 +491,187 @@ async function viewContextItems() {
   log(`Relatorio editorial: ${displayPath(readerReportPath)}`, 'cyan');
 }
 
+async function ensurePdfEpubComparisonState() {
+  if (fs.existsSync(pdfEpubComparisonStatePath)) return readJson(pdfEpubComparisonStatePath);
+
+  log('\nRelatorio PDF x EPUB ainda nao existe. Gerando agora...', 'yellow');
+  await generatePdfEpubComparisonReportFromMenu({ warnOnly: false });
+  return readJson(pdfEpubComparisonStatePath);
+}
+
+function printPdfEpubReviewItem(item, position, total) {
+  console.log();
+  log(`Achado PDF x EPUB ${position}/${total} · ${item.id}`, 'cyan');
+  log(`${item.categoryLabel} · ${item.type} · Capitulo ${item.chapter}`, 'yellow');
+  console.log();
+  printIfPresent('TERMO / LOCAL', item.problematicTerm || item.location, 500);
+  printIfPresent('ORIGINAL PDF', item.original, 900);
+  printIfPresent('TRADUCAO EPUB', item.translation, 900);
+  printIfPresent('PROBLEMA', item.problem, 700);
+  printIfPresent('RECOMENDACAO', item.recommendation, 700);
+  printIfPresent('FRASE OU LOCAL', item.location, 900);
+  console.log();
+}
+
+function buildAndPersistPdfEpubReviewQueue() {
+  const audit = readJson(pdfEpubComparisonStatePath);
+  if (!audit) return null;
+
+  const existingQueue = readJson(pdfEpubReviewQueuePath);
+  const queue = buildPdfEpubReviewQueue({ audit, existingQueue });
+  writeJson(pdfEpubReviewQueuePath, queue);
+  return queue;
+}
+
+async function applyApprovedPdfEpubFindings() {
+  const queue = readJson(pdfEpubReviewQueuePath);
+  if (!queue) {
+    log('\nFila PDF x EPUB ainda nao existe. Valide achados primeiro.', 'yellow');
+    return;
+  }
+
+  const approvedItems = (queue.items || []).filter((item) => item.status === 'approved');
+  if (!approvedItems.length) {
+    log('\nNenhum achado PDF x EPUB aprovado para aplicar.', 'yellow');
+    return;
+  }
+
+  console.log();
+  log(`Achados PDF x EPUB aprovados: ${approvedItems.length}`, 'cyan');
+  for (const item of approvedItems.slice(0, 10)) {
+    console.log(`   ${item.id} · Capitulo ${item.chapter} · ${item.recommendation}`);
+  }
+  if (approvedItems.length > 10) console.log(`   ... e mais ${approvedItems.length - 10} achados`);
+
+  console.log();
+  log('A aplicacao automatica desses achados ainda nao foi implementada.', 'yellow');
+  log('Eles estao preservados na fila separada para a proxima etapa.', 'dim');
+  log(`Fila: ${displayPath(pdfEpubReviewQueuePath)}`, 'cyan');
+}
+
+async function offerApplyApprovedPdfEpubFindings(queue) {
+  const approvedCount = (queue.items || []).filter((item) => item.status === 'approved').length;
+  if (!approvedCount) return;
+
+  const answer = (await ask(color(`Aplicar achados PDF x EPUB aprovados agora? (${approvedCount} aprovado(s)) (S/N): `, 'yellow'))).trim().toLowerCase();
+  if (answer === 's' || answer === 'sim' || answer === 'y') {
+    await applyApprovedPdfEpubFindings();
+  }
+}
+
+async function validatePdfEpubFindings() {
+  const audit = await ensurePdfEpubComparisonState();
+  if (!audit) {
+    log('\nNao foi possivel carregar o relatorio PDF x EPUB.', 'red');
+    return;
+  }
+
+  let queue = buildAndPersistPdfEpubReviewQueue();
+  if (!queue || !queue.items?.length) {
+    log('\nNenhum achado PDF x EPUB para validar.', 'green');
+    return;
+  }
+
+  const pendingItems = queue.items.filter((item) => item.status === 'pending');
+  if (!pendingItems.length) {
+    log('\nNenhum achado PDF x EPUB pendente.', 'green');
+    log(`Fila: ${displayPath(pdfEpubReviewQueuePath)}`, 'cyan');
+    log(`Aprovados: ${queue.summary.approved} · Descartados: ${queue.summary.rejected}`, 'dim');
+    return;
+  }
+
+  let approved = 0;
+  let discarded = 0;
+  let skipped = 0;
+
+  for (let index = 0; index < pendingItems.length; index++) {
+    const item = pendingItems[index];
+    printPdfEpubReviewItem(item, index + 1, pendingItems.length);
+
+    const answer = (await ask(color('Validar achado? (A=aprovar / D=descartar / P=pular / S=sair): ', 'yellow'))).trim().toLowerCase();
+    const now = new Date().toISOString();
+
+    if (answer === 's' || answer === 'sair') break;
+    if (answer === 'a' || answer === 'aprovar') {
+      item.status = 'approved';
+      item.review = {
+        ...(item.review || {}),
+        approvedBy: 'menu_pdf_epub_review',
+        reviewedAt: now,
+        notes: 'Achado PDF x EPUB aprovado para revisao/correcao posterior.',
+      };
+      item.updatedAt = now;
+      approved += 1;
+      log('Achado aprovado para revisao/correcao posterior.', 'green');
+    } else if (answer === 'd' || answer === 'descartar' || answer === 'i' || answer === 'ignorar' || answer === 'r' || answer === 'rejeitar') {
+      item.status = 'rejected';
+      item.review = {
+        ...(item.review || {}),
+        approvedBy: null,
+        reviewedAt: now,
+        notes: 'Achado PDF x EPUB descartado pelo menu.',
+      };
+      item.updatedAt = now;
+      discarded += 1;
+      log('Achado descartado.', 'yellow');
+    } else {
+      skipped += 1;
+      log('Achado pulado.', 'dim');
+    }
+
+    refreshPdfEpubReviewQueueSummary(queue);
+    writeJson(pdfEpubReviewQueuePath, queue);
+
+    const remaining = pendingItems.length - index - 1;
+    if (remaining > 0) {
+      const next = (await ask(color(`Ver proximo achado? Restam ${remaining}. (S/N): `, 'yellow'))).trim().toLowerCase();
+      if (next !== 's' && next !== 'sim' && next !== 'y') {
+        await offerApplyApprovedPdfEpubFindings(queue);
+        break;
+      }
+    }
+  }
+
+  refreshPdfEpubReviewQueueSummary(queue);
+  writeJson(pdfEpubReviewQueuePath, queue);
+
+  console.log();
+  log(`Validacao PDF x EPUB: ${approved} aprovados, ${discarded} descartados, ${skipped} pulados.`, 'cyan');
+  log(`Fila separada: ${displayPath(pdfEpubReviewQueuePath)}`, 'cyan');
+}
+
+async function reviewSuggestionsMenu() {
+  while (true) {
+    console.log();
+    log('REVISAR SUGESTÕES', 'cyan');
+    console.log();
+    log('  1. Sugestões da auditoria EPUB', 'white');
+    log('     Aprovar sugestão ou manter texto atual', 'dim');
+    log('  2. Validar achados PDF x EPUB', 'white');
+    log('     Aprovar achados editoriais para revisão/correção posterior', 'dim');
+    log('  3. Aplicar achados PDF x EPUB aprovados', 'white');
+    log('     Preparar correcoes a partir dos achados aprovados', 'dim');
+    log('  4. Voltar', 'white');
+    console.log();
+
+    const choice = (await ask(color('Escolha uma opcao (1/2/3/4): ', 'yellow'))).trim();
+    if (choice === '1') {
+      await reviewReadySuggestions();
+      return;
+    }
+    if (choice === '2') {
+      await validatePdfEpubFindings();
+      return;
+    }
+    if (choice === '3') {
+      await applyApprovedPdfEpubFindings();
+      return;
+    }
+    if (choice === '4') return;
+    log('\nOpcao invalida.', 'red');
+  }
+}
+
 function viewSummary() {
   if (!fs.existsSync(summaryPath)) {
     log(`\nResumo ainda nao existe: ${displayPath(summaryPath)}`, 'yellow');
@@ -680,6 +867,7 @@ function generatedStateFilesForRecentAudit() {
     'reaudit-report.json',
     'reauditoria-summary.json',
     'pdf-epub-comparison.json',
+    'pdf-epub-review-queue.json',
   ].map((file) => path.join(stateDir, file));
 }
 
@@ -695,6 +883,7 @@ function generatedStateFilesForNewWork() {
     'reaudit-report.json',
     'reauditoria-summary.json',
     'pdf-epub-comparison.json',
+    'pdf-epub-review-queue.json',
   ].map((file) => path.join(stateDir, file));
 }
 
@@ -818,7 +1007,7 @@ async function main() {
       await cleanOldReports();
       await pause();
     } else if (choice === '4') {
-      await reviewReadySuggestions();
+      await reviewSuggestionsMenu();
       await pause();
     } else if (choice === '5') {
       await viewContextItems();
