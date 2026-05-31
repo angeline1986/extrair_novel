@@ -41,7 +41,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workflowRoot = path.resolve(__dirname, '..');
 
 const paths = {
-  sourceDir: path.join(workflowRoot, 'input/source'),
+  sourceDir: path.join(workflowRoot, 'input/source/epub'),
+  sourcePdfDir: path.join(workflowRoot, 'input/source/pdf'),
   translatedDir: path.join(workflowRoot, 'input/translated'),
   translationLogInputDir: path.join(workflowRoot, 'input/translation-log'),
   glossaryDir: path.join(workflowRoot, 'input/glossary'),
@@ -57,6 +58,8 @@ const paths = {
   workflowEventsPath: path.join(workflowRoot, 'logs/workflow-events.jsonl'),
   assistedReviewModelTracePath: path.join(workflowRoot, 'logs/assisted-review-model-trace.json'),
 };
+
+const WRITE_TECHNICAL_HTML = process.env.EPUB_AUDIT_TECHNICAL_HTML === '1';
 
 function parseArgs(argv) {
   const args = { source: null, translated: null, log: null, sourceLanguage: 'en', verbose: false };
@@ -75,6 +78,7 @@ function parseArgs(argv) {
 function ensureDirs() {
   const dirs = [
     paths.sourceDir,
+    paths.sourcePdfDir,
     paths.translatedDir,
     paths.translationLogInputDir,
     paths.glossaryDir,
@@ -89,6 +93,14 @@ function ensureDirs() {
 
   for (const dir of dirs) {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  }
+}
+
+function removeStaleTechnicalHtmlReports() {
+  if (WRITE_TECHNICAL_HTML) return;
+  for (const file of ['audit-dashboard-latest.html', 'validation-report-latest.html']) {
+    const filePath = path.join(paths.reportsHtmlDir, file);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
   }
 }
 
@@ -562,21 +574,24 @@ async function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, is
   const dashboardHtmlPath = path.join(paths.reportsHtmlDir, 'audit-dashboard-latest.html');
   const validationHtmlPath = path.join(paths.reportsHtmlDir, 'validation-report-latest.html');
   const readerHtmlPath = path.join(paths.reportsHtmlDir, 'reader-report-latest.html');
-  writeEpubHtmlDashboard(report, dashboardHtmlPath, {
-    logsDir: paths.reportsJsonDir,
-    stateDir: paths.stateDir,
-    traceDir: paths.logsDir,
-    sourceDocs: [sourceDoc],
-    translatedDocs: [translationDoc],
-    alignedDocs: [alignedDoc],
-    relativeWorkflowPath,
-  });
-  writeEpubValidationTabsDashboard(report, validationHtmlPath, {
-    logsDir: paths.reportsJsonDir,
-    stateDir: paths.stateDir,
-    traceDir: paths.logsDir,
-    relativeWorkflowPath,
-  });
+  removeStaleTechnicalHtmlReports();
+  if (WRITE_TECHNICAL_HTML) {
+    writeEpubHtmlDashboard(report, dashboardHtmlPath, {
+      logsDir: paths.reportsJsonDir,
+      stateDir: paths.stateDir,
+      traceDir: paths.logsDir,
+      sourceDocs: [sourceDoc],
+      translatedDocs: [translationDoc],
+      alignedDocs: [alignedDoc],
+      relativeWorkflowPath,
+    });
+    writeEpubValidationTabsDashboard(report, validationHtmlPath, {
+      logsDir: paths.reportsJsonDir,
+      stateDir: paths.stateDir,
+      traceDir: paths.logsDir,
+      relativeWorkflowPath,
+    });
+  }
   writeEpubReaderReport(report, readerHtmlPath, {
     stateDir: paths.stateDir,
     relativeWorkflowPath,
@@ -625,9 +640,8 @@ async function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, is
     ...(findings.length ? findings : ['- Nenhum achado.']),
     '',
     `JSON completo: ${jsonPath}`,
-    `Dashboard HTML: ${dashboardHtmlPath}`,
-    `Validacao: ${validationHtmlPath}`,
-    `Relatorio editorial: ${readerHtmlPath}`,
+    `HTML principal: ${readerHtmlPath}`,
+    ...(WRITE_TECHNICAL_HTML ? [`Dashboard tecnico: ${dashboardHtmlPath}`, `Validacao tecnica: ${validationHtmlPath}`] : []),
   ];
 
   const summaryPath = path.join(paths.reportsTxtDir, 'epub-audit-summary-latest.txt');
@@ -645,8 +659,8 @@ async function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, is
     assistedReviewPath,
     assistedReviewMarkdownPath,
     assistedReviewModelTracePath,
-    dashboardHtmlPath,
-    validationHtmlPath,
+    dashboardHtmlPath: WRITE_TECHNICAL_HTML ? dashboardHtmlPath : null,
+    validationHtmlPath: WRITE_TECHNICAL_HTML ? validationHtmlPath : null,
     readerHtmlPath,
     summaryPath,
     correctionMarkdownPath,
@@ -730,7 +744,7 @@ async function main() {
     sourceLanguage: args.sourceLanguage,
   });
 
-  const { report, jsonPath, dashboardHtmlPath, validationHtmlPath, readerHtmlPath, summaryPath } = await writeReports({
+  const { report, jsonPath, readerHtmlPath, summaryPath } = await writeReports({
     sourceDoc,
     translationDoc,
     logInfo,
@@ -753,9 +767,7 @@ async function main() {
   console.log(`Editorial findings: ${editorialAudit.summary.totalFindings}`);
   console.log(`Resumo: ${summaryPath}`);
   console.log(`JSON: ${jsonPath}`);
-  console.log(`Dashboard: ${dashboardHtmlPath}`);
-  console.log(`Validação: ${validationHtmlPath}`);
-  console.log(`Relatório editorial: ${readerHtmlPath}`);
+  console.log(`HTML principal: ${readerHtmlPath}`);
 
   process.exit(report.status === 'FAIL' ? 1 : 0);
 }

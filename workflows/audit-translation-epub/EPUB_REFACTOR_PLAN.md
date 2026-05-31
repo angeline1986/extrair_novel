@@ -99,7 +99,8 @@ O EPUB deve reaproveitar a inteligencia compartilhavel, mas nao deve copiar cega
 Arquitetura desejada:
 
 ```txt
-input/source/*.epub
+input/source/epub/*.epub
+input/source/pdf/*.pdf
 input/translated/*.epub
 input/translation-log/Log_Traducao.txt
 input/glossary/*.json
@@ -182,7 +183,7 @@ Ele deve conter:
   "workflow": "audit-translation-epub",
   "createdAt": "2026-05-24T23:37:47Z",
   "source": {
-    "original": "input/source/Show Me Your Stats.EPUB",
+    "original": "input/source/epub/Show Me Your Stats.EPUB",
     "translated": "input/translated/Show Me Your Stats ptbr.epub",
     "log": "input/translation-log/Log_Traducao.txt"
   },
@@ -435,6 +436,8 @@ workflows/audit-translation-epub/
 ├── README.md
 ├── input/
 │   ├── source/
+│   │   ├── epub/
+│   │   └── pdf/
 │   ├── translated/
 │   ├── logs/
 │   └── glossary/

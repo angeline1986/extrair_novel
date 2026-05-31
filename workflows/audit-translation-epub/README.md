@@ -6,7 +6,8 @@ Compara um `.epub` original em ingles com a versao traduzida em portugues e usa 
 
 ```txt
 workflows/audit-translation-epub/
-├── input/source/       # EPUB original em ingles
+├── input/source/epub/  # EPUB original
+├── input/source/pdf/   # PDF original, quando existir
 ├── input/translated/   # EPUB traduzido para portugues
 ├── input/translation-log/         # TXT com log/observacoes da traducao
 ├── input-fixed/        # Versoes corrigidas v1, v2, v3...
@@ -17,7 +18,7 @@ workflows/audit-translation-epub/
 
 ## Uso simples
 
-Coloque um EPUB em `input/source/`, um EPUB em `input/translated/` e um TXT em `input/translation-log/`.
+Coloque o EPUB original em `input/source/epub/`, PDFs originais em `input/source/pdf/` quando existirem, um EPUB traduzido em `input/translated/` e um TXT em `input/translation-log/`.
 
 ```bash
 npm run audit:translation:epub
@@ -64,6 +65,8 @@ Tambem e possivel passar caminhos explicitos:
 npm run audit:translation:epub -- --source=livro-en.epub --translated=livro-pt.epub --log=log-traducao.txt
 ```
 
+Quando `--source` nao e informado, a auditoria procura automaticamente o primeiro `.epub` em `input/source/epub/`.
+
 Para auditoria de espanhol para portugues, use o parametro `--source-language`:
 
 ```bash
@@ -98,11 +101,13 @@ O auditor usa esse arquivo para:
 
 ## Saidas
 
-As saidas sao separadas por finalidade:
+A saida HTML principal para leitura e decisao editorial e:
 
-- `reports/`: relatorios legiveis e historicos de auditoria;
-- `state/`: estado operacional atual usado pelo pipeline;
-- `logs/`: eventos e traces de execucao.
+```txt
+reports/html/reader-report-latest.html
+```
+
+Os demais arquivos sao artefatos internos ou tecnicos do pipeline. Eles preservam estado, historico e rastreabilidade, mas nao devem ser tratados como relatorios principais para o usuario final.
 
 ```txt
 logs/workflow-events.jsonl
@@ -121,19 +126,20 @@ reports/txt/epub-audit-summary-latest.txt
 reports/txt/correction-report-latest.md
 reports/txt/review-queue-latest.md
 reports/txt/assisted-review-suggestions-latest.md
-reports/html/audit-dashboard-latest.html
-reports/html/validation-report-latest.html
 reports/html/reader-report-latest.html
 input-fixed/manifest.json
 ```
 
-Os relatorios HTML exibem uma secao de correcoes com:
+Por padrao, o workflow gera apenas `reports/html/reader-report-latest.html` como HTML de decisao. Dashboards tecnicos antigos podem existir de execucoes anteriores ou ser gerados manualmente para depuracao, mas ficam fora da saida recomendada.
 
-- correcoes aplicadas em XHTML, com before/after, arquivo, nodeId e confianca;
-- acoes ignoradas por `auto_review` ou `manual_only`;
-- validacao tecnica pos-correcao;
-- comparativo da reauditoria antes/depois;
-- status final `improvement`, `regression`, `neutral` ou `unknown`.
+O relatorio principal exibe:
+
+- veredito geral;
+- saude editorial;
+- achados editoriais informativos;
+- achados confirmados e heuristicos;
+- pendencias humanas;
+- sugestoes assistidas, quando existirem.
 
 O arquivo `state/review-queue.json` registra acoes `auto_review` e `manual_only` que ainda nao devem ser aplicadas automaticamente. Cada item nasce como `pending` e pode ser preparado futuramente para `approved`, `rejected` ou `needs_context`, sem alterar o EPUB nesta milestone.
 

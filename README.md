@@ -50,7 +50,8 @@ Os scripts executáveis ficam em `workflows/`. Cada workflow concentra seus scri
 ```txt
 workflows/
 ├── audit-translation-epub/
-│   ├── input/source/
+│   ├── input/source/epub/
+│   ├── input/source/pdf/
 │   ├── input/translated/
 │   ├── input/logs/
 │   └── logs/

@@ -6,9 +6,120 @@ function normalizeText(text) {
     .trim();
 }
 
+function normalizeWord(word) {
+  return String(word || '')
+    .toLowerCase()
+    .normalize('NFC')
+    .replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
+}
+
+function normalizeForCompare(text) {
+  return String(text || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function tokenize(text) {
+  return String(text || '')
+    .match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu)
+    ?.map(normalizeWord)
+    .filter(Boolean) || [];
+}
+
 function extractChapterNumber(heading) {
   const match = String(heading || '').match(/^(\d+)[.\s]/);
   return match ? match[1] : null;
+}
+
+function extractChapterTitle(heading) {
+  return normalizeText(String(heading || '').replace(/^\d+[.)]?\s*/, ''));
+}
+
+const PORTUGUESE_COMMON_WORDS = new Set(`
+a ao aos as o os um uma uns umas de da das do dos em na nas no nos por para com sem sob sobre entre
+e ou mas que se como quando enquanto porque pois então tambem também nao não sim ja já ate até apos após antes depois
+ele ela eles elas eu tu voce você voces vocês meu minha meus minhas seu sua seus suas dele dela deles delas
+este esta estes estas esse essa esses essas aquele aquela aqueles aquelas isto isso aquilo todo toda todos todas cada
+muito muita muitos muitas pouco pouca poucos poucas mais menos maior menor melhor pior mesmo mesma mesmos mesmas outro outra outros outras
+era eram foi foram ser estar esta está estão estava estavam estou estamos teria teriam tinha tinham tenho tem têm tendo tenha
+há havia fazer faz fez fazem feito ir vai vou vamos foi vem veio vir ver viu saber sabe sabia poder pode podia
+dizer disse dizem falar falou olhar olhou sentir sentiu querer queria deixar deixou ficar ficou dar deu tomar tomou
+amor hora vez empresa forma todos todo todas nada algo alguem alguém coisa coisas pessoa pessoas gerente finalmente geralmente raramente certamente
+pelo pela pelos pelas pele para porque quando onde aqui ali agora hoje ontem amanha amanhã sempre nunca apenas quase talvez
+trabalho tempo dia noite manha manhã tarde ano anos casa escritorio escritório sala porta mesa rosto olhos mao mão maos mãos
+cabeca cabeça corpo voz sorriso silêncio silencio problema lugar momento maneira lado frente atras atrás dentro fora vida nome
+nariz unico único seria perder eficiente ineficiente dificil difícil facil fácil estranho estranha grande pequeno pequena novo nova
+claro clara escuro escura branco branca preto preta vermelho vermelha azul certo certa errado errada
+gravidez reuniao reunião mal-entendido reconhecimento promessa viagem negocios negócios verdade contrato rumores tratamento noticias notícias
+perturbacao perturbação ciume ciúme mudanca mudança introducao introdução vazamento agua água rachadura consequencia consequência conclusao conclusão
+historia história casamento materiais enjoo matinal cantigas ninar
+`.split(/\s+/).filter(Boolean));
+
+const PORTUGUESE_NAME_STOPWORDS = new Set([
+  ...PORTUGUESE_COMMON_WORDS,
+  'todos', 'todo', 'todas', 'pelo', 'pela', 'pele', 'tenho', 'tenha', 'tendo', 'venho',
+  'gerente', 'finalmente', 'geralmente', 'raramente', 'certamente', 'lider', 'líder',
+  'equipe', 'empresa', 'senhor', 'senhora', 'voce', 'você', 'capitulo', 'capítulo',
+  'ele', 'ela', 'eu', 'voce', 'você', 'seu', 'sua', 'no', 'na', 'um', 'uma',
+]);
+
+const KOREAN_FAMILY_NAMES = new Set(['do', 'seo', 'lee', 'kim', 'park', 'choi', 'han', 'kang']);
+
+const SOURCE_STOPWORDS = new Set([
+  'the', 'and', 'with', 'that', 'this', 'would', 'could', 'should', 'have', 'been', 'from', 'they', 'their', 'there', 'while', 'after', 'before', 'because',
+  'el', 'la', 'los', 'las', 'que', 'con', 'para', 'una', 'uno', 'unos', 'unas', 'no', 'de', 'del', 'por', 'como', 'más', 'mas', 'pero', 'muy', 'todo', 'toda',
+  'todos', 'todas', 'año', 'años', 'hasta', 'solo', 'aunque', 'donde', 'cuando', 'siempre', 'era', 'fue', 'son', 'estaba', 'habia', 'había',
+]);
+
+const SPANISH_RESIDUAL_MARKERS = new Set([
+  'embarazo', 'reunión', 'reunion', 'malentendido', 'náuseas', 'nauseas', 'matutinas', 'jeongun',
+  'viaje', 'negocios', 'verdad', 'contrato', 'tratamiento', 'noticias', 'perturbación', 'perturbacion',
+  'rimas', 'infantiles', 'celos', 'cambiar', 'introducción', 'introduccion', 'fuga', 'viento',
+  'grieta', 'conclusión', 'conclusion', 'promesa', 'matrimonio',
+]);
+
+const TITLE_TRANSLATION_HINTS = new Map([
+  ['embarazo', ['gravidez']],
+  ['reunion', ['reuniao', 'reunião']],
+  ['malentendido', ['mal-entendido']],
+  ['nauseas matutinas', ['enjoo matinal']],
+  ['viaje negocios', ['viagem negocios', 'viagem de negocios', 'viagem de negócios']],
+  ['verdad', ['verdade']],
+  ['contrato', ['contrato', 'contratos']],
+  ['rumores', ['rumores']],
+  ['tratamiento', ['tratamento']],
+  ['noticias', ['noticias', 'notícias']],
+  ['perturbacion', ['perturbacao', 'perturbação']],
+  ['rimas infantiles', ['cantigas ninar', 'cantigas de ninar']],
+  ['celos', ['ciume', 'ciúme']],
+  ['cambiar', ['mudanca', 'mudança']],
+  ['introduccion', ['introducao', 'introdução']],
+  ['fuga agua', ['vazamento agua', 'vazamento de agua', 'vazamento de água']],
+  ['grieta', ['rachadura']],
+  ['conclusion', ['conclusao', 'conclusão']],
+  ['promesa', ['promessa']],
+  ['matrimonio', ['casamento']],
+]);
+
+function isPortugueseCommonWord(word) {
+  const normalized = normalizeWord(word);
+  if (!normalized) return true;
+  if (PORTUGUESE_COMMON_WORDS.has(normalized)) return true;
+  if (normalized.endsWith('mente')) return true;
+  if (/(aria|eria|iria|asse|esse|isse|ando|endo|indo|ado|ido|ava|iam|ou|ei)$/.test(normalized) && normalized.length > 5) return true;
+  return false;
+}
+
+function isLikelyNameToken(word) {
+  const normalized = normalizeWord(word);
+  if (KOREAN_FAMILY_NAMES.has(normalized)) return true;
+  if (normalized.length < 4) return false;
+  if (PORTUGUESE_NAME_STOPWORDS.has(normalized)) return false;
+  return /[yhkw]/i.test(word) || /-/.test(word);
 }
 
 function levenshteinDistance(a, b) {
@@ -40,63 +151,109 @@ function similarity(a, b) {
 
 function extractSourceVocabulary(sourceDoc, sourceLanguage) {
   const config = getLanguageConfig(sourceLanguage);
-  const text = sourceDoc.rawText || '';
-  const words = text
-    .toLowerCase()
-    .replace(/[^\w\s\u00C0-\u017F\u0400-\u04FF]/g, ' ')
-    .split(/\s+/)
-    .filter(w => w.length >= 3);
-  
-  // Remove stopwords comuns (simplificado)
-  const stopwords = new Set(['the', 'and', 'with', 'that', 'this', 'would', 'could', 'should', 'have', 'been', 'from', 'they', 'their', 'there', 'while', 'after', 'before', 'because', 'el', 'la', 'los', 'las', 'que', 'con', 'para', 'una', 'no', 'de', 'por', 'como', 'más', 'pero', 'muy', 'todo', 'año', 'años', 'hasta', 'solo', 'aunque', 'donde', 'cuando', 'siempre']);
-  
+  const markerSet = new Set([...(config.residualMarkers || []), ...SPANISH_RESIDUAL_MARKERS].map(normalizeWord));
   const vocabulary = new Map();
-  for (const word of words) {
-    if (stopwords.has(word)) continue;
+  for (const word of tokenize(sourceDoc.rawText || '')) {
+    if (word.length < 4) continue;
+    if (SOURCE_STOPWORDS.has(word)) continue;
+    if (isPortugueseCommonWord(word) && !markerSet.has(word)) continue;
     if (/^\d+$/.test(word)) continue;
     vocabulary.set(word, (vocabulary.get(word) || 0) + 1);
   }
-  
-  // Retorna palavras que aparecem pelo menos 2 vezes
-  return new Map([...vocabulary.entries()].filter(([_, count]) => count >= 2).map(([word, _]) => [word, true]));
+
+  return new Map(
+    [...vocabulary.entries()]
+      .filter(([word, count]) => markerSet.has(word) || (count >= 2 && count <= 80))
+      .map(([word, count]) => [word, { count, marker: markerSet.has(word) }])
+  );
 }
 
-function detectDuplicatedTitles(translationDoc) {
+function titleCandidatesFromDoc(doc) {
+  const candidates = [];
+  const seen = new Set();
+
+  function add(section, text, source, order) {
+    const normalized = normalizeText(text);
+    const number = extractChapterNumber(normalized);
+    if (!number) return;
+    if (normalized.length > 90) return;
+    const key = `${section.index}:${normalized.toLowerCase()}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    candidates.push({
+      sectionIndex: section.index,
+      sectionTitle: section.title,
+      path: section.path,
+      text: normalized,
+      title: extractChapterTitle(normalized),
+      number,
+      source,
+      order,
+    });
+  }
+
+  for (const section of doc.sections || []) {
+    add(section, section.title, 'sectionTitle', -1);
+    (section.headings || []).forEach((heading, index) => add(section, heading, 'heading', index));
+    (section.paragraphs || []).slice(0, 8).forEach((paragraph, index) => add(section, paragraph, 'paragraph', index));
+  }
+
+  return candidates.sort((a, b) => a.sectionIndex - b.sectionIndex || a.order - b.order);
+}
+
+function titleLanguageScore(title) {
+  const words = tokenize(title);
+  const sourceHits = words.filter((word) => SPANISH_RESIDUAL_MARKERS.has(word)).length;
+  const portugueseHits = words.filter((word) => PORTUGUESE_COMMON_WORDS.has(word)).length;
+  return { sourceHits, portugueseHits };
+}
+
+function detectDuplicatedTitles(sourceDoc, translationDoc) {
+  const sourceByNumber = new Map(titleCandidatesFromDoc(sourceDoc).map((item) => [item.number, item]));
+  const translationByNumber = new Map();
+
+  for (const candidate of titleCandidatesFromDoc(translationDoc)) {
+    if (!translationByNumber.has(candidate.number)) translationByNumber.set(candidate.number, []);
+    translationByNumber.get(candidate.number).push(candidate);
+  }
+
   const findings = [];
-  const sections = translationDoc.sections || [];
-  
-  for (let i = 0; i < sections.length; i++) {
-    const section = sections[i];
-    const headings = section.headings || [];
-    
-    for (let j = 0; j < headings.length - 1; j++) {
-      const current = headings[j];
-      const next = headings[j + 1];
-      
-      const currentNum = extractChapterNumber(current);
-      const nextNum = extractChapterNumber(next);
-      
-      if (currentNum && nextNum && currentNum === nextNum) {
-        // Verifica se são idiomas diferentes (espanhol vs português)
-        const spanishMarkers = /\b(el|la|los|las|que|con|para|una|no|de|por|como|más|pero|muy|todo|año|años|hasta|solo|aunque|donde|cuando|siempre|embarazo|reunión|malentendido|reconocimiento|promesa|viaje)\b/i;
-        const portugueseMarkers = /\b(que|com|para|uma|não|nao|ele|ela|dos|das|por|como|mais|muito|quando|gravidez|reunião|mal-entendido|reconhecimento|promessa|viagem)\b/i;
-        
-        const hasSpanish = spanishMarkers.test(current);
-        const hasPortuguese = portugueseMarkers.test(next);
-        
-        if (hasSpanish && hasPortuguese) {
-          findings.push({
-            sectionIndex: section.index,
-            sectionTitle: section.title,
-            current,
-            next,
-            example: `"${current}" → "${next}" (capítulo ${section.index + 1})`
-          });
-        }
-      }
+  const seen = new Set();
+
+  for (const [number, candidates] of translationByNumber.entries()) {
+    const unique = [];
+    for (const candidate of candidates) {
+      if (unique.some((item) => normalizeForCompare(item.title) === normalizeForCompare(candidate.title))) continue;
+      unique.push(candidate);
+    }
+    if (unique.length < 2) continue;
+
+    const sourceTitle = sourceByNumber.get(number)?.title || '';
+    for (let i = 0; i < unique.length - 1; i++) {
+      const current = unique[i];
+      const next = unique[i + 1];
+      if (Math.abs(current.sectionIndex - next.sectionIndex) > 1) continue;
+      const currentScore = titleLanguageScore(current.title);
+      const nextScore = titleLanguageScore(next.title);
+      const currentLooksSource = currentScore.sourceHits > currentScore.portugueseHits || similarity(normalizeForCompare(current.title), normalizeForCompare(sourceTitle)) >= 0.72;
+      const nextLooksSource = nextScore.sourceHits > nextScore.portugueseHits || similarity(normalizeForCompare(next.title), normalizeForCompare(sourceTitle)) >= 0.72;
+      if (currentLooksSource === nextLooksSource && !sourceTitle) continue;
+
+      const original = currentLooksSource ? current : next;
+      const translated = currentLooksSource ? next : current;
+      const key = `${number}:${original.text}:${translated.text}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      findings.push({
+        chapter: number,
+        sectionIndex: translated.sectionIndex,
+        originalTitle: original.text,
+        translatedTitle: translated.text,
+        example: `Capítulo ${number}: original "${original.text}" + traduzido "${translated.text}"`
+      });
     }
   }
-  
+
   return {
     id: 'duplicated_source_target_titles',
     label: 'Títulos duplicados origem/tradução',
@@ -104,22 +261,48 @@ function detectDuplicatedTitles(translationDoc) {
     severity: 'high',
     confidence: 'high',
     count: findings.length,
-    description: 'Capítulos que mantêm o título original em espanhol junto do título traduzido em português.',
-    examples: findings.slice(0, 10).map(f => f.example)
+    description: 'Capítulos que mantêm duas linhas de título para o mesmo número, geralmente o original e a tradução.',
+    examples: findings.slice(0, 12).map(f => f.example)
   };
 }
 
 function detectResidualSourceLanguage(sourceDoc, translationDoc, sourceLanguage) {
   const sourceVocabulary = extractSourceVocabulary(sourceDoc, sourceLanguage);
+  const targetFrequency = new Map();
+  for (const word of tokenize(translationDoc.rawText || '')) {
+    targetFrequency.set(word, (targetFrequency.get(word) || 0) + 1);
+  }
   const findings = [];
+  const seen = new Set();
+
+  function shouldFlag(word, context = 'paragraph') {
+    const normalized = normalizeWord(word);
+    const sourceEntry = sourceVocabulary.get(normalized);
+    if (!sourceEntry) return false;
+    if (PORTUGUESE_COMMON_WORDS.has(normalized)) return false;
+    if (isLikelyNameToken(normalized) && !sourceEntry.marker) return false;
+    if ((targetFrequency.get(normalized) || 0) > (context === 'heading' ? 30 : 12) && !sourceEntry.marker) return false;
+    return sourceEntry.marker || SPANISH_RESIDUAL_MARKERS.has(normalized) || sourceEntry.count <= 25;
+  }
+
+  function pushFinding(finding) {
+    const key = `${finding.type}:${finding.sectionIndex}:${finding.word || finding.words?.join(',')}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    findings.push(finding);
+  }
   
-  // Detectar em headings (alta criticidade)
   for (const section of translationDoc.sections || []) {
-    for (const heading of section.headings || []) {
-      const words = heading.toLowerCase().split(/\s+/).filter(w => w.length >= 3);
+    const titleTexts = [
+      section.title,
+      ...(section.headings || []),
+      ...(section.paragraphs || []).slice(0, 4).filter((paragraph) => extractChapterNumber(paragraph)),
+    ];
+    for (const heading of titleTexts) {
+      const words = tokenize(heading).filter(w => w.length >= 4);
       for (const word of words) {
-        if (sourceVocabulary.has(word)) {
-          findings.push({
+        if (shouldFlag(word, 'heading')) {
+          pushFinding({
             type: 'heading',
             sectionIndex: section.index,
             sectionTitle: section.title,
@@ -131,25 +314,30 @@ function detectResidualSourceLanguage(sourceDoc, translationDoc, sourceLanguage)
     }
   }
   
-  // Detectar em parágrafos (média criticidade)
   for (const section of translationDoc.sections || []) {
     const paragraphs = section.paragraphs || [];
     for (let i = 0; i < paragraphs.length; i++) {
       const paragraph = paragraphs[i];
-      const words = paragraph.toLowerCase().split(/\s+/).filter(w => w.length >= 3);
-      const foundWords = words.filter(w => sourceVocabulary.has(w));
+      if (paragraph.length < 20) continue;
+      const foundWords = [...new Set(tokenize(paragraph).filter(w => w.length >= 4 && shouldFlag(w, 'paragraph')))];
+      const strongWords = foundWords.filter((word) => SPANISH_RESIDUAL_MARKERS.has(word) || sourceVocabulary.get(word)?.marker);
       
-      if (foundWords.length >= 2) {
-        findings.push({
+      if (strongWords.length >= 1) {
+        pushFinding({
           type: 'paragraph',
           sectionIndex: section.index,
           sectionTitle: section.title,
-          words: foundWords,
-          example: `"...${foundWords.slice(0, 3).join(', ')}..." (parágrafo ${i + 1}, capítulo ${section.index + 1})`
+          words: strongWords,
+          example: `"...${strongWords.slice(0, 3).join(', ')}..." (parágrafo ${i + 1}, capítulo ${section.index + 1})`
         });
       }
     }
   }
+
+  findings.sort((a, b) => {
+    const weight = (item) => item.type === 'heading' ? 0 : 1;
+    return weight(a) - weight(b) || a.sectionIndex - b.sectionIndex;
+  });
   
   return {
     id: 'residual_source_language',
@@ -158,37 +346,43 @@ function detectResidualSourceLanguage(sourceDoc, translationDoc, sourceLanguage)
     severity: 'high',
     confidence: 'high',
     count: findings.length,
-    description: 'Termos/frases em espanhol que permaneceram no EPUB traduzido, detectados a partir do vocabulário do original.',
-    examples: findings.slice(0, 10).map(f => f.example)
+    description: 'Termos/frases em espanhol que permaneceram no EPUB traduzido, priorizando títulos e palavras raras.',
+    examples: findings.slice(0, 25).map(f => f.example)
   };
 }
 
 function detectTitleMismatch(sourceDoc, translationDoc) {
   const findings = [];
-  const sourceSections = sourceDoc.sections || [];
-  const translationSections = translationDoc.sections || [];
-  const max = Math.min(sourceSections.length, translationSections.length);
-  
-  for (let i = 0; i < max; i++) {
-    const sourceHeadings = sourceSections[i].headings || [];
-    const translationHeadings = translationSections[i].headings || [];
-    
-    if (sourceHeadings.length > 0 && translationHeadings.length > 0) {
-      const sourceTitle = normalizeText(sourceHeadings[0]);
-      const translationTitle = normalizeText(translationHeadings[0]);
-      
-      // Verifica se são muito diferentes (baixa similaridade)
-      const sim = similarity(sourceTitle.toLowerCase(), translationTitle.toLowerCase());
-      
-      if (sim < 0.3) {
-        findings.push({
-          sectionIndex: i,
-          sourceTitle,
-          translationTitle,
-          similarity: sim.toFixed(2),
-          example: `Original: "${sourceTitle}" → Traduzido: "${translationTitle}" (capítulo ${i + 1})`
-        });
-      }
+  const sourceCandidates = titleCandidatesFromDoc(sourceDoc);
+  const translationCandidates = titleCandidatesFromDoc(translationDoc);
+  const translationByNumber = new Map();
+  for (const candidate of translationCandidates) {
+    if (!translationByNumber.has(candidate.number)) translationByNumber.set(candidate.number, []);
+    translationByNumber.get(candidate.number).push(candidate);
+  }
+
+  for (const sourceTitle of sourceCandidates) {
+    const translations = translationByNumber.get(sourceTitle.number) || [];
+    if (!translations.length) continue;
+    const primary = translations[0];
+    const sourceNorm = normalizeForCompare(sourceTitle.title);
+    const primaryNorm = normalizeForCompare(primary.title);
+    const directSim = similarity(sourceNorm, primaryNorm);
+    const hint = [...TITLE_TRANSLATION_HINTS.entries()].find(([sourceKey]) => sourceNorm.includes(sourceKey));
+    const primaryHintMatch = hint ? hint[1].some((target) => primaryNorm.includes(normalizeForCompare(target))) : false;
+    const alternateHintMatch = hint ? translations.slice(1).some((item) => hint[1].some((target) => normalizeForCompare(item.title).includes(normalizeForCompare(target)))) : false;
+    const relativeLength = Math.min(sourceNorm.length, primaryNorm.length) / Math.max(sourceNorm.length, primaryNorm.length);
+    const sharedWords = tokenize(sourceNorm).filter((word) => tokenize(primaryNorm).includes(word)).length;
+
+    if ((!primaryHintMatch && alternateHintMatch) || (!hint && directSim < 0.35 && relativeLength < 0.65 && sharedWords === 0)) {
+      findings.push({
+        chapter: sourceTitle.number,
+        sectionIndex: primary.sectionIndex,
+        sourceTitle: sourceTitle.text,
+        translationTitle: primary.text,
+        similarity: directSim.toFixed(2),
+        example: `Original: "${sourceTitle.text}" → Traduzido: "${primary.text}" (capítulo ${sourceTitle.number})`
+      });
     }
   }
   
@@ -200,50 +394,84 @@ function detectTitleMismatch(sourceDoc, translationDoc) {
     confidence: 'medium',
     count: findings.length,
     description: 'Títulos de capítulo onde a tradução parece não corresponder ao significado do original. Requer validação humana.',
-    examples: findings.slice(0, 10).map(f => f.example)
+    examples: findings.slice(0, 12).map(f => f.example)
   };
 }
 
 function detectNameInconsistency(translationDoc) {
-  const findings = [];
   const text = translationDoc.rawText || '';
   
-  // Extrair nomes próprios (capitalizados, possivelmente coreanos)
-  const namePattern = /\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b/g;
   const names = new Map();
-  
-  let match;
-  while ((match = namePattern.exec(text)) !== null) {
-    const name = match[1];
-    if (name.length < 2) continue;
-    if (/^(O|A|Os|As|Em|De|Para|Com|Por|Como|Mais|Muito|Quando|Não|Nao|Ele|Ela|Dos|Das)$/.test(name)) continue;
-    
-    names.set(name, (names.get(name) || 0) + 1);
+
+  for (const paragraph of text.split(/\n+/)) {
+    const sentences = paragraph.split(/[.!?…“”"()]+/);
+    for (const sentence of sentences) {
+      const rawTokens = sentence.match(/[\p{Lu}][\p{L}]+(?:-[\p{L}]+)?/gu) || [];
+      for (let i = 0; i < rawTokens.length; i++) {
+        const single = rawTokens[i];
+        const next = rawTokens[i + 1] || '';
+        const candidates = [single];
+        const nextNormalized = normalizeWord(next);
+        const canPair =
+          next &&
+          !PORTUGUESE_NAME_STOPWORDS.has(nextNormalized) &&
+          !normalizeWord(next).startsWith(normalizeWord(single)) &&
+          (isLikelyNameToken(single) || KOREAN_FAMILY_NAMES.has(normalizeWord(single))) &&
+          isLikelyNameToken(next);
+        if (canPair) candidates.push(`${single} ${next}`);
+
+        for (const name of candidates) {
+          const normalizedName = normalizeText(name);
+          const parts = normalizedName.split(/\s+/);
+          const normalizedParts = parts.map(normalizeWord);
+          if (normalizedName.length < 4) continue;
+          if (normalizedParts.every((part) => PORTUGUESE_NAME_STOPWORDS.has(part))) continue;
+          if (normalizedParts.some((part) => part.endsWith('mente'))) continue;
+          if (!parts.some((part) => isLikelyNameToken(part)) && parts.length < 2) continue;
+          names.set(normalizedName, (names.get(normalizedName) || 0) + 1);
+        }
+      }
+    }
+  }
+
+  for (const section of translationDoc.sections || []) {
+    for (const heading of [...(section.headings || []), section.title]) {
+      const title = extractChapterTitle(heading);
+      const parts = title.split(/\s+/);
+      if (parts.some((part) => isLikelyNameToken(part))) {
+        names.set(title, (names.get(title) || 0) + 1);
+      }
+    }
   }
   
-  // Agrupar variantes por similaridade
-  const nameList = [...names.entries()].filter(([_, count]) => count >= 2);
+  const nameList = [...names.entries()]
+    .filter(([name, count]) => count >= 2 || /[-\s]/.test(name))
+    .sort((a, b) => b[1] - a[1]);
   const groups = [];
   
   for (let i = 0; i < nameList.length; i++) {
-    const [name, count] = nameList[i];
-    if (groups.some(g => g.includes(name))) continue;
+    const [name] = nameList[i];
+    if (groups.some(g => g.variants.includes(name))) continue;
     
     const variants = [name];
     for (let j = i + 1; j < nameList.length; j++) {
-      const [otherName, _] = nameList[j];
-      if (similarity(name, otherName) >= 0.7) {
+      const [otherName] = nameList[j];
+      const a = normalizeForCompare(name).replace(/\s+/g, '');
+      const b = normalizeForCompare(otherName).replace(/\s+/g, '');
+      const lengthGap = Math.abs(a.length - b.length);
+      if (lengthGap <= 6 && similarity(a, b) >= 0.78) {
         variants.push(otherName);
       }
     }
     
-    if (variants.length >= 3) {
-      // Ordena por frequência e usa o mais comum como canônico
+    if (variants.length >= 2) {
       variants.sort((a, b) => names.get(b) - names.get(a));
+      const total = variants.reduce((sum, v) => sum + names.get(v), 0);
+      if (total < 4) continue;
       groups.push({
         canonical: variants[0],
         variants: variants,
-        count: variants.reduce((sum, v) => sum + names.get(v), 0)
+        count: total
       });
     }
   }
@@ -341,13 +569,16 @@ function detectStyleIssues(translationDoc) {
 function detectUnnaturalLocalization(translationDoc) {
   const findings = [];
   const paragraphs = translationDoc.paragraphs || [];
+  const seen = new Set();
   
-  // Heurística: frases muito curtas seguidas de frases muito longas (possível calque)
   for (let i = 0; i < paragraphs.length - 1; i++) {
     const current = paragraphs[i];
     const next = paragraphs[i + 1];
+    const currentClean = normalizeText(current);
+    const key = currentClean.toLowerCase();
     
-    if (current.length < 50 && next.length > 200) {
+    if (currentClean.length >= 8 && currentClean.length < 40 && /[.!?…:”"]$/.test(currentClean) && next.length > 280 && !seen.has(key)) {
+      seen.add(key);
       findings.push({
         paragraphIndex: i,
         currentLength: current.length,
@@ -363,9 +594,9 @@ function detectUnnaturalLocalization(translationDoc) {
     classification: 'heuristic',
     severity: 'low',
     confidence: 'low',
-    count: findings.length,
+    count: Math.min(findings.length, 40),
     description: 'Trechos que parecem pouco naturais em português, exigindo revisão manual. Requer validação humana.',
-    examples: findings.slice(0, 10).map(f => f.example)
+    examples: findings.slice(0, 20).map(f => f.example)
   };
 }
 
@@ -373,7 +604,7 @@ export function buildEditorialReadabilityAudit({ sourceDoc, translationDoc, sour
   const categories = [];
   
   // 1. Títulos duplicados (confirmed, high)
-  const duplicatedTitles = detectDuplicatedTitles(translationDoc);
+  const duplicatedTitles = detectDuplicatedTitles(sourceDoc, translationDoc);
   if (duplicatedTitles.count > 0) categories.push(duplicatedTitles);
   
   // 2. Resquícios do idioma original (confirmed, high)

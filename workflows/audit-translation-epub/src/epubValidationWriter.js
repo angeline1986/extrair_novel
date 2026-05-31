@@ -480,8 +480,7 @@ function renderVersioningTab(report) {
         })),
       ), 'flow'))}
       ${validationSection('OK', '5.4 Saídas geradas', fileList([
-        { name: 'audit-dashboard-latest.html', meta: 'reports/html/' },
-        { name: 'validation-report-latest.html', meta: 'reports/html/' },
+        { name: 'reader-report-latest.html', meta: 'reports/html/ · relatorio principal' },
         { name: 'audit-report-*.json', meta: 'reports/json/' },
         { name: 'epub-audit-summary-latest.txt', meta: 'reports/txt/' },
       ], 'out'))}

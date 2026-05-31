@@ -18,8 +18,6 @@ const reportsJsonDir = path.join(reportsDir, 'json');
 const reportsHtmlDir = path.join(reportsDir, 'html');
 const summaryPath = path.join(reportsTxtDir, 'epub-audit-summary-latest.txt');
 const reportPattern = path.join(reportsJsonDir, 'audit-report-*.json');
-const htmlPath = path.join(reportsHtmlDir, 'audit-dashboard-latest.html');
-const validationPath = path.join(reportsHtmlDir, 'validation-report-latest.html');
 const readerReportPath = path.join(reportsHtmlDir, 'reader-report-latest.html');
 const reviewQueuePath = path.join(stateDir, 'review-queue.json');
 const assistedReviewPath = path.join(stateDir, 'assisted-review-suggestions.json');
@@ -71,7 +69,7 @@ function printHeader() {
   log('║  Compara EPUB original + portugues e usa Log_Traducao.txt     ║', 'cyan');
   log('║  como insumo para validar termos, trocas e pendencias.         ║', 'cyan');
   log('║                                                                ║', 'cyan');
-  log('║  Relatorios: TXT, JSON e HTML                                  ║', 'cyan');
+  log('║  Relatorio principal: reader-report-latest.html                 ║', 'cyan');
   log('╚════════════════════════════════════════════════════════════════╝', 'cyan');
   console.log();
 
@@ -483,23 +481,11 @@ function findLatestJsonReport() {
 }
 
 function viewHtmlPath() {
-  if (!fs.existsSync(htmlPath)) {
-    log(`\nHTML ainda nao existe: ${displayPath(htmlPath)}`, 'yellow');
-    log('Rode a auditoria primeiro.', 'dim');
-    return;
-  }
-
-  log(`\nHTML: ${displayPath(htmlPath)}`, 'cyan');
+  viewReaderReportPath();
 }
 
 function viewValidationPath() {
-  if (!fs.existsSync(validationPath)) {
-    log(`\nRelatorio de validacao ainda nao existe: ${displayPath(validationPath)}`, 'yellow');
-    log('Rode a auditoria primeiro.', 'dim');
-    return;
-  }
-
-  log(`\nValidacao: ${displayPath(validationPath)}`, 'cyan');
+  viewReaderReportPath();
 }
 
 function viewReaderReportPath() {
@@ -577,8 +563,6 @@ async function cleanOldReports() {
     const newestAuditReport = findLatestJsonReport();
     const currentPaths = new Set([
       summaryPath,
-      htmlPath,
-      validationPath,
       readerReportPath,
       path.join(logsDir, 'workflow-events.jsonl'),
     ]);
