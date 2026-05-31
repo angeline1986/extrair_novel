@@ -13,6 +13,8 @@ const projectRoot = path.resolve(workflowRoot, '../..');
 const logsDir = path.join(workflowRoot, 'logs');
 const stateDir = path.join(workflowRoot, 'state');
 const reportsDir = path.join(workflowRoot, 'reports');
+const inputFixedDir = path.join(workflowRoot, 'input-fixed');
+const outputDir = path.join(workflowRoot, 'output');
 const reportsTxtDir = path.join(reportsDir, 'txt');
 const reportsJsonDir = path.join(reportsDir, 'json');
 const reportsHtmlDir = path.join(reportsDir, 'html');
@@ -95,10 +97,14 @@ function printHeader() {
 
   log('  ┌───────────── RELATORIOS ────────────┐', 'dim');
   log('  6. 🗑️  Limpar relatorios antigos', 'red');
+  log('  7. 🧹 Limpar auditoria recente', 'red');
+  log('     Remove relatorios/logs e achados temporarios; preserva versoes auditadas', 'dim');
+  log('  8. 🧨 Limpar Tudo - Iniciar nova Obra', 'red');
+  log('     Remove estado gerado, input-fixed e output; preserva arquivos de entrada', 'dim');
   console.log();
 
   log('  ┌───────────── SISTEMA ───────────────┐', 'dim');
-  log('  7. ❌ Sair', 'magenta');
+  log('  9. ❌ Sair', 'magenta');
   console.log();
   console.log('─'.repeat(64));
   console.log();
@@ -608,6 +614,148 @@ function removeEmptyReportDirs() {
   }
 }
 
+function listFilesRecursive(targetPath) {
+  if (!fs.existsSync(targetPath)) return [];
+  const stats = fs.statSync(targetPath);
+  if (!stats.isDirectory()) return [targetPath];
+
+  return fs.readdirSync(targetPath).flatMap((entry) => {
+    const entryPath = path.join(targetPath, entry);
+    if (entry === '.gitkeep' || entry === '.DS_Store') return [];
+    return listFilesRecursive(entryPath);
+  });
+}
+
+function removeGeneratedPath(targetPath) {
+  if (!fs.existsSync(targetPath)) return false;
+  fs.rmSync(targetPath, { recursive: true, force: true });
+  return true;
+}
+
+function ensureKeepFile(dirPath) {
+  fs.mkdirSync(dirPath, { recursive: true });
+  const keepPath = path.join(dirPath, '.gitkeep');
+  if (!fs.existsSync(keepPath)) fs.writeFileSync(keepPath, '', 'utf8');
+}
+
+function generatedStateFilesForRecentAudit() {
+  return [
+    'editorial-findings.json',
+    'semantic-candidates.json',
+    'assisted-review-suggestions.json',
+    'post-correction-validation.json',
+    'reaudit-report.json',
+    'reauditoria-summary.json',
+    'pdf-epub-comparison.json',
+  ].map((file) => path.join(stateDir, file));
+}
+
+function generatedStateFilesForNewWork() {
+  return [
+    'correction-plan.json',
+    'correction-report.json',
+    'editorial-findings.json',
+    'review-queue.json',
+    'semantic-candidates.json',
+    'assisted-review-suggestions.json',
+    'post-correction-validation.json',
+    'reaudit-report.json',
+    'reauditoria-summary.json',
+    'pdf-epub-comparison.json',
+  ].map((file) => path.join(stateDir, file));
+}
+
+function printCleanupPreview(title, pathsToRemove) {
+  const files = pathsToRemove.flatMap(listFilesRecursive);
+  console.log();
+  log(title, 'cyan');
+  log(`Arquivos encontrados: ${files.length}`, files.length ? 'yellow' : 'dim');
+  for (const file of files.slice(0, 12)) {
+    console.log(`   ${displayPath(file)}`);
+  }
+  if (files.length > 12) console.log(`   ... e mais ${files.length - 12} arquivos`);
+  return files.length;
+}
+
+async function confirmTypedCleanup(expectedText) {
+  console.log();
+  const answer = (await ask(color(`Digite ${expectedText} para confirmar: `, 'red'))).trim();
+  return answer === expectedText;
+}
+
+async function cleanRecentAudit() {
+  const pathsToRemove = [
+    reportsDir,
+    logsDir,
+    ...generatedStateFilesForRecentAudit(),
+  ];
+  const count = printCleanupPreview('Limpar auditoria recente', pathsToRemove);
+  if (!count) {
+    log('\nNada para limpar nesta auditoria recente.', 'yellow');
+    return;
+  }
+
+  log('\nEsta acao preserva input-fixed, output, correction-plan e review-queue.', 'dim');
+  if (!(await confirmTypedCleanup('LIMPAR AUDITORIA'))) {
+    log('Limpeza cancelada.', 'dim');
+    return;
+  }
+
+  let removed = 0;
+  for (const targetPath of pathsToRemove) {
+    if (removeGeneratedPath(targetPath)) removed += 1;
+  }
+  ensureKeepFile(reportsDir);
+  ensureKeepFile(logsDir);
+  ensureKeepFile(reportsTxtDir);
+  ensureKeepFile(reportsJsonDir);
+  ensureKeepFile(reportsHtmlDir);
+
+  log(`Itens removidos: ${removed}`, 'green');
+}
+
+async function cleanAllForNewWork() {
+  const pathsToRemove = [
+    reportsDir,
+    logsDir,
+    path.join(inputFixedDir, 'manifest.json'),
+    ...(fs.existsSync(inputFixedDir)
+      ? fs.readdirSync(inputFixedDir)
+        .filter((entry) => /^v\d+$/i.test(entry))
+        .map((entry) => path.join(inputFixedDir, entry))
+      : []),
+    ...(fs.existsSync(outputDir)
+      ? fs.readdirSync(outputDir)
+        .filter((entry) => entry.toLowerCase().endsWith('.epub'))
+        .map((entry) => path.join(outputDir, entry))
+      : []),
+    ...generatedStateFilesForNewWork(),
+  ];
+  const count = printCleanupPreview('Limpar Tudo - Iniciar nova Obra', pathsToRemove);
+  if (!count) {
+    log('\nNada para limpar para iniciar nova obra.', 'yellow');
+    return;
+  }
+
+  log('\nEsta acao preserva input/source, input/translated, input/glossary e input/translation-log.', 'yellow');
+  if (!(await confirmTypedCleanup('NOVA OBRA'))) {
+    log('Limpeza cancelada.', 'dim');
+    return;
+  }
+
+  let removed = 0;
+  for (const targetPath of pathsToRemove) {
+    if (removeGeneratedPath(targetPath)) removed += 1;
+  }
+  ensureKeepFile(reportsDir);
+  ensureKeepFile(logsDir);
+  ensureKeepFile(inputFixedDir);
+  ensureKeepFile(outputDir);
+  ensureKeepFile(stateDir);
+
+  log(`Itens removidos: ${removed}`, 'green');
+}
+
 async function pause() {
   await ask(color('\nPressione Enter para continuar...', 'dim'));
 }
@@ -646,6 +794,12 @@ async function main() {
       await cleanOldReports();
       await pause();
     } else if (choice === '7') {
+      await cleanRecentAudit();
+      await pause();
+    } else if (choice === '8') {
+      await cleanAllForNewWork();
+      await pause();
+    } else if (choice === '9') {
       rl.close();
       return;
     } else {

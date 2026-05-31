@@ -100,11 +100,13 @@ Criterios de aceite:
 
 ## Milestone 3 - Escolha do EPUB Alvo
 
+Status: implementado em `src/epubTargetResolver.js`.
+
 Criar resolucao automatica do EPUB traduzido/validado.
 
 Arquivo previsto:
 
-- pode ficar em `src/pdfEpubComparisonAudit.js` ou helper local em `src/auditPdfEpubReport.js`.
+- `src/epubTargetResolver.js`
 
 Ordem de preferencia:
 
