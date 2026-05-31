@@ -170,6 +170,8 @@ Criterios de aceite:
 
 ## Milestone 5 - Writer HTML
 
+Status: implementado em `src/pdfEpubComparisonReportWriter.js`.
+
 Criar relatorio HTML baseado no modelo anexado.
 
 Arquivo previsto:

@@ -14,58 +14,73 @@ const MAX_EXAMPLES_PER_CATEGORY = 12;
 
 const TITLE_TRANSLATION_HINTS = new Map([
   ['embarazo', 'gravidez'],
-  ['reunion', 'reunião'],
+  ['reunion', 'Reencontro'],
   ['malentendido', 'mal-entendido'],
-  ['nauseas matutinas', 'enjoo matinal'],
+  ['nauseas matutinas', 'Enjoos matinais'],
   ['viaje de negocios', 'viagem de negócios'],
-  ['verdad', 'verdade'],
-  ['contrato', 'contrato'],
+  ['verdad', 'A Verdade'],
+  ['contrato', 'Contrato ou Contratos, conforme o conteúdo do capítulo'],
+  ['contratos', 'Contrato ou Contratos, conforme o conteúdo do capítulo'],
   ['rumores', 'rumores'],
-  ['tratamiento', 'tratamento'],
+  ['tratamiento', 'Tratamento; confirmar se é tratamento médico ou forma de tratamento'],
   ['noticias', 'notícias'],
-  ['perturbacion', 'perturbação'],
+  ['perturbacion', 'Abalo ou Perturbação, conforme o tom emocional'],
+  ['agitacion', 'Tumulto ou Agitação, conforme o tom emocional'],
   ['rimas infantiles', 'cantigas de ninar'],
   ['celos', 'ciúme'],
-  ['cambiar', 'mudança'],
-  ['introduccion', 'introdução',
-  ],
-  ['fuga de agua', 'vazamento de água'],
+  ['cambiar', 'Mudança'],
+  ['introduccion', 'Apresentação, se o capítulo apresentar alguém'],
+  ['fuga de agua', 'Vazamento'],
   ['viento', 'vento'],
-  ['grieta', 'rachadura'],
+  ['crack', 'Ruptura, Quebra ou Rachadura; evitar manter "Crack" em português'],
+  ['grieta', 'Ruptura, Quebra ou Rachadura, conforme o contexto'],
   ['conclusion', 'conclusão'],
+  ['consecuencia', 'Consequências'],
   ['promesa', 'promessa'],
+  ['reconocimiento', 'Aceitação, Reconciliação ou Reconhecimento; verificar contexto'],
+  ['historia de amor', 'História de Amor'],
   ['matrimonio', 'casamento'],
 ]);
 
 const SPANISH_TO_PORTUGUESE_TERMS = new Map([
   ['embarazo', 'gravidez'],
-  ['reunión', 'reunião'],
-  ['reunion', 'reunião'],
+  ['reunión', 'Reencontro'],
+  ['reunion', 'Reencontro'],
   ['malentendido', 'mal-entendido'],
-  ['náuseas', 'enjoo'],
-  ['nauseas', 'enjoo'],
+  ['náuseas', 'enjoos'],
+  ['nauseas', 'enjoos'],
   ['matutinas', 'matinais'],
+  ['náuseas matutinas', 'Enjoos matinais'],
+  ['nauseas matutinas', 'Enjoos matinais'],
   ['viaje', 'viagem'],
   ['negocios', 'negócios'],
-  ['verdad', 'verdade'],
-  ['tratamiento', 'tratamento'],
+  ['verdad', 'A Verdade'],
+  ['contratos', 'Contrato ou Contratos, conforme o conteúdo'],
+  ['tratamiento', 'Tratamento; confirmar se é médico ou forma de tratamento'],
   ['noticias', 'notícias'],
-  ['perturbación', 'perturbação'],
-  ['perturbacion', 'perturbação'],
+  ['perturbación', 'Abalo ou Perturbação, conforme o tom emocional'],
+  ['perturbacion', 'Abalo ou Perturbação, conforme o tom emocional'],
+  ['agitación', 'Tumulto ou Agitação, conforme o tom emocional'],
+  ['agitacion', 'Tumulto ou Agitação, conforme o tom emocional'],
   ['rimas', 'rimas/cantigas'],
   ['infantiles', 'infantis/de ninar'],
   ['celos', 'ciúme'],
-  ['cambiar', 'mudança'],
-  ['introducción', 'introdução'],
-  ['introduccion', 'introdução'],
+  ['cambiar', 'Mudança'],
+  ['introducción', 'Apresentação, se o capítulo apresentar alguém'],
+  ['introduccion', 'Apresentação, se o capítulo apresentar alguém'],
   ['fuga', 'vazamento'],
+  ['fuga de agua', 'Vazamento'],
   ['agua', 'água'],
-  ['viento', 'vento'],
-  ['grieta', 'rachadura'],
+  ['viento', 'Vento'],
+  ['crack', 'Ruptura, Quebra ou Rachadura; evitar manter "Crack" em português'],
+  ['grieta', 'Ruptura, Quebra ou Rachadura, conforme o contexto'],
   ['conclusión', 'conclusão'],
   ['conclusion', 'conclusão'],
+  ['consecuencia', 'Consequências'],
   ['promesa', 'promessa'],
-  ['matrimonio', 'casamento'],
+  ['reconocimiento', 'Aceitação, Reconciliação ou Reconhecimento; verificar contexto'],
+  ['historia de amor', 'História de Amor'],
+  ['matrimonio', 'Casamento'],
 ]);
 
 function compact(value) {
@@ -75,6 +90,23 @@ function compact(value) {
 function preview(value, limit = 260) {
   const text = compact(value);
   return text.length > limit ? `${text.slice(0, limit - 3).trim()}...` : text;
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function sentenceContaining(text, needle, limit = 320) {
+  const compactText = compact(text);
+  if (!needle) return preview(compactText, limit);
+
+  const sentences = compactText
+    .split(/(?<=[.!?…])\s+/u)
+    .map(compact)
+    .filter(Boolean);
+  const normalizedNeedle = normalizeComparableText(needle);
+  const sentence = sentences.find((item) => normalizeComparableText(item).includes(normalizedNeedle));
+  return preview(sentence || compactText, limit);
 }
 
 function extractChapterNumber(text) {
@@ -127,6 +159,26 @@ function expectedTitleTranslation(pdfTitle) {
   return null;
 }
 
+function titleRecommendationAlternatives(recommendation) {
+  const main = String(recommendation || '')
+    .split(';')[0]
+    .replace(/\bconforme\b.*$/iu, '')
+    .replace(/\bconfirmar\b.*$/iu, '')
+    .replace(/\bse o capítulo\b.*$/iu, '')
+    .trim();
+
+  return main
+    .split(/\s+ou\s+|,/iu)
+    .map((item) => item.trim())
+    .filter((item) => item.length >= 3);
+}
+
+function titleSatisfiesRecommendation(title, recommendation) {
+  const normalizedTitle = normalizeComparableText(title);
+  return titleRecommendationAlternatives(recommendation)
+    .some((alternative) => normalizedTitle.includes(normalizeComparableText(alternative)));
+}
+
 function termFrequency(tokens) {
   const counts = new Map();
   for (const token of tokens) counts.set(token, (counts.get(token) || 0) + 1);
@@ -138,8 +190,18 @@ function containsNormalized(text, needle) {
   return normalizeComparableText(text).includes(normalizeComparableText(needle));
 }
 
+function textHasTerm(text, term) {
+  const pattern = new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRegExp(term)}(?=$|[^\\p{L}\\p{N}])`, 'iu');
+  return pattern.test(String(text || ''));
+}
+
 function extractNumbers(value) {
   return [...new Set(String(value || '').match(/\d+(?:[.,]\d+)?/g) || [])];
+}
+
+function hasStandaloneNumber(text, number) {
+  const pattern = new RegExp(`(^|[^\\d])${escapeRegExp(number)}(?=$|[^\\d])`, 'u');
+  return pattern.test(String(text || ''));
 }
 
 function extractProperNames(value) {
@@ -196,6 +258,7 @@ function makeFinding({
   problem,
   recommendation = 'Validar manualmente no contexto.',
   location = '',
+  problematicTerm = '',
   severity = 'medium',
   confidence = 'medium',
 }) {
@@ -207,32 +270,40 @@ function makeFinding({
     problem,
     recommendation,
     location: preview(location, 260),
+    problematicTerm,
     severity,
     confidence,
     classification: 'heuristic',
   };
 }
 
-function detectSemanticIssues(pdfByChapter, epubByChapter) {
+function detectSemanticIssues(pdfByChapter, epubByChapter, epubDoc) {
   const findings = [];
+  const epubFullText = epubDoc?.rawText || '';
   for (const [chapter, pdfSection] of pdfByChapter.entries()) {
     const epubSection = epubByChapter.get(chapter);
     if (!epubSection) continue;
     const pdfText = pdfSection.rawText || '';
     const epubText = epubSection.rawText || '';
     const pdfNumbers = extractNumbers(pdfText).filter((number) => !/^\d$/.test(number));
-    const missingNumbers = missingItems(pdfNumbers, epubText).slice(0, 5);
+    const missingNumbers = pdfNumbers
+      .filter((number) => !hasStandaloneNumber(epubText, number))
+      .filter((number) => !hasStandaloneNumber(epubFullText, number))
+      .slice(0, 5);
     if (missingNumbers.length >= 3) {
-      findings.push(makeFinding({
-        chapter,
-        type: 'Possível alteração semântica por números ausentes',
-        original: `Números no PDF: ${missingNumbers.join(', ')}`,
-        translation: titleForSection(epubSection),
-        problem: 'Números recorrentes no PDF não aparecem no capítulo correspondente do EPUB.',
-        recommendation: 'Conferir se dados, horários, idades ou quantidades foram omitidos ou alterados.',
-        location: titleForSection(epubSection),
-        severity: 'high',
-      }));
+      for (const number of missingNumbers) {
+        findings.push(makeFinding({
+          chapter,
+          type: 'Possível alteração semântica por número ausente',
+          original: sentenceContaining(pdfText, number),
+          translation: 'Não encontrado no capítulo traduzido.',
+          problem: `O número "${number}" aparece no PDF, mas não foi localizado no EPUB traduzido.`,
+          recommendation: 'Conferir se dado, horário, idade ou quantidade foi omitido ou alterado. Números encontrados em outra parte do EPUB não entram neste alerta.',
+          location: `PDF: ${sentenceContaining(pdfText, number)}`,
+          problematicTerm: number,
+          severity: 'high',
+        }));
+      }
     }
   }
   return dedupeFindings(findings);
@@ -292,6 +363,7 @@ function detectTerminologyIssues(pdfDoc, epubDoc, glossary = {}) {
   const terms = normalizeTermEntries(glossary.terms || { terms: [] });
   const entities = normalizeEntityAliasEntries(glossary.entities || { entities: [] });
   const epubText = epubDoc.rawText || '';
+  const epubSections = epubDoc.sections || [];
 
   for (const entry of [...terms, ...entities]) {
     const sourcePresent = containsNormalized(epubText, entry.from);
@@ -317,16 +389,30 @@ function detectTerminologyIssues(pdfDoc, epubDoc, glossary = {}) {
     const epubCount = epubTokens.get(normalized) || 0;
     const pdfCount = pdfTokens.get(normalized) || 0;
     if (epubCount > 0 && pdfCount > 0 && !isCommonWord(normalized, 'pt')) {
-      findings.push(makeFinding({
-        chapter: '-',
-        type: 'Termo espanhol ainda presente',
-        original: term,
-        translation: term,
-        problem: `Termo espanhol aparece ${epubCount} vez(es) no EPUB traduzido.`,
-        recommendation: `Avaliar substituição por "${recommendation}".`,
-        location: 'EPUB completo',
-        severity: isStrongLanguageMarker(normalized, 'es') ? 'high' : 'medium',
-      }));
+      const sectionsWithTerm = epubSections.filter((section) => textHasTerm(section.rawText || section.paragraphs?.join('\n') || '', term));
+      const targets = sectionsWithTerm.length ? sectionsWithTerm.slice(0, 6) : [null];
+
+      for (const section of targets) {
+        const sectionText = section ? (section.rawText || section.paragraphs?.join('\n') || '') : epubText;
+        const chapter = section ? (extractChapterNumber(titleForSection(section)) ?? section.index + 1) : '-';
+        const sectionTitle = section ? titleForSection(section) : '';
+        const termIsInTitle = sectionTitle && textHasTerm(sectionTitle, term);
+        const sentence = termIsInTitle ? sectionTitle : sentenceContaining(sectionText, term);
+        const location = termIsInTitle
+          ? `Título do capítulo ${chapter}: ${sectionTitle}`
+          : sentence;
+        findings.push(makeFinding({
+          chapter,
+          type: 'Termo espanhol ainda presente',
+          original: term,
+          translation: sentence,
+          problem: `Termo espanhol aparece no EPUB traduzido.`,
+          recommendation: `Avaliar substituição por "${recommendation}".`,
+          location,
+          problematicTerm: term,
+          severity: isStrongLanguageMarker(normalized, 'es') ? 'high' : 'medium',
+        }));
+      }
     }
   }
 
@@ -342,7 +428,7 @@ function detectDriftIssues(pdfByChapter, epubByChapter) {
     const pdfTitle = titleForSection(pdfSection);
     const epubTitle = titleForSection(epubSection);
     const expected = expectedTitleTranslation(pdfTitle);
-    if (expected && !containsNormalized(epubTitle, expected)) {
+    if (expected && !titleSatisfiesRecommendation(epubTitle, expected)) {
       findings.push(makeFinding({
         chapter,
         type: 'Divergência de título',
@@ -377,9 +463,13 @@ function detectEditorialFindings(epubDoc) {
 
   for (const section of epubDoc.sections || []) {
     const chapter = extractChapterNumber(titleForSection(section)) ?? section.index + 1;
+    const sectionTitle = titleForSection(section);
     const blocks = [
-      { kind: 'Título', text: titleForSection(section) },
-      ...(section.paragraphs || []).slice(0, 120).map((text, index) => ({ kind: `Parágrafo ${index + 1}`, text })),
+      { kind: 'Título', text: sectionTitle },
+      ...(section.paragraphs || [])
+        .slice(0, 120)
+        .filter((text) => normalizeComparableText(text) !== normalizeComparableText(sectionTitle))
+        .map((text, index) => ({ kind: `Parágrafo ${index + 1}`, text })),
     ];
 
     for (const block of blocks) {
@@ -422,7 +512,7 @@ export function buildPdfEpubComparisonAudit({
   const pdfByChapter = indexSectionsByChapter(pdfDoc);
   const epubByChapter = indexSectionsByChapter(epubDoc);
 
-  const semanticFindings = detectSemanticIssues(pdfByChapter, epubByChapter);
+  const semanticFindings = detectSemanticIssues(pdfByChapter, epubByChapter, epubDoc);
   const omissionFindings = detectOmissions(pdfByChapter, epubByChapter);
   const terminologyFindings = detectTerminologyIssues(pdfDoc, epubDoc, glossary);
   const driftFindings = detectDriftIssues(pdfByChapter, epubByChapter);

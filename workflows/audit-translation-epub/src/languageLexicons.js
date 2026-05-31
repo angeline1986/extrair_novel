@@ -81,7 +81,7 @@ gravidez mal-entendido notícias introdução conclusão promessa casamento
 export const SPANISH_STRONG_MARKERS = new Set(wordsFromList(`
 el los las una uno unos unas del que para pero muy aunque donde cuando siempre hacia hasta todavía todavia
 reunion reunión embarazo malentendido nauseas náuseas matutinas rimas infantiles celos cambiar introduccion introducción
-grieta conclusion conclusión matrimonio usted ustedes año años
+agitacion agitación grieta crack consecuencia reconocimiento conclusion conclusión matrimonio usted ustedes año años
 `));
 
 export const ENGLISH_STRONG_MARKERS = new Set(wordsFromList(`
