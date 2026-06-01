@@ -48,6 +48,12 @@ Para validar os contratos internos do pipeline EPUB com fixtures pequenas:
 npm run validate:translation:epub
 ```
 
+Para gerar a comparacao editorial entre o PDF original e o EPUB traduzido/validado:
+
+```bash
+npm run audit:translation:epub:pdf-report
+```
+
 O fluxo principal do menu executa:
 
 ```txt
@@ -55,6 +61,7 @@ O fluxo principal do menu executa:
 2. geracao de input-fixed/vN/*.epub com correcoes seguras
 3. publicacao em output/
 4. reauditoria do EPUB publicado
+5. geracao do relatorio PDF x EPUB, quando houver PDF disponivel
 ```
 
 As correcoes automaticas sao conservadoras: o script edita apenas nos de texto dos XHTMLs e so aplica trocas declaradas no bloco inicial do log, como `Master -> Mestre`.
@@ -140,6 +147,78 @@ O relatorio principal exibe:
 - achados confirmados e heuristicos;
 - pendencias humanas;
 - sugestoes assistidas, quando existirem.
+
+## Relatorio PDF x EPUB
+
+O relatorio PDF x EPUB compara o PDF original em espanhol com o EPUB traduzido/validado em portugues. Ele e uma auditoria editorial complementar ao relatorio principal.
+
+Coloque o PDF original em:
+
+```txt
+input/source/pdf/
+```
+
+O EPUB alvo e escolhido automaticamente nesta ordem:
+
+```txt
+1. output/*.epub
+2. input-fixed/vN/*.epub, conforme input-fixed/manifest.json
+3. input/translated/*.epub
+```
+
+Para gerar o relatorio diretamente:
+
+```bash
+npm run audit:translation:epub:pdf-report
+```
+
+Pelo menu, use:
+
+```txt
+2. Gerar relatorio PDF x EPUB
+3. Exportar lista completa de achados
+5. Revisar sugestoes
+   2. Validar achados PDF x EPUB
+   3. Aplicar achados PDF x EPUB aprovados
+```
+
+Saidas geradas:
+
+```txt
+reports/html/pdf-epub-comparison-latest.html
+reports/txt/pdf-epub-comparison-full.txt
+state/pdf-epub-comparison.json
+state/pdf-epub-review-queue.json
+```
+
+Diferença entre os relatorios HTML:
+
+- `reports/html/reader-report-latest.html`: relatorio principal da auditoria EPUB, com saude editorial, achados da traducao, fila de revisao e resultado do fluxo principal.
+- `reports/html/pdf-epub-comparison-latest.html`: relatorio complementar que compara o PDF original com o EPUB traduzido/validado, destacando omissoes, divergencias de titulo, espanhol residual, inconsistencias terminologicas e drift de sentido.
+
+O relatorio PDF x EPUB organiza achados em abas editoriais maiores. O campo `Tipo` dentro de cada tabela indica o subtipo especifico do problema:
+
+- `Cobertura`: omissoes, nomes/numeros ausentes e diferencas estruturais.
+- `Sentido`: drift semantico, literalidade e verbos ambiguos herdados de traducao intermediaria EN/ES.
+- `Idioma residual`: frases, termos ou titulos que permaneceram em espanhol/ingles.
+- `Personagens`: genero, pronomes, nomes canonicos, romanizacao e tratamento.
+- `Terminologia`: glossario, termos perigosos e escolhas terminologicas inconsistentes.
+- `Titulos`: titulos divergentes, literais, duplicados ou com idioma residual.
+- `Editorial`: achados heurísticos que nao se encaixam nas demais abas.
+
+O HTML PDF x EPUB pode exibir apenas os achados mais prioritarios por aba. Quando houver mais achados do que o limite exibido, o proprio relatorio informa quantos foram encontrados e aponta para a lista completa:
+
+```txt
+reports/txt/pdf-epub-comparison-full.txt
+```
+
+O JSON completo fica em:
+
+```txt
+state/pdf-epub-comparison.json
+```
+
+Importante: gerar `pdf-epub-comparison-latest.html` **nao aplica correcoes automaticamente**. Para corrigir o EPUB, valide primeiro os achados em `Revisar sugestoes > Validar achados PDF x EPUB`; depois use `Aplicar achados PDF x EPUB aprovados`. Somente achados aprovados e com substituicao clara geram uma nova versao do EPUB.
 
 O arquivo `state/review-queue.json` registra acoes `auto_review` e `manual_only` que ainda nao devem ser aplicadas automaticamente. Cada item nasce como `pending` e pode ser preparado futuramente para `approved`, `rejected` ou `needs_context`, sem alterar o EPUB nesta milestone.
 

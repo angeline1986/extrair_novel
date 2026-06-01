@@ -12,6 +12,10 @@ import {
   buildPdfEpubReviewQueue,
   refreshPdfEpubReviewQueueSummary,
 } from './pdfEpubReviewQueue.js';
+import {
+  filterPendingItems,
+  pendingCategoryOptions,
+} from './pdfEpubComparison/menuReviewFilters.js';
 import { writePdfEpubComparisonFullText } from './pdfEpubComparisonReportWriter.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -701,6 +705,30 @@ async function offerApplyApprovedPdfEpubFindings(queue) {
   }
 }
 
+async function selectPdfEpubReviewCategory(queue) {
+  const options = pendingCategoryOptions(queue);
+  const total = options.reduce((sum, option) => sum + option.count, 0);
+  if (!options.length) return { categoryId: null, label: 'Todos', total: 0 };
+
+  console.log();
+  log('VALIDAR ACHADOS PDF x EPUB', 'cyan');
+  console.log();
+  log(`  1. Todos os achados pendentes (${total})`, 'white');
+  options.forEach((option, index) => {
+    log(`  ${index + 2}. ${option.label} (${option.count})`, 'white');
+  });
+  log(`  ${options.length + 2}. Voltar`, 'white');
+  console.log();
+
+  const answer = (await ask(color(`Escolha uma opcao (1-${options.length + 2}): `, 'yellow'))).trim();
+  const numeric = Number(answer);
+  if (numeric === options.length + 2) return null;
+  if (numeric === 1 || !Number.isInteger(numeric)) return { categoryId: null, label: 'Todos', total };
+
+  const selected = options[numeric - 2];
+  return selected ? { categoryId: selected.id, label: selected.label, total: selected.count } : { categoryId: null, label: 'Todos', total };
+}
+
 async function validatePdfEpubFindings() {
   const audit = await ensurePdfEpubComparisonState();
   if (!audit) {
@@ -714,13 +742,18 @@ async function validatePdfEpubFindings() {
     return;
   }
 
-  const pendingItems = queue.items.filter((item) => item.status === 'pending');
+  const selectedCategory = await selectPdfEpubReviewCategory(queue);
+  if (!selectedCategory) return;
+
+  const pendingItems = filterPendingItems(queue, selectedCategory.categoryId);
   if (!pendingItems.length) {
-    log('\nNenhum achado PDF x EPUB pendente.', 'green');
+    log(`\nNenhum achado PDF x EPUB pendente em ${selectedCategory.label}.`, 'green');
     log(`Fila: ${displayPath(pdfEpubReviewQueuePath)}`, 'cyan');
     log(`Aprovados: ${queue.summary.approved} · Descartados: ${queue.summary.rejected}`, 'dim');
     return;
   }
+
+  log(`\nCategoria selecionada: ${selectedCategory.label} (${pendingItems.length} pendente(s))`, 'cyan');
 
   let approved = 0;
   let discarded = 0;
@@ -730,9 +763,10 @@ async function validatePdfEpubFindings() {
     const item = pendingItems[index];
     printPdfEpubReviewItem(item, index + 1, pendingItems.length);
 
-    const answer = (await ask(color('Validar achado? (A=aprovar / D=descartar / P=pular / S=sair): ', 'yellow'))).trim().toLowerCase();
+    const answer = (await ask(color('Validar achado? (A=aprovar / D=descartar / P=pular / V=voltar / S=sair): ', 'yellow'))).trim().toLowerCase();
     const now = new Date().toISOString();
 
+    if (answer === 'v' || answer === 'voltar') return;
     if (answer === 's' || answer === 'sair') break;
     if (answer === 'a' || answer === 'aprovar') {
       item.status = 'approved';
@@ -789,10 +823,13 @@ async function reviewSuggestionsMenu() {
     console.log();
     log('  1. Sugestões da auditoria EPUB', 'white');
     log('     Aprovar sugestão ou manter texto atual', 'dim');
+    console.log();
     log('  2. Validar achados PDF x EPUB', 'white');
     log('     Aprovar achados editoriais para revisão/correção posterior', 'dim');
+    console.log();
     log('  3. Aplicar achados PDF x EPUB aprovados', 'white');
     log('     Preparar correcoes a partir dos achados aprovados', 'dim');
+    console.log();
     log('  4. Voltar', 'white');
     console.log();
 
@@ -803,7 +840,7 @@ async function reviewSuggestionsMenu() {
     }
     if (choice === '2') {
       await validatePdfEpubFindings();
-      return;
+      continue;
     }
     if (choice === '3') {
       await applyApprovedPdfEpubFindings();
@@ -1047,6 +1084,12 @@ async function confirmTypedCleanup(expectedText) {
   return answer === expectedText;
 }
 
+async function confirmYesNo(message = 'Tem certeza?') {
+  console.log();
+  const answer = (await ask(color(`${message} (S/N): `, 'red'))).trim().toLowerCase();
+  return answer === 's' || answer === 'sim' || answer === 'y' || answer === 'yes';
+}
+
 async function cleanRecentAudit() {
   const pathsToRemove = [
     reportsDir,
@@ -1060,7 +1103,7 @@ async function cleanRecentAudit() {
   }
 
   log('\nEsta acao preserva input-fixed, output, correction-plan e review-queue.', 'dim');
-  if (!(await confirmTypedCleanup('LIMPAR AUDITORIA'))) {
+  if (!(await confirmYesNo('Limpar auditoria recente?'))) {
     log('Limpeza cancelada.', 'dim');
     return;
   }

@@ -236,6 +236,8 @@ Criterios de aceite:
 
 ## Milestone 7 - Documentacao
 
+Status: implementado em `README.md`.
+
 Atualizar documentacao do workflow.
 
 Arquivos previstos:
@@ -256,6 +258,10 @@ Criterios de aceite:
 - Usuario sabe onde colocar o PDF.
 - Usuario sabe qual comando rodar.
 - Usuario sabe que nenhuma correcao automatica sera aplicada.
+- Usuario sabe a diferenca entre `reader-report-latest.html` e `pdf-epub-comparison-latest.html`.
+- Usuario sabe onde consultar a lista completa de achados:
+  - `reports/txt/pdf-epub-comparison-full.txt`
+  - `state/pdf-epub-comparison.json`
 
 ## Ordem Recomendada de Execucao
 

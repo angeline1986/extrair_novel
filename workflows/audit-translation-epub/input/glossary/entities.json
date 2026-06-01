@@ -149,10 +149,10 @@
         },
         {
           "from": "Yumin",
-          "to": "Yu-min",
+          "to": "Kim Yu-min",
           "mode": "auto_review",
           "confidence": 0.86,
-          "note": "Forma sem hifen."
+          "note": "Forma sem hifen; preferir nome canonico completo."
         }
       ]
     },
