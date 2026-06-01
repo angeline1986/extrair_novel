@@ -16,6 +16,11 @@ import {
   filterPendingItems,
   pendingCategoryOptions,
 } from './pdfEpubComparison/menuReviewFilters.js';
+import {
+  applyReviewDecision,
+  decisionOptionsForItem,
+  replacementForDecision,
+} from './pdfEpubComparison/reviewDecision.js';
 import { writePdfEpubComparisonFullText } from './pdfEpubComparisonReportWriter.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -631,6 +636,28 @@ function printPdfEpubReviewItem(item, position, total) {
   console.log();
 }
 
+function printPdfEpubDecisionOptions(options) {
+  log('OPCOES', 'cyan');
+  for (const option of options) {
+    log(`  ${option.key}. ${option.label}`, 'white');
+  }
+  console.log();
+}
+
+async function readPdfEpubReviewDecision(item) {
+  const options = decisionOptionsForItem(item);
+  printPdfEpubDecisionOptions(options);
+
+  const answer = (await ask(color('Escolha uma opcao: ', 'yellow'))).trim();
+  const selected = options.find((option) => option.key.toLowerCase() === answer.toLowerCase());
+  if (!selected) return { action: 'skip' };
+  if (selected.action !== 'manual') return selected;
+
+  const replacement = (await ask(color('Digite a substituicao desejada: ', 'yellow'))).trim();
+  if (!replacement) return { action: 'skip' };
+  return { action: 'apply', label: `Editar manualmente para "${replacement}"`, replacement };
+}
+
 function buildAndPersistPdfEpubReviewQueue() {
   const audit = readJson(pdfEpubComparisonStatePath);
   if (!audit) return null;
@@ -763,33 +790,20 @@ async function validatePdfEpubFindings() {
     const item = pendingItems[index];
     printPdfEpubReviewItem(item, index + 1, pendingItems.length);
 
-    const answer = (await ask(color('Validar achado? (A=aprovar / D=descartar / P=pular / V=voltar / S=sair): ', 'yellow'))).trim().toLowerCase();
+    const decision = await readPdfEpubReviewDecision(item);
     const now = new Date().toISOString();
 
-    if (answer === 'v' || answer === 'voltar') return;
-    if (answer === 's' || answer === 'sair') break;
-    if (answer === 'a' || answer === 'aprovar') {
-      item.status = 'approved';
-      item.review = {
-        ...(item.review || {}),
-        approvedBy: 'menu_pdf_epub_review',
-        reviewedAt: now,
-        notes: 'Achado PDF x EPUB aprovado para revisao/correcao posterior.',
-      };
-      item.updatedAt = now;
+    if (decision.action === 'back') return;
+    if (decision.action === 'exit') break;
+    if (decision.action === 'apply') {
+      const replacement = replacementForDecision(item, decision.replacement);
+      applyReviewDecision(item, { ...decision, replacement: decision.replacement }, now);
       approved += 1;
-      log('Achado aprovado para revisao/correcao posterior.', 'green');
-    } else if (answer === 'd' || answer === 'descartar' || answer === 'i' || answer === 'ignorar' || answer === 'r' || answer === 'rejeitar') {
-      item.status = 'rejected';
-      item.review = {
-        ...(item.review || {}),
-        approvedBy: null,
-        reviewedAt: now,
-        notes: 'Achado PDF x EPUB descartado pelo menu.',
-      };
-      item.updatedAt = now;
+      log(replacement ? `Correcao aprovada: ${replacement.from} -> ${replacement.to}` : 'Achado aprovado para revisao posterior.', 'green');
+    } else if (decision.action === 'keep') {
+      applyReviewDecision(item, decision, now);
       discarded += 1;
-      log('Achado descartado.', 'yellow');
+      log('Texto mantido como esta.', 'yellow');
     } else {
       skipped += 1;
       log('Achado pulado.', 'dim');

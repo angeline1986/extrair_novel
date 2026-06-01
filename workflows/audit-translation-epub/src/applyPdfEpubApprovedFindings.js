@@ -145,6 +145,12 @@ function termReplacement(item) {
 }
 
 function replacementFromItem(item) {
+  if (item.review?.replacement?.from && item.review?.replacement?.to) {
+    return {
+      from: String(item.review.replacement.from).trim(),
+      to: String(item.review.replacement.to).trim(),
+    };
+  }
   return titleReplacement(item) || termReplacement(item);
 }
 
