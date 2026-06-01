@@ -3,6 +3,8 @@
   "entities": [
     {
       "canonical": "Do Yi-hyeon",
+      "originalName": "도이현",
+      "role": "Protagonista principal absoluto da história.",
       "note": "Nome oficial do protagonista; aliases mantidos em revisao manual para evitar trocas indevidas em contexto espanhol residual.",
       "aliases": [
         {
@@ -100,6 +102,8 @@
     },
     {
       "canonical": "Seo Jeongwoon",
+      "originalName": "서정운",
+      "role": "Segundo protagonista e interesse amoroso.",
       "note": "Nome oficial; nao substituir ocorrencias de Jeongwoon sozinho, pois pode ser uso legitimo do primeiro nome.",
       "aliases": []
     },
@@ -124,9 +128,25 @@
       ]
     },
     {
-      "canonical": "Yu-min",
+      "canonical": "Kim Yu-min",
+      "originalName": "김유민",
+      "role": "Colega de trabalho de Do Yi-hyeon.",
       "note": "Nome oficial; manter aliases em revisao manual.",
       "aliases": [
+        {
+          "from": "Yumin Kim",
+          "to": "Kim Yu-min",
+          "mode": "auto_review",
+          "confidence": 0.82,
+          "note": "Ordem ocidental encontrada na traducao; revisar antes de aplicar."
+        },
+        {
+          "from": "Yu-min Kim",
+          "to": "Kim Yu-min",
+          "mode": "auto_review",
+          "confidence": 0.82,
+          "note": "Ordem ocidental com hifen; revisar antes de aplicar."
+        },
         {
           "from": "Yumin",
           "to": "Yu-min",
@@ -135,6 +155,71 @@
           "note": "Forma sem hifen."
         }
       ]
+    },
+    {
+      "canonical": "Joo Na-hye",
+      "originalName": "주나혜",
+      "role": "Amiga próxima de Do Yi-hyeon.",
+      "note": "Nome oficial; aliases em revisao manual por dependerem da romanizacao usada no EPUB.",
+      "aliases": [
+        {
+          "from": "Na-hye Joo",
+          "to": "Joo Na-hye",
+          "mode": "auto_review",
+          "confidence": 0.78,
+          "note": "Ordem ocidental; revisar antes de aplicar."
+        },
+        {
+          "from": "Joo Nahye",
+          "to": "Joo Na-hye",
+          "mode": "auto_review",
+          "confidence": 0.84,
+          "note": "Forma sem hifen."
+        },
+        {
+          "from": "Nahye Joo",
+          "to": "Joo Na-hye",
+          "mode": "auto_review",
+          "confidence": 0.76,
+          "note": "Ordem ocidental e forma sem hifen."
+        }
+      ]
+    },
+    {
+      "canonical": "Mãe de Do Yi-hyeon",
+      "role": "Aparece com frequência, embora muitas vezes sem nome próprio.",
+      "note": "Entidade contextual sem alias automatico; nao substituir termos genericos como mae ou mae de Do Yi-hyeon.",
+      "aliases": []
+    },
+    {
+      "canonical": "Médico de Do Yi-hyeon",
+      "role": "Personagem recorrente durante toda a gravidez.",
+      "note": "Entidade contextual sem alias automatico; medico/doutor podem ser descricoes genericas.",
+      "aliases": []
+    },
+    {
+      "canonical": "Secretária de Seo Jeongwoon",
+      "role": "Surge repetidamente no ambiente corporativo.",
+      "note": "Entidade contextual sem alias automatico; secretaria pode ser descricao generica.",
+      "aliases": []
+    },
+    {
+      "canonical": "Presidente Seo",
+      "role": "Avô de Seo Jeongwoon; figura importante na estrutura familiar e empresarial.",
+      "note": "Entidade contextual; revisar aliases se aparecerem no EPUB.",
+      "aliases": []
+    },
+    {
+      "canonical": "Funcionários da Equipe de Contabilidade 2",
+      "role": "Grupo recorrente, especialmente nos primeiros volumes.",
+      "note": "Grupo contextual; nao aplicar substituicoes automaticas.",
+      "aliases": []
+    },
+    {
+      "canonical": "Funcionários da diretoria da Taewoon",
+      "role": "Personagens secundários recorrentes ligados a Seo Jeongwoon.",
+      "note": "Grupo contextual; nao aplicar substituicoes automaticas.",
+      "aliases": []
     }
   ]
 }

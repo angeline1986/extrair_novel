@@ -164,6 +164,25 @@ function shouldEditEntry(entryName) {
   return /\.(xhtml|html|htm|xml|opf|ncx)$/i.test(entryName);
 }
 
+function replacementAlreadyPresent(zip, replacement) {
+  let foundBefore = false;
+  let foundAfter = false;
+
+  for (const entry of zip.getEntries()) {
+    if (entry.isDirectory || !shouldEditEntry(entry.entryName)) continue;
+    const text = entry.getData().toString('utf8');
+    if (replacementRegex(replacement.from).test(text)) foundBefore = true;
+    if (replacementRegex(replacement.to).test(text)) foundAfter = true;
+    if (foundBefore) return false;
+  }
+
+  return foundAfter;
+}
+
+function replacementsAlreadyApplied(zip, replacements) {
+  return replacements.length > 0 && replacements.every((replacement) => replacementAlreadyPresent(zip, replacement));
+}
+
 function updateXmlText(html, replacements) {
   const $ = cheerio.load(html, { xmlMode: true, decodeEntities: false });
   const changes = [];
@@ -333,6 +352,16 @@ export async function applyApprovedPdfEpubFindings({ sourcePath = null } = {}) {
   };
 
   if (report.totalReplacements <= 0) {
+    if (replacementsAlreadyApplied(zip, replacements)) {
+      return {
+        ...report,
+        noOp: true,
+        reason: 'approved_replacements_already_present',
+        message: `Nenhuma substituicao pendente encontrada. ${replacements.length} substituicao(oes) aprovada(s) ja parecem estar aplicadas no EPUB alvo.`,
+        finalPath: target.filePath,
+        version: null,
+      };
+    }
     throw new Error('Nenhuma substituicao aprovada foi encontrada no EPUB alvo.');
   }
 

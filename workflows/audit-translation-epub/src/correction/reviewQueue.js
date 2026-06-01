@@ -92,6 +92,47 @@ function previousItemByKey(existingQueue) {
   return map;
 }
 
+function reviewSignatureFromParts({ type, before, after, filePath, nodeId }) {
+  return [
+    type || '-',
+    before || '-',
+    after || '-',
+    filePath || '-',
+    nodeId || '-',
+  ].join('::');
+}
+
+function reviewSignatureFromItem(item) {
+  return reviewSignatureFromParts({
+    type: item?.type,
+    before: item?.before,
+    after: item?.after,
+    filePath: item?.filePath,
+    nodeId: item?.nodeId,
+  });
+}
+
+function reviewSignatureFromAction(action) {
+  const location = firstLocation(action);
+  return reviewSignatureFromParts({
+    type: action?.type,
+    before: action?.before,
+    after: action?.after,
+    filePath: location.filePath || action?.target?.filePath,
+    nodeId: location.id,
+  });
+}
+
+function previousItemByReviewSignature(existingQueue) {
+  const map = new Map();
+  for (const item of existingQueue?.items || []) {
+    const signature = reviewSignatureFromItem(item);
+    if (!signature) continue;
+    map.set(signature, item);
+  }
+  return map;
+}
+
 function notAppliedReason(action) {
   if (action.mode === 'auto_review') return 'mode_auto_review_requires_manual_approval';
   if (action.mode === 'manual_only') return 'mode_manual_only_not_safe_for_auto_application';
@@ -153,11 +194,12 @@ export function buildReviewQueue({
   createdAt = new Date().toISOString(),
 }) {
   const previousItems = previousItemByKey(existingQueue);
+  const previousItemsBySignature = previousItemByReviewSignature(existingQueue);
   const reviewActions = (correctionPlan?.actions || []).filter(actionNeedsReview);
   const items = reviewActions.map((action, index) => {
     const location = firstLocation(action);
     const stableKey = stableKeyFromAction(action);
-    const previousItem = previousItems.get(stableKey) || {};
+    const previousItem = previousItems.get(stableKey) || previousItemsBySignature.get(reviewSignatureFromAction(action)) || {};
     const previousStatus = REVIEW_STATUSES.has(previousItem.status) ? previousItem.status : 'pending';
     const context = contextForAction(action, { xhtmlMap, sourceDoc, chapterAlignment });
 

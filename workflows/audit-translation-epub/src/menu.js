@@ -241,6 +241,93 @@ function normalizeText(value, limit = 700) {
   return text.length > limit ? `${text.slice(0, limit - 3)}...` : text;
 }
 
+function visibleLength(value) {
+  return String(value || '').length;
+}
+
+function fitCell(value, width) {
+  const text = String(value || '');
+  if (visibleLength(text) <= width) return text.padEnd(width, ' ');
+  return `${text.slice(0, Math.max(0, width - 3))}...`;
+}
+
+function wrapText(value, width) {
+  const words = normalizeText(value, 4000).split(/\s+/).filter(Boolean);
+  const lines = [];
+  let current = '';
+
+  for (const word of words) {
+    if (!current) {
+      current = word;
+    } else if (visibleLength(`${current} ${word}`) <= width) {
+      current = `${current} ${word}`;
+    } else {
+      lines.push(current);
+      current = word;
+    }
+  }
+
+  if (current) lines.push(current);
+  return lines.length ? lines : ['-'];
+}
+
+function printBox(lines, width = 67) {
+  console.log(`┌${'─'.repeat(width + 2)}┐`);
+  for (const line of lines) {
+    console.log(`│ ${fitCell(line, width)} │`);
+  }
+  console.log(`└${'─'.repeat(width + 2)}┘`);
+}
+
+function chapterLabelFromReviewItem(item) {
+  if (Number.isInteger(item?.spineIndex)) return `Capitulo ${item.spineIndex + 1}`;
+  const fileMatch = String(item?.filePath || '').match(/chapter_(\d+)/i);
+  if (fileMatch) return `Capitulo ${Number(fileMatch[1])}`;
+  return null;
+}
+
+function printSuggestionBox({ id, type, file, chapter, currentText, before, after }) {
+  const width = 67;
+  const leftWidth = 27;
+  const rightWidth = width - leftWidth - 3;
+  const currentLines = wrapText(currentText, width);
+  const beforeLines = wrapText(before, leftWidth);
+  const afterLines = wrapText(after, rightWidth);
+  const rows = Math.max(beforeLines.length, afterLines.length);
+
+  console.log(`┌${'─'.repeat(width + 2)}┐`);
+  console.log(`│ ${fitCell(`SUGESTAO ${id}`, width)} │`);
+  console.log(`│ ${fitCell(type, width)} │`);
+  if (chapter) console.log(`│ ${fitCell(chapter, width)} │`);
+  console.log(`│ ${fitCell(`Arquivo: ${file}`, width)} │`);
+  console.log(`├${'─'.repeat(width + 2)}┤`);
+  console.log(`│ ${fitCell('TRECHO ATUAL', width)} │`);
+  for (const line of currentLines) console.log(`│ ${fitCell(line, width)} │`);
+  console.log(`├${'─'.repeat(leftWidth + 2)}┬${'─'.repeat(rightWidth + 2)}┤`);
+  console.log(`│ ${fitCell('ANTES', leftWidth)} │ ${fitCell('SUGESTAO', rightWidth)} │`);
+  console.log(`├${'─'.repeat(leftWidth + 2)}┼${'─'.repeat(rightWidth + 2)}┤`);
+  for (let index = 0; index < rows; index++) {
+    console.log(`│ ${fitCell(beforeLines[index] || '', leftWidth)} │ ${fitCell(afterLines[index] || '', rightWidth)} │`);
+  }
+  console.log(`└${'─'.repeat(leftWidth + 2)}┴${'─'.repeat(rightWidth + 2)}┘`);
+}
+
+function printKeyValueBox(rows) {
+  const labelWidth = 15;
+  const valueWidth = 72;
+  console.log(`┌${'─'.repeat(labelWidth + 2)}┬${'─'.repeat(valueWidth + 2)}┐`);
+  rows.forEach((row, index) => {
+    const values = wrapText(row.value, valueWidth);
+    if (index > 0 && row.separator !== false) {
+      console.log(`├${'─'.repeat(labelWidth + 2)}┼${'─'.repeat(valueWidth + 2)}┤`);
+    }
+    values.forEach((line, lineIndex) => {
+      console.log(`│ ${fitCell(lineIndex === 0 ? row.label : '', labelWidth)} │ ${fitCell(line, valueWidth)} │`);
+    });
+  });
+  console.log(`└${'─'.repeat(labelWidth + 2)}┴${'─'.repeat(valueWidth + 2)}┘`);
+}
+
 function printIfPresent(title, value, limit = 1000) {
   if (!value) return;
   console.log();
@@ -303,23 +390,21 @@ async function reviewReadySuggestions() {
 
   for (const { suggestion, item } of candidates) {
     console.log();
-    log(`Sugestao ${item.id}`, 'cyan');
-    log(humanType(suggestion.type || item.type), 'yellow');
-    console.log(`Arquivo: ${item.filePath || '-'} · ${item.nodeId || '-'}`);
-    console.log();
-    log('TRECHO ATUAL', 'dim');
-    console.log(normalizeText(suggestion.currentParagraph || item.currentParagraph || item.textPreview));
-    console.log();
-    log('ANTES', 'dim');
-    console.log(normalizeText(suggestion.before || suggestion.targetBefore || item.before));
-    console.log();
-    log('SUGESTAO', 'green');
-    console.log(normalizeText(suggestion.suggestedAfter || suggestion.replacementAfter));
+    printSuggestionBox({
+      id: item.id,
+      type: humanType(suggestion.type || item.type),
+      file: `${item.filePath || '-'} · ${item.nodeId || '-'}`,
+      chapter: chapterLabelFromReviewItem(item),
+      currentText: suggestion.currentParagraph || item.currentParagraph || item.textPreview,
+      before: suggestion.before || suggestion.targetBefore || item.before,
+      after: suggestion.suggestedAfter || suggestion.replacementAfter,
+    });
     console.log();
 
-    const answer = (await ask(color('Aprovar sugestao? (A=aprovar / M=manter atual / P=pular): ', 'yellow'))).trim().toLowerCase();
+    const answer = (await ask(color('Validar sugestao? (A=aprovar / D=descartar / P=pular / S=sair): ', 'yellow'))).trim().toLowerCase();
     const now = new Date().toISOString();
 
+    if (answer === 's' || answer === 'sair') break;
     if (answer === 'a' || answer === 'aprovar') {
       item.status = 'approved';
       item.before = suggestion.before || suggestion.targetBefore || item.before;
@@ -333,18 +418,22 @@ async function reviewReadySuggestions() {
         notes: 'Aprovado pelo menu interativo EPUB.',
       };
       approved += 1;
+      refreshReviewQueueSummary(reviewQueue);
+      writeJson(reviewQueuePath, reviewQueue);
       log('Sugestao aprovada.', 'green');
-    } else if (answer === 'm' || answer === 'manter' || answer === 'r' || answer === 'rejeitar') {
+    } else if (answer === 'd' || answer === 'descartar' || answer === 'm' || answer === 'manter' || answer === 'r' || answer === 'rejeitar') {
       item.status = 'rejected';
       item.review = {
         ...(item.review || {}),
         source: 'menu_review',
         suggestionId: suggestion.id || null,
         reviewedAt: now,
-        notes: 'Texto atual mantido pelo menu interativo EPUB.',
+        notes: 'Sugestao descartada pelo menu interativo EPUB.',
       };
       rejected += 1;
-      log('Texto atual mantido; sugestao rejeitada.', 'yellow');
+      refreshReviewQueueSummary(reviewQueue);
+      writeJson(reviewQueuePath, reviewQueue);
+      log('Sugestao descartada.', 'yellow');
     } else {
       skipped += 1;
       log('Sugestao pulada.', 'dim');
@@ -355,7 +444,7 @@ async function reviewReadySuggestions() {
   writeJson(reviewQueuePath, reviewQueue);
 
   console.log();
-  log(`Revisao concluida: ${approved} aprovadas, ${rejected} mantidas, ${skipped} puladas.`, 'cyan');
+  log(`Revisao concluida: ${approved} aprovadas, ${rejected} descartadas, ${skipped} puladas.`, 'cyan');
 
   if (!approved) return;
 
@@ -505,12 +594,14 @@ function printPdfEpubReviewItem(item, position, total) {
   log(`Achado PDF x EPUB ${position}/${total} · ${item.id}`, 'cyan');
   log(`${item.categoryLabel} · ${item.type} · Capitulo ${item.chapter}`, 'yellow');
   console.log();
-  printIfPresent('TERMO / LOCAL', item.problematicTerm || item.location, 500);
-  printIfPresent('ORIGINAL PDF', item.original, 900);
-  printIfPresent('TRADUCAO EPUB', item.translation, 900);
-  printIfPresent('PROBLEMA', item.problem, 700);
-  printIfPresent('RECOMENDACAO', item.recommendation, 700);
-  printIfPresent('FRASE OU LOCAL', item.location, 900);
+  printKeyValueBox([
+    { label: 'TERMO / LOCAL', value: item.problematicTerm || item.location },
+    { label: 'ORIGINAL PDF', value: item.original },
+    { label: 'TRADUCAO EPUB', value: item.translation },
+    { label: 'PROBLEMA', value: item.problem },
+    { label: 'RECOMENDACAO', value: item.recommendation },
+    { label: 'FRASE OU LOCAL', value: item.location },
+  ]);
   console.log();
 }
 
@@ -540,16 +631,20 @@ async function applyApprovedPdfEpubFindings() {
 
   console.log();
   log(`Achados PDF x EPUB aprovados: ${approvedItems.length}`, 'cyan');
-  for (const item of approvedItems.slice(0, 10)) {
-    console.log(`   ${item.id} · Capitulo ${item.chapter} · ${item.recommendation}`);
-  }
-  if (approvedItems.length > 10) console.log(`   ... e mais ${approvedItems.length - 10} achados`);
+  log(`Pendentes de aplicacao: ${pendingApplicationItems.length} · Ja aplicados: ${approvedItems.length - pendingApplicationItems.length}`, 'dim');
 
   if (!pendingApplicationItems.length) {
     log('\nTodos os achados PDF x EPUB aprovados ja foram aplicados anteriormente.', 'green');
     log(`Fila: ${displayPath(pdfEpubReviewQueuePath)}`, 'cyan');
     return;
   }
+
+  console.log();
+  log('Pendentes de aplicacao:', 'yellow');
+  for (const item of pendingApplicationItems.slice(0, 10)) {
+    console.log(`   ${item.id} · Capitulo ${item.chapter} · ${item.recommendation}`);
+  }
+  if (pendingApplicationItems.length > 10) console.log(`   ... e mais ${pendingApplicationItems.length - 10} achados`);
 
   console.log();
   const answer = (await ask(color(`Gerar nova versao do EPUB com ${pendingApplicationItems.length} achado(s) aprovado(s) pendente(s)? (S/N): `, 'yellow'))).trim().toLowerCase();

@@ -27,6 +27,60 @@ function previousItemByKey(existingQueue) {
   return map;
 }
 
+function previousItemByDedupeKey(existingQueue) {
+  const map = new Map();
+  for (const item of existingQueue?.items || []) {
+    const key = item.dedupeKey || dedupeKeyFromFinding({ id: item.categoryId }, item);
+    if (!key) continue;
+    map.set(key, item);
+  }
+  return map;
+}
+
+function normalizeComparable(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\p{L}\p{N}\s.]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function quotedRecommendation(value) {
+  const match = String(value || '').match(/"([^"]+)"/);
+  return match?.[1]?.trim() || null;
+}
+
+function titleLikeValue(value) {
+  const text = compact(value);
+  const match = text.match(/(\d+[.)]\s*[^:|]+)/);
+  return compact(match?.[1] || text);
+}
+
+function dedupeKeyFromFinding(category, finding) {
+  const recommendation = quotedRecommendation(finding?.recommendation || finding?.recommended) ||
+    finding?.recommendation ||
+    finding?.recommended ||
+    '';
+  const title = titleLikeValue(finding?.translation || finding?.location || finding?.original || '');
+  if (!recommendation || !title) return null;
+  return [
+    finding?.chapter || '-',
+    normalizeComparable(title),
+    normalizeComparable(recommendation),
+  ].join('::');
+}
+
+function categoryPriority(categoryId) {
+  const priorities = {
+    terminology_inconsistency: 1,
+    semantic_drift: 2,
+    editorial_findings: 3,
+  };
+  return priorities[categoryId] || 9;
+}
+
 function stableKeyFromFinding(category, finding) {
   return [
     category?.id || '-',
@@ -48,12 +102,14 @@ function findingProblem(finding) {
 
 function buildItemFromFinding(category, finding, existingItem = {}) {
   const stableKey = stableKeyFromFinding(category, finding);
+  const dedupeKey = dedupeKeyFromFinding(category, finding);
   const previousStatus = REVIEW_STATUSES.has(existingItem.status) ? existingItem.status : 'pending';
   const now = new Date().toISOString();
 
   return {
     id: existingItem.id || stableReviewId(stableKey),
     stableKey,
+    dedupeKey,
     origin: 'pdf_epub_comparison',
     categoryId: category.id,
     categoryLabel: category.label,
@@ -74,6 +130,7 @@ function buildItemFromFinding(category, finding, existingItem = {}) {
       reviewedAt: null,
       notes: null,
     },
+    application: existingItem.application || null,
     createdAt: existingItem.createdAt || now,
     updatedAt: now,
   };
@@ -89,13 +146,41 @@ export function buildPdfEpubReviewQueue({
   generatedAt = new Date().toISOString(),
 } = {}) {
   const previousItems = previousItemByKey(existingQueue);
-  const findings = (audit?.categories || []).flatMap((category) =>
+  const previousDedupeItems = previousItemByDedupeKey(existingQueue);
+  const rawFindings = (audit?.categories || []).flatMap((category) =>
     (category.findings || []).map((finding) => ({ category, finding }))
   );
+  const byDedupeKey = new Map();
+  const findings = [];
+
+  for (const entry of rawFindings) {
+    const key = dedupeKeyFromFinding(entry.category, entry.finding);
+    if (!key) {
+      findings.push(entry);
+      continue;
+    }
+
+    const current = byDedupeKey.get(key);
+    if (!current) {
+      byDedupeKey.set(key, entry);
+      continue;
+    }
+
+    if (categoryPriority(entry.category.id) < categoryPriority(current.category.id)) {
+      byDedupeKey.set(key, entry);
+    }
+  }
+
+  findings.push(...byDedupeKey.values());
 
   const items = findings.map(({ category, finding }) => {
     const stableKey = stableKeyFromFinding(category, finding);
-    return buildItemFromFinding(category, finding, previousItems.get(stableKey) || {});
+    const dedupeKey = dedupeKeyFromFinding(category, finding);
+    return buildItemFromFinding(
+      category,
+      finding,
+      previousItems.get(stableKey) || previousDedupeItems.get(dedupeKey) || {}
+    );
   });
 
   return {
