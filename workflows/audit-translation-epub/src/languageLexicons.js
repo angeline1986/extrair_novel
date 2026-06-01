@@ -84,6 +84,13 @@ reunion reunión embarazo malentendido nauseas náuseas matutinas rimas infantil
 agitacion agitación grieta crack consecuencia reconocimiento conclusion conclusión matrimonio usted ustedes año años
 `));
 
+export const SPANISH_RESIDUAL_PHRASES = [
+  'dio un paso atrás',
+  'dio un paso atras',
+  'un paso atrás',
+  'un paso atras',
+];
+
 export const ENGLISH_STRONG_MARKERS = new Set(wordsFromList(`
 the and with that this would could should have been from they their there while after before because although however
 toward towards herself himself themselves cannot
@@ -154,4 +161,20 @@ export function dominantLanguageScore(text, languages = ['pt', 'es', 'en']) {
     dominant: scores[0]?.language || null,
     scores,
   };
+}
+
+export function findResidualSpanishPhrases(text) {
+  const normalizedText = normalizeComparableText(text);
+  const matches = SPANISH_RESIDUAL_PHRASES
+    .map((phrase) => ({ phrase, normalized: normalizeComparableText(phrase) }))
+    .filter((item) => normalizedText.includes(item.normalized))
+    .sort((a, b) => b.normalized.length - a.normalized.length);
+
+  const selected = [];
+  for (const match of matches) {
+    if (selected.some((item) => item.normalized.includes(match.normalized))) continue;
+    selected.push(match);
+  }
+
+  return selected.map((item) => item.phrase);
 }

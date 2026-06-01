@@ -6,7 +6,10 @@ import { fileURLToPath } from 'url';
 import { readEpubFile } from './epubReader.js';
 import { resolveEpubTarget } from './epubTargetResolver.js';
 import { buildPdfEpubComparisonAudit } from './pdfEpubComparisonAudit.js';
-import { writePdfEpubComparisonReport } from './pdfEpubComparisonReportWriter.js';
+import {
+  writePdfEpubComparisonFullText,
+  writePdfEpubComparisonReport,
+} from './pdfEpubComparisonReportWriter.js';
 import { readFirstPdfFromDir } from './pdfReader.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -17,9 +20,11 @@ const paths = {
   termsGlossaryPath: path.join(workflowRoot, 'input/glossary/terms.json'),
   entitiesGlossaryPath: path.join(workflowRoot, 'input/glossary/entities.json'),
   reportsHtmlDir: path.join(workflowRoot, 'reports/html'),
+  reportsTxtDir: path.join(workflowRoot, 'reports/txt'),
   stateDir: path.join(workflowRoot, 'state'),
   statePath: path.join(workflowRoot, 'state/pdf-epub-comparison.json'),
   htmlPath: path.join(workflowRoot, 'reports/html/pdf-epub-comparison-latest.html'),
+  txtPath: path.join(workflowRoot, 'reports/txt/pdf-epub-comparison-full.txt'),
 };
 
 function readJsonIfExists(filePath, fallback) {
@@ -33,6 +38,7 @@ function relativeToWorkflow(filePath) {
 
 function ensureDirs() {
   fs.mkdirSync(paths.reportsHtmlDir, { recursive: true });
+  fs.mkdirSync(paths.reportsTxtDir, { recursive: true });
   fs.mkdirSync(paths.stateDir, { recursive: true });
 }
 
@@ -67,6 +73,7 @@ export async function runPdfEpubComparisonReport() {
 
   fs.writeFileSync(paths.statePath, `${JSON.stringify(audit, null, 2)}\n`, 'utf8');
   writePdfEpubComparisonReport(audit, paths.htmlPath);
+  writePdfEpubComparisonFullText(audit, paths.txtPath);
 
   return paths.htmlPath;
 }

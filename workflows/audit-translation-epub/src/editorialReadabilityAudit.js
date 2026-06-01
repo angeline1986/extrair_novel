@@ -1,4 +1,5 @@
 import { getLanguageConfig } from './languageConfig.js';
+import { findResidualSpanishPhrases } from './languageLexicons.js';
 
 function normalizeText(text) {
   return String(text || '')
@@ -319,6 +320,17 @@ function detectResidualSourceLanguage(sourceDoc, translationDoc, sourceLanguage)
     for (let i = 0; i < paragraphs.length; i++) {
       const paragraph = paragraphs[i];
       if (paragraph.length < 20) continue;
+      const residualPhrases = findResidualSpanishPhrases(paragraph);
+      if (residualPhrases.length) {
+        pushFinding({
+          type: 'paragraph_phrase',
+          sectionIndex: section.index,
+          sectionTitle: section.title,
+          words: residualPhrases,
+          example: `"${residualPhrases[0]}" (parágrafo ${i + 1}, capítulo ${section.index + 1})`
+        });
+      }
+
       const foundWords = [...new Set(tokenize(paragraph).filter(w => w.length >= 4 && shouldFlag(w, 'paragraph')))];
       const strongWords = foundWords.filter((word) => SPANISH_RESIDUAL_MARKERS.has(word) || sourceVocabulary.get(word)?.marker);
       

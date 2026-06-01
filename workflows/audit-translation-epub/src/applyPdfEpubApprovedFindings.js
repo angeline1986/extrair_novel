@@ -103,12 +103,25 @@ function quotedRecommendation(value) {
   return match?.[1]?.trim() || null;
 }
 
+function capitalizeTitle(value) {
+  return String(value || '').replace(/^(\s*)(\p{L})/u, (match, prefix, first) => `${prefix}${first.toLocaleUpperCase('pt-BR')}`);
+}
+
+function cleanTitleRecommendation(value) {
+  return capitalizeTitle(String(value || '')
+    .split(';')[0]
+    .replace(/,\s*se o cap[ií]tulo\b.*$/iu, '')
+    .replace(/\bconforme\b.*$/iu, '')
+    .replace(/\bconfirmar\b.*$/iu, '')
+    .trim());
+}
+
 function stripChapterPrefix(value) {
   return String(value || '').replace(/^\s*\d+[.)]?\s*/, '').trim();
 }
 
 function titleReplacement(item) {
-  const recommended = quotedRecommendation(item.recommendation) || item.recommendation;
+  const recommended = cleanTitleRecommendation(quotedRecommendation(item.recommendation) || item.recommendation);
   if (!recommended || !item.translation || !/titulo|título/i.test(item.location || item.type || '')) return null;
 
   const chapter = String(item.chapter || '').trim();
@@ -164,6 +177,20 @@ function shouldEditEntry(entryName) {
   return /\.(xhtml|html|htm|xml|opf|ncx)$/i.test(entryName);
 }
 
+function cleanupGeneratedTitleText(text) {
+  const value = String(text || '');
+  const compactValue = value.replace(/\s+/g, ' ').trim();
+  const artifactMatch = compactValue.match(/^(\d+[.)]\s*)(.+?)(?:;\s*confirmar\b.*|,\s*se o cap[ií]tulo\b.*)$/iu);
+  if (artifactMatch) return `${artifactMatch[1]}${capitalizeTitle(artifactMatch[2].trim())}`;
+
+  const lowercaseTitleMatch = compactValue.match(/^(\d+[.)]\s*)(\p{Ll}.*)$/u);
+  if (lowercaseTitleMatch && compactValue.length <= 80) {
+    return `${lowercaseTitleMatch[1]}${capitalizeTitle(lowercaseTitleMatch[2])}`;
+  }
+
+  return null;
+}
+
 function replacementAlreadyPresent(zip, replacement) {
   let foundBefore = false;
   let foundAfter = false;
@@ -193,6 +220,18 @@ function updateXmlText(html, replacements) {
     if (!node.data || !node.data.trim()) return;
 
     let text = node.data;
+    const cleanedTitle = cleanupGeneratedTitleText(text);
+    if (cleanedTitle && cleanedTitle !== text.trim()) {
+      changes.push({
+        reviewQueueItemId: null,
+        from: text,
+        to: cleanedTitle,
+        count: 1,
+        source: 'title_cleanup',
+      });
+      text = cleanedTitle;
+    }
+
     for (const replacement of replacements) {
       const result = replaceText(text, replacement.from, replacement.to);
       if (result.count > 0) {
@@ -290,23 +329,6 @@ export async function applyApprovedPdfEpubFindings({ sourcePath = null } = {}) {
   if (!queue) throw new Error('Fila PDF x EPUB nao encontrada. Valide achados primeiro.');
 
   const { replacements, skipped } = approvedReplacements(queue);
-  if (!replacements.length) {
-    const alreadyApplied = skipped.filter((item) => item.reason === 'approved_item_already_applied').length;
-    if (alreadyApplied > 0) {
-      return {
-        schemaVersion: '1.0',
-        timestamp: new Date().toISOString(),
-        noOp: true,
-        reason: 'approved_items_already_applied',
-        message: `Nenhum achado aprovado pendente de aplicacao. ${alreadyApplied} achado(s) ja foram aplicados anteriormente.`,
-        alreadyApplied,
-        totalReplacements: 0,
-        changedEntries: [],
-        skippedApprovedItems: skipped,
-      };
-    }
-    throw new Error('Nenhum achado PDF x EPUB aprovado possui substituicao clara para aplicar.');
-  }
 
   const target = sourcePath
     ? { filePath: sourcePath, filename: path.basename(sourcePath), source: 'explicit' }
@@ -352,7 +374,7 @@ export async function applyApprovedPdfEpubFindings({ sourcePath = null } = {}) {
   };
 
   if (report.totalReplacements <= 0) {
-    if (replacementsAlreadyApplied(zip, replacements)) {
+    if (replacements.length && replacementsAlreadyApplied(zip, replacements)) {
       return {
         ...report,
         noOp: true,
@@ -362,7 +384,18 @@ export async function applyApprovedPdfEpubFindings({ sourcePath = null } = {}) {
         version: null,
       };
     }
-    throw new Error('Nenhuma substituicao aprovada foi encontrada no EPUB alvo.');
+    const alreadyApplied = skipped.filter((item) => item.reason === 'approved_item_already_applied').length;
+    return {
+      ...report,
+      noOp: true,
+      reason: alreadyApplied ? 'approved_items_already_applied' : 'nothing_to_apply',
+      message: alreadyApplied
+        ? `Nenhum achado aprovado pendente de aplicacao. ${alreadyApplied} achado(s) ja foram aplicados anteriormente.`
+        : 'Nenhuma substituicao ou limpeza de titulo pendente foi encontrada no EPUB alvo.',
+      alreadyApplied,
+      finalPath: target.filePath,
+      version: null,
+    };
   }
 
   await writeEpubZip(zip, versionPath);

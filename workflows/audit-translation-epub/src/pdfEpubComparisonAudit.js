@@ -1,4 +1,5 @@
 import {
+  findResidualSpanishPhrases,
   isCommonWord,
   isStrongLanguageMarker,
   normalizeComparableText,
@@ -81,6 +82,13 @@ const SPANISH_TO_PORTUGUESE_TERMS = new Map([
   ['reconocimiento', 'Aceitação, Reconciliação ou Reconhecimento; verificar contexto'],
   ['historia de amor', 'História de Amor'],
   ['matrimonio', 'Casamento'],
+]);
+
+const SPANISH_PHRASE_RECOMMENDATIONS = new Map([
+  ['dio un paso atrás', 'deu um passo atrás'],
+  ['dio un paso atras', 'deu um passo atrás'],
+  ['un paso atrás', 'um passo atrás'],
+  ['un paso atras', 'um passo atrás'],
 ]);
 
 function compact(value) {
@@ -179,6 +187,11 @@ function titleSatisfiesRecommendation(title, recommendation) {
     .some((alternative) => normalizedTitle.includes(normalizeComparableText(alternative)));
 }
 
+function residualPhraseRecommendation(phrase) {
+  return SPANISH_PHRASE_RECOMMENDATIONS.get(normalizeComparableText(phrase)) ||
+    'Traduzir a frase residual para PT-BR conforme contexto.';
+}
+
 function termFrequency(tokens) {
   const counts = new Map();
   for (const token of tokens) counts.set(token, (counts.get(token) || 0) + 1);
@@ -222,15 +235,16 @@ function missingItems(sourceItems, targetText) {
 }
 
 function category(id, label, description, findings) {
-  const limited = findings.slice(0, MAX_FINDINGS_PER_CATEGORY);
+  const shown = Math.min(findings.length, MAX_FINDINGS_PER_CATEGORY);
   return {
     id,
     label,
     description,
     count: findings.length,
-    shown: limited.length,
-    examples: limited.slice(0, MAX_EXAMPLES_PER_CATEGORY),
-    findings: limited,
+    shown,
+    displayLimit: MAX_FINDINGS_PER_CATEGORY,
+    examples: findings.slice(0, MAX_EXAMPLES_PER_CATEGORY),
+    findings,
   };
 }
 
@@ -467,7 +481,6 @@ function detectEditorialFindings(epubDoc) {
     const blocks = [
       { kind: 'Título', text: sectionTitle },
       ...(section.paragraphs || [])
-        .slice(0, 120)
         .filter((text) => normalizeComparableText(text) !== normalizeComparableText(sectionTitle))
         .map((text, index) => ({ kind: `Parágrafo ${index + 1}`, text })),
     ];
@@ -478,7 +491,25 @@ function detectEditorialFindings(epubDoc) {
         SPANISH_STRONG_MARKERS.has(token) &&
         !isCommonWord(token, 'pt')
       ))];
-      if (!markers.length) continue;
+      const residualPhrases = findResidualSpanishPhrases(block.text);
+      if (!markers.length && !residualPhrases.length) continue;
+
+      for (const phrase of residualPhrases) {
+        const key = `${chapter}:${phrase}:${block.kind}`;
+        if (seenMarkers.has(key)) continue;
+        seenMarkers.add(key);
+        findings.push({
+          chapter: chapterLabel(chapter),
+          problematicTerm: phrase,
+          sourceTerm: phrase,
+          recommended: residualPhraseRecommendation(phrase),
+          location: `${block.kind}: ${preview(block.text, 220)}`,
+          type: 'Expressão em espanhol residual',
+          severity: 'high',
+          confidence: 'high',
+          classification: 'informative',
+        });
+      }
 
       for (const marker of markers) {
         const key = `${chapter}:${marker}:${block.kind}`;
@@ -500,7 +531,7 @@ function detectEditorialFindings(epubDoc) {
     }
   }
 
-  return findings.slice(0, MAX_FINDINGS_PER_CATEGORY);
+  return findings;
 }
 
 export function buildPdfEpubComparisonAudit({
@@ -523,15 +554,7 @@ export function buildPdfEpubComparisonAudit({
     category('omissions', 'Omissões', 'Possíveis capítulos, blocos ou entidades do PDF ausentes no EPUB.', omissionFindings),
     category('terminology_inconsistency', 'Inconsistência terminológica', 'Termos do glossário ou espanhol residual que ainda aparecem no EPUB.', terminologyFindings),
     category('semantic_drift', 'Drift de sentido', 'Divergências fortes de título, tamanho ou cobertura por capítulo.', driftFindings),
-    {
-      id: 'editorial_findings',
-      label: 'Achados editoriais',
-      description: 'Termos espanhóis residuais e títulos suspeitos encontrados no EPUB PT-BR.',
-      count: editorialFindings.length,
-      shown: editorialFindings.length,
-      examples: editorialFindings.slice(0, MAX_EXAMPLES_PER_CATEGORY),
-      findings: editorialFindings,
-    },
+    category('editorial_findings', 'Achados editoriais', 'Termos espanhóis residuais e títulos suspeitos encontrados no EPUB PT-BR.', editorialFindings),
   ];
 
   return {

@@ -74,8 +74,26 @@ function renderEmptyRow(colspan) {
   return `<tr><td colspan="${colspan}" class="empty-cell">Nenhum achado nesta categoria.</td></tr>`;
 }
 
-function renderStandardRows(category) {
+function displayedFindings(category) {
   const findings = category?.findings || [];
+  const limit = Number(category?.displayLimit || category?.shown || findings.length);
+  return findings.slice(0, limit);
+}
+
+function renderLimitNotice(category) {
+  const count = Number(category?.count || 0);
+  const shown = Math.min(displayedFindings(category).length, count);
+  if (count <= shown) return '';
+
+  return `
+    <div class="limit-notice">
+      Exibindo ${formatNumber(shown)} de ${formatNumber(count)} achados encontrados nesta aba.
+      Lista completa: <code>reports/txt/pdf-epub-comparison-full.txt</code> · JSON completo: <code>state/pdf-epub-comparison.json</code>
+    </div>`;
+}
+
+function renderStandardRows(category) {
+  const findings = displayedFindings(category);
   if (!findings.length) return renderEmptyRow(7);
 
   return findings.map((finding) => `
@@ -92,7 +110,7 @@ function renderStandardRows(category) {
 }
 
 function renderEditorialRows(category) {
-  const findings = category?.findings || [];
+  const findings = displayedFindings(category);
   if (!findings.length) return renderEmptyRow(5);
 
   return findings.map((finding) => `
@@ -108,6 +126,7 @@ function renderEditorialRows(category) {
 
 function renderStandardTable(category) {
   return `
+    ${renderLimitNotice(category)}
     <div class="table-wrapper">
       <table class="data-table">
         <caption>${escapeHtml(category.description || category.label || '')}</caption>
@@ -129,6 +148,7 @@ function renderStandardTable(category) {
 
 function renderEditorialTable(category) {
   return `
+    ${renderLimitNotice(category)}
     <div class="table-wrapper">
       <table class="data-table">
         <caption>${escapeHtml(category.description || category.label || '')}</caption>
@@ -354,6 +374,24 @@ function reportStyles() {
       color: #714513;
       border-radius: 6px;
     }
+    .limit-notice {
+      margin-bottom: 14px;
+      padding: 12px 14px;
+      border: 1px solid #f0cf9b;
+      background: #fff8ec;
+      color: #714513;
+      border-radius: 6px;
+      text-align: center;
+      font-weight: 700;
+    }
+    .limit-notice code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.86em;
+      background: rgba(113, 69, 19, 0.08);
+      padding: 2px 5px;
+      border-radius: 4px;
+      overflow-wrap: anywhere;
+    }
     footer {
       padding: 14px 22px;
       border-top: 1px solid var(--line);
@@ -439,5 +477,77 @@ export function writePdfEpubComparisonReport(audit, htmlPath) {
   return {
     htmlPath,
     relativePath: htmlPath,
+  };
+}
+
+function textLine(label, value) {
+  return `${label}: ${value || '-'}`;
+}
+
+function findingToText(finding, category) {
+  if (category.id === 'editorial_findings') {
+    return [
+      textLine('Capitulo', finding.chapter),
+      textLine('Tipo', finding.type),
+      textLine('Termo problematico', finding.problematicTerm),
+      textLine('Termo PDF', finding.sourceTerm),
+      textLine('Versao correta', finding.recommended),
+      textLine('Frase/local', finding.location),
+    ].join('\n');
+  }
+
+  return [
+    textLine('Capitulo', finding.chapter),
+    textLine('Tipo', finding.type),
+    textLine('Original PDF', finding.original),
+    textLine('Traducao EPUB', finding.translation),
+    textLine('Problema', finding.problem),
+    textLine('Recomendacao', finding.recommendation),
+    textLine('Frase/local', finding.location),
+  ].join('\n');
+}
+
+export function buildPdfEpubComparisonFullText(audit) {
+  const lines = [];
+  lines.push('RELATORIO COMPLETO PDF x EPUB');
+  lines.push(`Gerado em: ${audit?.generatedAt || new Date().toISOString()}`);
+  lines.push('');
+  lines.push(textLine('PDF original', audit?.inputs?.pdf?.filename));
+  lines.push(textLine('EPUB analisado', audit?.inputs?.epub?.filename));
+  lines.push(textLine('Total de achados', formatNumber(audit?.summary?.totalFindings || 0)));
+  lines.push(textLine('Capitulos PDF analisados', formatNumber(audit?.summary?.pdfChapters || 0)));
+  lines.push(textLine('Capitulos EPUB analisados', formatNumber(audit?.summary?.epubChapters || 0)));
+  lines.push('');
+  lines.push('Observacao: este TXT lista todos os achados registrados no JSON completo. O HTML pode mostrar apenas os mais prioritarios por aba.');
+
+  for (const category of audit?.categories || []) {
+    lines.push('');
+    lines.push('='.repeat(80));
+    lines.push(`${category.label} - ${formatNumber(category.count)} achado(s)`);
+    lines.push(category.description || '');
+    lines.push('='.repeat(80));
+
+    const findings = category.findings || [];
+    if (!findings.length) {
+      lines.push('Nenhum achado nesta categoria.');
+      continue;
+    }
+
+    findings.forEach((finding, index) => {
+      lines.push('');
+      lines.push(`#${index + 1}`);
+      lines.push(findingToText(finding, category));
+    });
+  }
+
+  return `${lines.join('\n')}\n`;
+}
+
+export function writePdfEpubComparisonFullText(audit, txtPath) {
+  fs.mkdirSync(path.dirname(txtPath), { recursive: true });
+  fs.writeFileSync(txtPath, buildPdfEpubComparisonFullText(audit), 'utf8');
+  return {
+    txtPath,
+    relativePath: txtPath,
   };
 }
