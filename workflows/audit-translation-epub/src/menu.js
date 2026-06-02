@@ -17,6 +17,10 @@ import {
   pendingCategoryOptions,
 } from './pdfEpubComparison/menuReviewFilters.js';
 import {
+  findLatestDecisionExport,
+  importPdfEpubDecisions,
+} from './pdfEpubComparison/importDecisions.js';
+import {
   applyReviewDecision,
   decisionOptionsForItem,
   replacementForDecision,
@@ -744,6 +748,30 @@ async function offerApplyApprovedPdfEpubFindings(queue) {
   }
 }
 
+async function importPdfEpubDecisionsFromReport() {
+  const fallbackPath = findLatestDecisionExport(workflowRoot);
+  const fallbackLabel = fallbackPath ? displayPath(fallbackPath) : 'nenhum encontrado';
+  const answer = (await ask(color(`Caminho do JSON exportado pelo relatorio (Enter para ${fallbackLabel}): `, 'yellow'))).trim();
+  const decisionsPath = answer ? path.resolve(answer) : fallbackPath;
+
+  if (!decisionsPath || !fs.existsSync(decisionsPath)) {
+    log('\nArquivo de decisoes nao encontrado.', 'red');
+    return;
+  }
+
+  if (!fs.existsSync(pdfEpubReviewQueuePath)) buildAndPersistPdfEpubReviewQueue();
+
+  try {
+    const report = importPdfEpubDecisions({ decisionsPath, queuePath: pdfEpubReviewQueuePath });
+    console.log();
+    log(`Decisoes importadas: ${displayPath(report.decisionsPath)}`, 'green');
+    log(`Aprovadas: ${report.summary.approved} · Mantidas: ${report.summary.kept} · Puladas: ${report.summary.skipped} · Nao encontradas: ${report.summary.missing}`, 'cyan');
+    log(`Fila atualizada: ${displayPath(pdfEpubReviewQueuePath)}`, 'cyan');
+  } catch (error) {
+    log(`Falha ao importar decisoes: ${error.message}`, 'red');
+  }
+}
+
 async function selectPdfEpubReviewCategory(queue) {
   const options = pendingCategoryOptions(queue);
   const total = options.reduce((sum, option) => sum + option.count, 0);
@@ -853,13 +881,16 @@ async function reviewSuggestionsMenu() {
     log('  2. Validar achados PDF x EPUB', 'white');
     log('     Aprovar achados editoriais para revisão/correção posterior', 'dim');
     console.log();
-    log('  3. Aplicar achados PDF x EPUB aprovados', 'white');
-    log('     Preparar correcoes a partir dos achados aprovados', 'dim');
+    log('  3. Importar decisões aprovadas', 'white');
+    log('     Importar JSON exportado pelo relatorio PDF x EPUB', 'dim');
     console.log();
-    log('  4. Voltar', 'white');
+    log('  4. Aplicar correções aprovadas', 'white');
+    log('     Gerar nova versao do EPUB a partir das correcoes aprovadas', 'dim');
+    console.log();
+    log('  5. Voltar', 'white');
     console.log();
 
-    const choice = (await ask(color('Escolha uma opcao (1/2/3/4): ', 'yellow'))).trim();
+    const choice = (await ask(color('Escolha uma opcao (1/2/3/4/5): ', 'yellow'))).trim();
     if (choice === '1') {
       await reviewReadySuggestions();
       return;
@@ -869,10 +900,14 @@ async function reviewSuggestionsMenu() {
       continue;
     }
     if (choice === '3') {
+      await importPdfEpubDecisionsFromReport();
+      continue;
+    }
+    if (choice === '4') {
       await applyApprovedPdfEpubFindings();
       return;
     }
-    if (choice === '4') return;
+    if (choice === '5') return;
     log('\nOpcao invalida.', 'red');
   }
 }
