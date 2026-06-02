@@ -4,6 +4,7 @@ import {
   stableKeyFromFinding,
   stableReviewId,
 } from './reviewQueueKeys.js';
+import { replacementForDecision } from './reviewDecision.js';
 
 const REVIEW_STATUSES = new Set(['pending', 'approved', 'rejected']);
 
@@ -39,7 +40,7 @@ function categoryPriority(categoryId) {
 function buildItemFromFinding(category, finding, existingItem = {}) {
   const stableKey = stableKeyFromFinding(category, finding);
   const now = new Date().toISOString();
-  return {
+  const item = {
     id: existingItem.id || stableReviewId(stableKey),
     stableKey,
     dedupeKey: dedupeKeyFromFinding(category, finding),
@@ -64,6 +65,10 @@ function buildItemFromFinding(category, finding, existingItem = {}) {
     createdAt: existingItem.createdAt || now,
     updatedAt: now,
   };
+  if (item.status === 'approved' && item.review?.replacement?.to) {
+    item.review.replacement = replacementForDecision(item, item.review.replacement.to) || item.review.replacement;
+  }
+  return item;
 }
 
 function countByStatus(items, status) {

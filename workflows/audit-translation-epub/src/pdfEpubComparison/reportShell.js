@@ -1,4 +1,5 @@
 import { escapeHtml, formatNumber } from './htmlUtils.js';
+import { reportInteractionScript } from './reportInteractions.js';
 import { reportStyles } from './reportStyles.js';
 import { renderPane, renderTabs } from './reportTables.js';
 
@@ -28,6 +29,10 @@ function renderReportDetails(audit) {
       </section>
       <div class="details-note">
         Lista completa: <code>reports/txt/pdf-epub-comparison-full.txt</code> · JSON completo: <code>state/pdf-epub-comparison.json</code>
+      </div>
+      <div class="decision-export">
+        <span>Decisões marcadas nesta página: <strong id="decision-count">0</strong></span>
+        <button id="export-decisions" type="button">Exportar decisões</button>
       </div>
     </details>`;
 }
@@ -76,6 +81,7 @@ export function buildPdfEpubComparisonHtml(audit) {
     <footer>Gerado em ${escapeHtml(generatedAt)}. Nenhuma correcao automatica foi aplicada.</footer>
   </main>
   <script>${reportScript()}</script>
+  <script>${reportInteractionScript(audit)}</script>
 </body>
 </html>`;
 }

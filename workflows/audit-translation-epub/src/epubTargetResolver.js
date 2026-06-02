@@ -20,9 +20,9 @@ function latestEpubInDir(dirPath) {
   const files = fs.readdirSync(dirPath)
     .filter((name) => name.toLowerCase().endsWith('.epub'))
     .sort((a, b) => {
-      const versionDiff = versionFromFilename(b) - versionFromFilename(a);
-      if (versionDiff !== 0) return versionDiff;
-      return fs.statSync(path.join(dirPath, b)).mtimeMs - fs.statSync(path.join(dirPath, a)).mtimeMs;
+      const mtimeDiff = fs.statSync(path.join(dirPath, b)).mtimeMs - fs.statSync(path.join(dirPath, a)).mtimeMs;
+      if (mtimeDiff !== 0) return mtimeDiff;
+      return versionFromFilename(b) - versionFromFilename(a);
     });
 
   return files[0] ? path.join(dirPath, files[0]) : null;

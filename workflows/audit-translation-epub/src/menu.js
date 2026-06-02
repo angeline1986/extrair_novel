@@ -110,8 +110,8 @@ function printHeader() {
   log('  4. 🗑️  Limpar relatórios antigos', 'red');
   console.log();
 
-  log('  ┌───────────── REVISÃO ───────────────┐', 'dim');
-  log('  5. ✅ Revisar sugestões', 'cyan');
+  log('  ┌───────────── REVISÃO EDITORIAL ─────┐', 'dim');
+  log('  5. ✅ Fluxo de Revisão', 'cyan');
   log('     Auditoria EPUB ou achados PDF x EPUB', 'dim');
   log('  6. 👀 Ver itens que precisam de leitura/contexto', 'cyan');
   log('     Mostra pendências sem sugestão segura', 'dim');
@@ -343,6 +343,15 @@ function printSuggestionBox({ id, type, file, chapter, currentText, before, afte
   console.log(`└${'─'.repeat(leftWidth + 2)}┴${'─'.repeat(rightWidth + 2)}┘`);
 }
 
+function printEpubSuggestionOptions(before, after) {
+  log('OPCOES', 'cyan');
+  log(`  1. ${normalizeText(before, 120)}`, 'white');
+  log(`  2. ${normalizeText(after, 120)}`, 'white');
+  log('  P. Pular', 'white');
+  log('  S. Sair', 'white');
+  console.log();
+}
+
 function printKeyValueBox(rows) {
   const labelWidth = 15;
   const valueWidth = 72;
@@ -420,6 +429,8 @@ async function reviewReadySuggestions() {
   let skipped = 0;
 
   for (const { suggestion, item } of candidates) {
+    const before = suggestion.before || suggestion.targetBefore || item.before;
+    const after = suggestion.suggestedAfter || suggestion.replacementAfter;
     console.log();
     printSuggestionBox({
       id: item.id,
@@ -427,19 +438,20 @@ async function reviewReadySuggestions() {
       file: `${item.filePath || '-'} · ${item.nodeId || '-'}`,
       chapter: chapterLabelFromReviewItem(item),
       currentText: suggestion.currentParagraph || item.currentParagraph || item.textPreview,
-      before: suggestion.before || suggestion.targetBefore || item.before,
-      after: suggestion.suggestedAfter || suggestion.replacementAfter,
+      before,
+      after,
     });
     console.log();
+    printEpubSuggestionOptions(before, after);
 
-    const answer = (await ask(color('Validar sugestao? (A=aprovar / D=descartar / P=pular / S=sair): ', 'yellow'))).trim().toLowerCase();
+    const answer = (await ask(color('Escolha uma opcao: ', 'yellow'))).trim().toLowerCase();
     const now = new Date().toISOString();
 
     if (answer === 's' || answer === 'sair') break;
-    if (answer === 'a' || answer === 'aprovar') {
+    if (answer === '2' || answer === 'a' || answer === 'aprovar') {
       item.status = 'approved';
-      item.before = suggestion.before || suggestion.targetBefore || item.before;
-      item.after = suggestion.suggestedAfter || suggestion.replacementAfter;
+      item.before = before;
+      item.after = after;
       item.review = {
         ...(item.review || {}),
         source: 'menu_review',
@@ -452,7 +464,7 @@ async function reviewReadySuggestions() {
       refreshReviewQueueSummary(reviewQueue);
       writeJson(reviewQueuePath, reviewQueue);
       log('Sugestao aprovada.', 'green');
-    } else if (answer === 'd' || answer === 'descartar' || answer === 'm' || answer === 'manter' || answer === 'r' || answer === 'rejeitar') {
+    } else if (answer === '1' || answer === 'd' || answer === 'descartar' || answer === 'm' || answer === 'manter' || answer === 'r' || answer === 'rejeitar') {
       item.status = 'rejected';
       item.review = {
         ...(item.review || {}),
@@ -833,7 +845,7 @@ async function validatePdfEpubFindings() {
 async function reviewSuggestionsMenu() {
   while (true) {
     console.log();
-    log('REVISAR SUGESTÕES', 'cyan');
+    log('FLUXO DE REVISÃO', 'cyan');
     console.log();
     log('  1. Sugestões da auditoria EPUB', 'white');
     log('     Aprovar sugestão ou manter texto atual', 'dim');

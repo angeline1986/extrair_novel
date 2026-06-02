@@ -1,4 +1,5 @@
 import { escapeHtml, formatNumber, highlightTerm, safeId } from './htmlUtils.js';
+import { renderDecisionControls } from './reportDecisionControls.js';
 
 function displayedFindings(category) {
   const findings = category?.findings || [];
@@ -52,6 +53,7 @@ function renderRows(category) {
       <td class="analysis-col">
         <div class="analysis-box problem-box"><strong>Problema</strong><span>${escapeHtml(finding.problem || '-')}</span></div>
         <div class="analysis-box suggestion-box"><strong>Sugestão</strong><span>${escapeHtml(finding.recommendation || '-')}</span></div>
+        ${renderDecisionControls(category, finding)}
       </td>
     </tr>
   `).join('');

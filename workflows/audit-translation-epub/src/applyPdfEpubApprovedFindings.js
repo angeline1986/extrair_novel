@@ -7,6 +7,7 @@ import AdmZip from 'adm-zip';
 import * as cheerio from 'cheerio';
 import archiver from 'archiver';
 import { resolveEpubTarget } from './epubTargetResolver.js';
+import { readManifest, sanitizeManifest } from './manifestUtils.js';
 import { refreshPdfEpubReviewQueueSummary } from './pdfEpubReviewQueue.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -45,17 +46,11 @@ function writeJson(filePath, data) {
 }
 
 function loadManifest() {
-  return readJson(paths.manifestPath, {
-    currentVersion: 0,
-    currentPath: 'output',
-    origin: 'input/translated',
-    versions: [],
-    finalOutput: 'output',
-  });
+  return readManifest(paths.manifestPath, workflowRoot);
 }
 
 function saveManifest(manifest) {
-  writeJson(paths.manifestPath, manifest);
+  writeJson(paths.manifestPath, sanitizeManifest(manifest, workflowRoot));
 }
 
 function nextVersionDir() {

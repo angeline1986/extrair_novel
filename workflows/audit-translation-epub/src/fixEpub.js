@@ -11,6 +11,7 @@ import { readFirstEpubFromDir } from './epubReader.js';
 import { buildApprovedCorrectionActions } from './correction/approvedCorrectionsReader.js';
 import { applySafeCorrectionsToZip } from './correction/xhtmlCorrectionEngine.js';
 import { validatePostCorrection } from './correction/postCorrectionValidator.js';
+import { readManifest, sanitizeManifest } from './manifestUtils.js';
 import {
   formatReviewQueueValidation,
   validateReviewQueue,
@@ -85,31 +86,11 @@ function appendWorkflowEvent(event, payload = {}) {
 }
 
 function loadManifest() {
-  if (!fs.existsSync(paths.manifestPath)) {
-    return {
-      currentVersion: 0,
-      currentPath: 'output',
-      origin: 'input/translated',
-      versions: [],
-      finalOutput: 'output',
-    };
-  }
-
-  try {
-    return JSON.parse(fs.readFileSync(paths.manifestPath, 'utf8'));
-  } catch {
-    return {
-      currentVersion: 0,
-      currentPath: 'output',
-      origin: 'input/translated',
-      versions: [],
-      finalOutput: 'output',
-    };
-  }
+  return readManifest(paths.manifestPath, workflowRoot);
 }
 
 function saveManifest(manifest) {
-  fs.writeFileSync(paths.manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+  fs.writeFileSync(paths.manifestPath, `${JSON.stringify(sanitizeManifest(manifest, workflowRoot), null, 2)}\n`, 'utf8');
 }
 
 function updateManifest({ version, translated, versionPath, finalPath, report }) {
