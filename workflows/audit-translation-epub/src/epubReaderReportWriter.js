@@ -2,6 +2,11 @@
 
 import fs from 'fs';
 import path from 'path';
+import {
+  readerDecisionScript,
+  readerDecisionStyles,
+  renderReaderDecisionControls,
+} from './epubReaderDecisionWidgets.js';
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -220,6 +225,7 @@ function renderRecommendedSuggestions(assistedReview) {
           <div><strong>Antes</strong><p>${escapeHtml(truncate(item.before || item.targetBefore || '-', 260))}</p></div>
           <div><strong>Sugestao</strong><p>${escapeHtml(truncate(item.suggestedAfter || item.replacementAfter || '-', 260))}</p></div>
         </div>
+        ${renderReaderDecisionControls(item)}
         <div class="action-line"><strong>Acao recomendada:</strong> ${escapeHtml(actionText(item))}</div>
         <div class="where">ID tecnico da sugestao: ${escapeHtml(item.id || '-')} · ${escapeHtml(item.filePath || '-')} · ${escapeHtml(item.nodeId || '-')}</div>
       </article>`;
@@ -567,6 +573,7 @@ export function writeEpubReaderReport(report, htmlPath, {
     @media (max-width: 560px) {
       .metric-grid { grid-template-columns: 1fr; }
     }
+    ${readerDecisionStyles()}
   </style>
 </head>
 <body>
@@ -575,6 +582,10 @@ export function writeEpubReaderReport(report, htmlPath, {
       <div>
         <h1>Relatorio editorial da traducao EPUB</h1>
         <p class="subtitle">Visao amigavel para decidir se o EPUB esta bom para leitura e o que revisar em seguida.</p>
+        <div class="reader-export">
+          <span>Decisões marcadas: <strong id="reader-decision-count">0</strong></span>
+          <button id="reader-export-decisions" type="button">Exportar decisões</button>
+        </div>
       </div>
       ${renderPill(`Gerado em ${report?.timestamp || '-'}`, 'soft')}
     </header>
@@ -661,6 +672,7 @@ export function writeEpubReaderReport(report, htmlPath, {
       </div>
     </section>
   </main>
+  <script>${readerDecisionScript()}</script>
 </body>
 </html>`;
 
