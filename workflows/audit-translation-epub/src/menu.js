@@ -974,10 +974,13 @@ async function maintenanceMenu() {
     log('  2. Limpar Tudo - Iniciar nova Obra', 'red');
     log('     Remove estado gerado, input-fixed e output; preserva arquivos de entrada', 'dim');
     console.log();
-    log('  3. Voltar', 'white');
+    log('  3. Limpar estado legado migrado', 'red');
+    log('     Remove arquivos antigos em state/ ja migrados para subpastas', 'dim');
+    console.log();
+    log('  4. Voltar', 'white');
     console.log();
 
-    const choice = (await ask(color('Escolha uma opcao (1/2/3): ', 'yellow'))).trim();
+    const choice = (await ask(color('Escolha uma opcao (1/2/3/4): ', 'yellow'))).trim();
     if (choice === '1') {
       await cleanRecentAudit();
       return;
@@ -986,7 +989,11 @@ async function maintenanceMenu() {
       await cleanAllForNewWork();
       return;
     }
-    if (choice === '3') return;
+    if (choice === '3') {
+      await cleanMigratedLegacyState();
+      return;
+    }
+    if (choice === '4') return;
     log('\nOpcao invalida.', 'red');
   }
 }
@@ -1254,6 +1261,14 @@ function generatedStateFilesForNewWork() {
   ].map((file) => path.join(stateDir, file));
 }
 
+function migratedLegacyStateFiles() {
+  return [
+    ...Object.values(statePaths.epubAudit.legacy),
+    ...Object.values(statePaths.corrections.legacy),
+    ...Object.values(statePaths.pdfEpub.legacy),
+  ];
+}
+
 function printCleanupPreview(title, pathsToRemove) {
   const files = pathsToRemove.flatMap(listFilesRecursive);
   console.log();
@@ -1307,6 +1322,29 @@ async function cleanRecentAudit() {
   ensureKeepFile(reportsHtmlDir);
 
   log(`Itens removidos: ${removed}`, 'green');
+}
+
+async function cleanMigratedLegacyState() {
+  const pathsToRemove = migratedLegacyStateFiles();
+  const count = printCleanupPreview('Limpar estado legado migrado', pathsToRemove);
+  if (!count) {
+    log('\nNenhum arquivo legado migrado encontrado.', 'yellow');
+    return;
+  }
+
+  log('\nEsta acao preserva state/epub-audit, state/corrections e state/pdf-epub.', 'dim');
+  if (!(await confirmYesNo('Limpar estado legado migrado?'))) {
+    log('Limpeza cancelada.', 'dim');
+    return;
+  }
+
+  let removed = 0;
+  for (const targetPath of pathsToRemove) {
+    if (removeGeneratedPath(targetPath)) removed += 1;
+  }
+  ensureKeepFile(stateDir);
+
+  log(`Arquivos legados removidos: ${removed}`, 'green');
 }
 
 async function cleanAllForNewWork() {

@@ -220,6 +220,7 @@ state/pdf-epub/comparison.json
 ```
 
 Arquivos legados como `state/pdf-epub-comparison.json` ainda podem ser lidos como fallback durante a migracao.
+Depois que os novos arquivos em `state/pdf-epub/`, `state/epub-audit/` e `state/corrections/` forem gerados, os arquivos antigos em `state/*.json` podem ser removidos pelo menu `Manutencao > Limpar estado legado migrado`.
 
 Importante: gerar `pdf-epub-comparison-latest.html` **nao aplica correcoes automaticamente**. Para corrigir o EPUB, valide primeiro os achados em `Revisar sugestoes > Validar achados PDF x EPUB`; depois use `Aplicar achados PDF x EPUB aprovados`. Somente achados aprovados e com substituicao clara geram uma nova versao do EPUB.
 
