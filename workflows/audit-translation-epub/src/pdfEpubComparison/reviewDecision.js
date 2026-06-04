@@ -75,6 +75,13 @@ function isTitleItem(item) {
   return /t[ií]tulo/i.test(`${item?.location || ''} ${item?.type || ''}`);
 }
 
+function keepLabelText(item, isTitle) {
+  if (isTitle && /^\s*\d+[.)]?\s+/.test(String(item?.original || ''))) {
+    return item.original;
+  }
+  return isTitle ? titleTextFromItem(item) : (item.translation || item.problematicTerm || item.original || 'texto atual');
+}
+
 export function replacementForDecision(item, replacementText) {
   const to = (isTitleItem(item) ? cleanTitleDecision(replacementText) : String(replacementText || '').trim());
   if (!to) return null;
@@ -102,7 +109,7 @@ export function decisionOptionsForItem(item) {
   const quoted = (explicitOptions.length ? explicitOptions : alternatives.length ? alternatives : [direct])
     .map((value) => isTitle ? cleanTitleDecision(value) : value)
     .filter(Boolean);
-  const currentText = isTitle ? titleTextFromItem(item) : (item.translation || item.problematicTerm || item.original || 'texto atual');
+  const currentText = keepLabelText(item, isTitle);
   const options = [{ key: '1', action: 'keep', label: `Manter como esta (${currentText})` }];
 
   if (quoted.length > 1 || isManualCheck(item)) {

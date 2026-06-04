@@ -8,7 +8,7 @@ import {
 } from '../../languageLexicons.js';
 import { dedupeFindings, makeFinding } from '../findingFactory.js';
 import { SPANISH_PHRASE_RECOMMENDATIONS, SPANISH_TO_PORTUGUESE_TERMS } from '../titleTerms.js';
-import { titleForSection } from '../textUtils.js';
+import { extractChapterNumber, titleForSection } from '../textUtils.js';
 
 function recommendationForPhrase(phrase) {
   return SPANISH_PHRASE_RECOMMENDATIONS.get(normalizeComparableText(phrase)) ||
@@ -74,18 +74,19 @@ function pushMarkerFindings(findings, seen, chapter, block) {
   ))];
 
   for (const marker of markers) {
-    const key = `${chapter}:${marker}:${block.kind}`;
+    const findingChapter = block.kind === 'Título' ? extractChapterNumber(block.text) || chapter : chapter;
+    const key = `${findingChapter}:${marker}:${block.kind}`;
     if (seen.has(key)) continue;
     seen.add(key);
     findings.push(makeFinding({
       group: block.kind === 'Título' ? 'titles' : 'residual_language',
-      chapter,
+      chapter: findingChapter,
       type: block.kind === 'Título' ? 'Título em espanhol' : 'Espanhol residual',
       original: marker,
       translation: marker,
       problem: 'Termo espanhol residual aparece no EPUB traduzido.',
       recommendation: recommendationForMarker(marker),
-      location: `${block.kind}: ${block.text}`,
+      location: block.kind === 'Título' ? `Título do capítulo ${findingChapter}: ${block.text}` : `${block.kind}: ${block.text}`,
       problematicTerm: marker,
       severity: block.kind === 'Título' ? 'high' : 'medium',
       confidence: 'high',

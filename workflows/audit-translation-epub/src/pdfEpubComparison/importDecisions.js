@@ -40,6 +40,53 @@ function replacementFromDecision(item, decision) {
   };
 }
 
+function normalize(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\p{L}\p{N}\s.]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function replacementKey(from, to, chapter = '', type = '') {
+  return `${chapter || '-'}::${normalize(type)}::${normalize(from)}::${normalize(to)}`;
+}
+
+function itemReplacementKey(item, decision) {
+  if (!decisionMatchesItem(item, decision)) return null;
+  const replacement = replacementFromDecision(item, decision);
+  if (!replacement?.from || !replacement?.to) return null;
+  return replacementKey(replacement.from, replacement.to, item.chapter, item.type);
+}
+
+function decisionMatchesItem(item, decision) {
+  if (decision.chapter && String(item.chapter) !== String(decision.chapter)) return false;
+  if (decision.type && item.type && String(item.type) !== String(decision.type)) return false;
+  const from = normalize(decision.from);
+  if (!from) return false;
+  return [
+    item.original,
+    item.translation,
+    item.location,
+    item.problematicTerm,
+    item.sourceTerm,
+  ].some((value) => normalize(value).includes(from));
+}
+
+function itemIndexes(items, decisions) {
+  const byId = new Map(items.map((item) => [item.id, item]));
+  const byReplacement = new Map();
+  for (const item of items) {
+    for (const decision of decisions) {
+      const key = itemReplacementKey(item, decision);
+      if (key && !byReplacement.has(key)) byReplacement.set(key, item);
+    }
+  }
+  return { byId, byReplacement };
+}
+
 function applyDecision(item, decision, now) {
   if (decision.decision === 'keep') {
     item.status = 'rejected';
@@ -66,12 +113,13 @@ function applyDecision(item, decision, now) {
 export function importPdfEpubDecisions({ decisionsPath, queuePath }) {
   const payload = readJson(decisionsPath);
   const queue = readJson(queuePath);
-  const itemById = new Map((queue.items || []).map((item) => [item.id, item]));
+  const decisions = payload.decisions || [];
+  const { byId, byReplacement } = itemIndexes(queue.items || [], decisions);
   const summary = { approved: 0, kept: 0, skipped: 0, missing: 0 };
   const now = new Date().toISOString();
 
-  for (const decision of payload.decisions || []) {
-    const item = itemById.get(decision.id);
+  for (const decision of decisions) {
+    const item = byId.get(decision.id) || byReplacement.get(replacementKey(decision.from, decision.to, decision.chapter, decision.type));
     if (!item) {
       summary.missing += 1;
       continue;

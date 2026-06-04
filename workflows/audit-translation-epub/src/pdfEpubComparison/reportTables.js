@@ -35,6 +35,7 @@ function originalTerm(finding) {
 }
 
 function translationContext(finding) {
+  if (finding.translation && finding.location === 'Título do capítulo') return finding.translation;
   return finding.location || finding.translation || '-';
 }
 
@@ -42,7 +43,7 @@ function renderRows(category) {
   const findings = displayedFindings(category);
   if (!findings.length) return renderEmptyRow();
   return findings.map((finding) => `
-    <tr>
+    <tr class="finding-row">
       <td class="impact-col"><span class="impact impact-${escapeHtml(finding.severity || 'medium')}">${escapeHtml(impactLabel(finding.severity))}</span></td>
       <td class="chapter-type-col">
         <strong>Capítulo ${escapeHtml(finding.chapter || '-')}</strong>
@@ -53,8 +54,10 @@ function renderRows(category) {
       <td class="analysis-col">
         <div class="analysis-box problem-box"><strong>Problema</strong><span>${escapeHtml(finding.problem || '-')}</span></div>
         <div class="analysis-box suggestion-box"><strong>Sugestão</strong><span>${escapeHtml(finding.recommendation || '-')}</span></div>
-        ${renderDecisionControls(category, finding)}
       </td>
+    </tr>
+    <tr class="decision-row">
+      <td colspan="5">${renderDecisionControls(category, finding)}</td>
     </tr>
   `).join('');
 }

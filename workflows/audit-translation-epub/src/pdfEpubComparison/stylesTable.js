@@ -72,7 +72,13 @@ export function tableStyles() {
       border: 1px solid var(--success-line);
       color: var(--success-ink);
     }
+    .decision-row td {
+      padding: 0 18px 20px;
+      background: #fffafa;
+      border-bottom: 1px solid #efc3cb;
+    }
+    .finding-row td { border-bottom: 0; }
     .empty-cell { padding: 28px; text-align: center; color: var(--muted); }
-    tr:hover td { background: #fffafa; }
+    .finding-row:hover td { background: #fffafa; }
   `;
 }

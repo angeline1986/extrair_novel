@@ -33,17 +33,47 @@ export function makeFinding({
 export function dedupeFindings(findings) {
   const seen = new Set();
   return (findings || []).filter((finding) => {
-    const key = [
-      finding.group,
-      finding.chapter,
-      finding.type,
-      normalizeComparable(finding.original).slice(0, 80),
-      normalizeComparable(finding.translation).slice(0, 80),
-      normalizeComparable(finding.problem).slice(0, 80),
-      normalizeComparable(finding.location).slice(0, 80),
-    ].join('|');
+    const key = dedupeKey(finding);
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
+}
+
+function titleDuplicateKey(finding) {
+  if (finding.group !== 'titles') return null;
+  const title = [finding.translation, finding.location, finding.original]
+    .map((value) => String(value || '').match(/\d+[.)]\s*[^:|]+/u)?.[0] || '')
+    .find(Boolean);
+  const target = titleTargetFromRecommendation(finding.recommendation);
+  if (!title || !target) return null;
+  return [
+    finding.group,
+    normalizeComparable(title),
+    normalizeComparable(target),
+  ].join('|');
+}
+
+function titleTargetFromRecommendation(value) {
+  const text = String(value || '').trim();
+  const quoted = text.match(/"([^"]+)"/)?.[1];
+  if (quoted) return quoted;
+  return text
+    .replace(/^avaliar substitui[cç][aã]o por\s+/iu, '')
+    .replace(/^verificar se .* deveria conter\s+/iu, '')
+    .replace(/^aplicar sugest[aã]o\s*/iu, '')
+    .replace(/^["“”]+|["“”.]+$/g, '')
+    .trim();
+}
+
+function dedupeKey(finding) {
+  return titleDuplicateKey(finding) || [
+    finding.group,
+    finding.chapter,
+    finding.type,
+    normalizeComparable(finding.original).slice(0, 80),
+    normalizeComparable(finding.translation).slice(0, 80),
+    normalizeComparable(finding.problem).slice(0, 80),
+    normalizeComparable(finding.location).slice(0, 80),
+  ].join('|');
 }

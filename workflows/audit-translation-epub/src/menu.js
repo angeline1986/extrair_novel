@@ -6,6 +6,10 @@ import readline from 'readline';
 import { fileURLToPath } from 'url';
 import { spawnSync } from 'child_process';
 import { fixEpub } from './fixEpub.js';
+import {
+  findLatestReaderDecisionExport,
+  importReaderReportDecisions,
+} from './importReaderReportDecisions.js';
 import { applyApprovedPdfEpubFindings as applyApprovedPdfEpubFindingsToEpub } from './applyPdfEpubApprovedFindings.js';
 import { runPdfEpubComparisonReport as generatePdfEpubComparisonReport } from './auditPdfEpubReport.js';
 import {
@@ -98,43 +102,22 @@ function printHeader() {
   log('╚════════════════════════════════════════════════════════════════╝', 'cyan');
   console.log();
 
-  log('📋 ESCOLHA UMA OPCAO:', 'yellow');
+  log('📋 ESCOLHA UMA OPÇÃO:', 'yellow');
   console.log();
 
-  log('  ┌───────────── FLUXO PRINCIPAL ─────────────┐', 'dim');
-  log('  1. 🚀 Gerar versão revisada da tradução', 'green');
-  log('     Audita + aplica correções seguras + valida + reaudita + gera relatórios', 'dim');
+  log('  ┌───────────── PRINCIPAL ─────────────┐', 'dim');
   console.log();
-
-  log('  ┌───────────── RELATÓRIOS ────────────┐', 'dim');
-  log('  2. 📄 Gerar relatório PDF x EPUB', 'white');
-  log('     Compara PDF original com EPUB traduzido/validado', 'dim');
-  log('  3. 📋 Exportar lista completa de achados', 'white');
-  log('     Gera TXT completo a partir do JSON PDF x EPUB', 'dim');
-  log('  4. 🗑️  Limpar relatórios antigos', 'red');
+  log('  1. 🚀 Gerar versão revisada', 'green');
   console.log();
-
-  log('  ┌───────────── REVISÃO EDITORIAL ─────┐', 'dim');
-  log('  5. ✅ Fluxo de Revisão', 'cyan');
-  log('     Auditoria EPUB ou achados PDF x EPUB', 'dim');
-  log('  6. 👀 Ver itens que precisam de leitura/contexto', 'cyan');
-  log('     Mostra pendências sem sugestão segura', 'dim');
+  log('  2. 📄 Relatórios', 'white');
   console.log();
-
-  log('  ┌───────────── MANUTENÇÃO ─────────────┐', 'dim');
-  log('  7. 🧹 Limpar auditoria recente', 'red');
-  log('     Remove relatórios/logs e achados temporários; preserva versões auditadas', 'dim');
-  log('  8. 🧨 Limpar Tudo - Iniciar nova Obra', 'red');
-  log('     Remove estado gerado, input-fixed e output; preserva arquivos de entrada', 'dim');
+  log('  3. ✅ Revisão editorial', 'cyan');
   console.log();
-
-  log('  ┌───────────── AUDITORIA ─────────────┐', 'dim');
-  log('  9. 🔍 Auditar tradução atual', 'white');
-  log('  10. 🔍📋 Auditar tradução atual com detalhes', 'white');
+  log('  4. 🔍 Auditoria', 'white');
   console.log();
-
-  log('  ┌───────────── SISTEMA ───────────────┐', 'dim');
-  log('  11. ❌ Sair', 'magenta');
+  log('  5. 🧹 Manutenção', 'red');
+  console.log();
+  log('  6. ❌ Sair', 'magenta');
   console.log();
   console.log('─'.repeat(64));
   console.log();
@@ -749,7 +732,7 @@ async function offerApplyApprovedPdfEpubFindings(queue) {
 }
 
 async function importPdfEpubDecisionsFromReport() {
-  const fallbackPath = findLatestDecisionExport(workflowRoot);
+  const fallbackPath = findLatestDecisionExport(workflowRoot) || findLatestReaderDecisionExport(workflowRoot);
   const fallbackLabel = fallbackPath ? displayPath(fallbackPath) : 'nenhum encontrado';
   const answer = (await ask(color(`Caminho do JSON exportado pelo relatorio (Enter para ${fallbackLabel}): `, 'yellow'))).trim();
   const decisionsPath = answer ? path.resolve(answer) : fallbackPath;
@@ -759,14 +742,17 @@ async function importPdfEpubDecisionsFromReport() {
     return;
   }
 
-  if (!fs.existsSync(pdfEpubReviewQueuePath)) buildAndPersistPdfEpubReviewQueue();
-
   try {
-    const report = importPdfEpubDecisions({ decisionsPath, queuePath: pdfEpubReviewQueuePath });
+    const payload = readJson(decisionsPath, {});
+    const isReaderReport = payload.source === 'epub_reader_report';
+    if (!isReaderReport && !fs.existsSync(pdfEpubReviewQueuePath)) buildAndPersistPdfEpubReviewQueue();
+    const report = isReaderReport
+      ? importReaderReportDecisions({ decisionsPath, reviewQueuePath })
+      : importPdfEpubDecisions({ decisionsPath, queuePath: pdfEpubReviewQueuePath });
     console.log();
     log(`Decisoes importadas: ${displayPath(report.decisionsPath)}`, 'green');
     log(`Aprovadas: ${report.summary.approved} · Mantidas: ${report.summary.kept} · Puladas: ${report.summary.skipped} · Nao encontradas: ${report.summary.missing}`, 'cyan');
-    log(`Fila atualizada: ${displayPath(pdfEpubReviewQueuePath)}`, 'cyan');
+    log(`Fila atualizada: ${displayPath(isReaderReport ? reviewQueuePath : pdfEpubReviewQueuePath)}`, 'cyan');
   } catch (error) {
     log(`Falha ao importar decisoes: ${error.message}`, 'red');
   }
@@ -882,7 +868,7 @@ async function reviewSuggestionsMenu() {
     log('     Aprovar achados editoriais para revisão/correção posterior', 'dim');
     console.log();
     log('  3. Importar decisões aprovadas', 'white');
-    log('     Importar JSON exportado pelo relatorio PDF x EPUB', 'dim');
+    log('     Importar JSON exportado pelo relatorio editorial ou PDF x EPUB', 'dim');
     console.log();
     log('  4. Aplicar correções aprovadas', 'white');
     log('     Gerar nova versao do EPUB a partir das correcoes aprovadas', 'dim');
@@ -908,6 +894,122 @@ async function reviewSuggestionsMenu() {
       return;
     }
     if (choice === '5') return;
+    log('\nOpcao invalida.', 'red');
+  }
+}
+
+async function reportsMenu() {
+  while (true) {
+    console.log();
+    log('RELATÓRIOS', 'cyan');
+    console.log();
+    log('  1. Gerar relatório PDF x EPUB', 'white');
+    log('     Compara PDF original com EPUB traduzido/validado', 'dim');
+    console.log();
+    log('  2. Exportar lista completa de achados', 'white');
+    log('     Gera TXT completo a partir do JSON PDF x EPUB', 'dim');
+    console.log();
+    log('  3. Limpar relatórios antigos', 'red');
+    console.log();
+    log('  4. Voltar', 'white');
+    console.log();
+
+    const choice = (await ask(color('Escolha uma opcao (1/2/3/4): ', 'yellow'))).trim();
+    if (choice === '1') {
+      runPdfEpubComparisonReport();
+      return;
+    }
+    if (choice === '2') {
+      exportPdfEpubFullFindings();
+      return;
+    }
+    if (choice === '3') {
+      await cleanOldReports();
+      return;
+    }
+    if (choice === '4') return;
+    log('\nOpcao invalida.', 'red');
+  }
+}
+
+async function editorialReviewMenu() {
+  while (true) {
+    console.log();
+    log('REVISÃO EDITORIAL', 'cyan');
+    console.log();
+    log('  1. Fluxo de Revisão', 'white');
+    log('     Auditoria EPUB ou achados PDF x EPUB', 'dim');
+    console.log();
+    log('  2. Ver itens que precisam de leitura/contexto', 'white');
+    log('     Mostra pendências sem sugestão segura', 'dim');
+    console.log();
+    log('  3. Voltar', 'white');
+    console.log();
+
+    const choice = (await ask(color('Escolha uma opcao (1/2/3): ', 'yellow'))).trim();
+    if (choice === '1') {
+      await reviewSuggestionsMenu();
+      return;
+    }
+    if (choice === '2') {
+      await viewContextItems();
+      return;
+    }
+    if (choice === '3') return;
+    log('\nOpcao invalida.', 'red');
+  }
+}
+
+async function maintenanceMenu() {
+  while (true) {
+    console.log();
+    log('MANUTENÇÃO', 'cyan');
+    console.log();
+    log('  1. Limpar auditoria recente', 'red');
+    log('     Remove relatórios/logs e achados temporários; preserva versões auditadas', 'dim');
+    console.log();
+    log('  2. Limpar Tudo - Iniciar nova Obra', 'red');
+    log('     Remove estado gerado, input-fixed e output; preserva arquivos de entrada', 'dim');
+    console.log();
+    log('  3. Voltar', 'white');
+    console.log();
+
+    const choice = (await ask(color('Escolha uma opcao (1/2/3): ', 'yellow'))).trim();
+    if (choice === '1') {
+      await cleanRecentAudit();
+      return;
+    }
+    if (choice === '2') {
+      await cleanAllForNewWork();
+      return;
+    }
+    if (choice === '3') return;
+    log('\nOpcao invalida.', 'red');
+  }
+}
+
+async function auditMenu() {
+  while (true) {
+    console.log();
+    log('AUDITORIA', 'cyan');
+    console.log();
+    log('  1. Auditar tradução atual', 'white');
+    console.log();
+    log('  2. Auditar tradução atual com detalhes', 'white');
+    console.log();
+    log('  3. Voltar', 'white');
+    console.log();
+
+    const choice = (await ask(color('Escolha uma opcao (1/2/3): ', 'yellow'))).trim();
+    if (choice === '1') {
+      await runAuditWithLanguageSelection(false);
+      return;
+    }
+    if (choice === '2') {
+      await runAuditWithLanguageSelection(true);
+      return;
+    }
+    if (choice === '3') return;
     log('\nOpcao invalida.', 'red');
   }
 }
@@ -1247,33 +1349,18 @@ async function main() {
       await runRevisionWorkflow();
       await pause();
     } else if (choice === '2') {
-      runPdfEpubComparisonReport();
+      await reportsMenu();
       await pause();
     } else if (choice === '3') {
-      exportPdfEpubFullFindings();
+      await editorialReviewMenu();
       await pause();
     } else if (choice === '4') {
-      await cleanOldReports();
+      await auditMenu();
       await pause();
     } else if (choice === '5') {
-      await reviewSuggestionsMenu();
+      await maintenanceMenu();
       await pause();
     } else if (choice === '6') {
-      await viewContextItems();
-      await pause();
-    } else if (choice === '7') {
-      await cleanRecentAudit();
-      await pause();
-    } else if (choice === '8') {
-      await cleanAllForNewWork();
-      await pause();
-    } else if (choice === '9') {
-      await runAuditWithLanguageSelection(false);
-      await pause();
-    } else if (choice === '10') {
-      await runAuditWithLanguageSelection(true);
-      await pause();
-    } else if (choice === '11') {
       rl.close();
       return;
     } else {

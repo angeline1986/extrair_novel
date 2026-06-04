@@ -1,0 +1,56 @@
+import fs from 'fs';
+import path from 'path';
+
+export function markdownForChapter(chapter) {
+  return [
+    `# ${chapter.title || `Site chapter ${chapter.siteChapter || '-'}`}`,
+    '',
+    `Source: ${chapter.source}`,
+    'Alignment: auxiliary text; chapter number is not reliable',
+    '',
+    ...chapter.paragraphs.flatMap((paragraph) => [paragraph, '']),
+  ].join('\n').trimEnd();
+}
+
+function rangeLabel(chapters) {
+  const numbers = chapters.map((chapter) => chapter.siteChapter).filter(Boolean);
+  if (!numbers.length) return 'rendered';
+  const min = String(Math.min(...numbers)).padStart(3, '0');
+  const max = String(Math.max(...numbers)).padStart(3, '0');
+  return `${min}-${max}`;
+}
+
+export function writeEnglishChapterOutputs(outputDir, chapters, failures = []) {
+  fs.mkdirSync(outputDir, { recursive: true });
+  const extractedChapters = chapters.filter((chapter) => chapter.paragraphCount > 0);
+  const skippedEmptyChapters = chapters
+    .filter((chapter) => chapter.paragraphCount === 0)
+    .map((chapter) => ({ siteChapter: chapter.siteChapter, source: chapter.source }));
+  const label = rangeLabel(extractedChapters);
+  const payload = {
+    schemaVersion: '1.0',
+    source: 'borntobenovel',
+    sourceLanguage: 'en',
+    sourceKind: 'auxiliary_intermediate_translation',
+    chapterNumberReliable: false,
+    alignmentMode: 'text_similarity',
+    extractedAt: new Date().toISOString(),
+    selector: '#chapterContent p',
+    titleSelector: '#chapterContent p:nth-child(1) strong',
+    skippedEmptyChapters,
+    failures,
+    chapters: extractedChapters,
+  };
+
+  const jsonPath = path.join(outputDir, `accidental-baby-en-chapters-${label}.json`);
+  const mdPath = path.join(outputDir, `accidental-baby-en-chapters-${label}.md`);
+  fs.writeFileSync(jsonPath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+  fs.writeFileSync(mdPath, `${extractedChapters.map(markdownForChapter).join('\n\n---\n\n')}\n`, 'utf8');
+
+  for (const chapter of extractedChapters) {
+    const number = String(chapter.siteChapter || extractedChapters.indexOf(chapter) + 1).padStart(3, '0');
+    fs.writeFileSync(path.join(outputDir, `accidental-baby-en-ch-${number}.md`), `${markdownForChapter(chapter)}\n`, 'utf8');
+  }
+
+  return { jsonPath, mdPath, extractedCount: extractedChapters.length };
+}

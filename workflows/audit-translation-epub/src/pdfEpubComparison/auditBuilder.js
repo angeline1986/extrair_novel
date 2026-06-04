@@ -1,4 +1,5 @@
 import { buildGroupedCategories, sortFindings } from './taxonomy.js';
+import { dedupeFindings } from './findingFactory.js';
 import { indexSectionsByChapter } from './textUtils.js';
 import { detectCharacterFindings } from './detectors/characters.js';
 import { detectCoverageFindings } from './detectors/coverage.js';
@@ -34,14 +35,14 @@ export function buildPdfEpubComparisonAudit({
 } = {}) {
   const pdfByChapter = indexSectionsByChapter(pdfDoc);
   const epubByChapter = indexSectionsByChapter(epubDoc);
-  const findings = sortFindings([
+  const findings = sortFindings(dedupeFindings([
     ...detectCoverageFindings(pdfByChapter, epubByChapter, epubDoc),
     ...detectTitleFindings(pdfByChapter, epubByChapter),
     ...detectTerminologyFindings(pdfDoc, epubDoc, glossary),
     ...detectResidualLanguageFindings(epubDoc),
     ...detectCharacterFindings(epubDoc, glossary),
     ...detectMeaningFindings(epubDoc),
-  ]);
+  ]));
   const categories = buildGroupedCategories(findings);
 
   return {

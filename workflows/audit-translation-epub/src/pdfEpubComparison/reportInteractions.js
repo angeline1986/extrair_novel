@@ -9,10 +9,15 @@ export function reportInteractionScript(audit = {}) {
       const load = () => JSON.parse(localStorage.getItem(storageKey) || '{}');
       const save = (value) => localStorage.setItem(storageKey, JSON.stringify(value));
       const countEl = document.getElementById('decision-count');
+      const currentIds = new Set([...document.querySelectorAll('[data-review-id]')].map((item) => item.dataset.reviewId));
+
+      function currentDecisions() {
+        return Object.fromEntries(Object.entries(load()).filter(([id]) => currentIds.has(id)));
+      }
 
       function updateCount() {
         if (!countEl) return;
-        countEl.textContent = String(Object.keys(load()).length);
+        countEl.textContent = String(Object.keys(currentDecisions()).length);
       }
 
       function markRow(id, decision) {
@@ -24,7 +29,7 @@ export function reportInteractionScript(audit = {}) {
       }
 
       function setDecision(payload) {
-        const decisions = load();
+        const decisions = currentDecisions();
         decisions[payload.id] = payload;
         save(decisions);
         markRow(payload.id, payload);
@@ -61,7 +66,7 @@ export function reportInteractionScript(audit = {}) {
           reportGeneratedAt,
           epubTarget,
           exportedAt: new Date().toISOString(),
-          decisions: Object.values(load()),
+          decisions: Object.values(currentDecisions()),
         };
         const blob = new Blob([JSON.stringify(payload, null, 2) + '\\n'], { type: 'application/json' });
         const link = document.createElement('a');
@@ -71,6 +76,7 @@ export function reportInteractionScript(audit = {}) {
         URL.revokeObjectURL(link.href);
       });
 
+      save(currentDecisions());
       Object.entries(load()).forEach(([id, decision]) => markRow(id, decision));
       updateCount();
     })();
