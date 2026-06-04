@@ -24,10 +24,10 @@ export function decisionStyles() {
     .decision-export button:hover,
     .decision-btn:hover { background: #fff0f2; }
     .decision-panel {
-      display: grid;
-      grid-template-columns: auto auto auto minmax(260px, 1fr) auto;
+      display: flex;
+      flex-wrap: wrap;
       align-items: center;
-      gap: 10px;
+      gap: 10px 12px;
       padding: 0;
       border: 0;
       background: transparent;
@@ -38,17 +38,31 @@ export function decisionStyles() {
       font-size: 0.78rem;
       white-space: nowrap;
     }
-    .decision-actions { display: contents; }
+    .decision-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+    .decision-btn {
+      max-width: 280px;
+      white-space: normal;
+      line-height: 1.2;
+    }
     .manual-decision {
-      display: grid;
-      grid-template-columns: auto minmax(160px, 1fr) auto;
+      display: flex;
+      flex: 1 1 360px;
+      min-width: 280px;
       align-items: center;
       gap: 8px;
       color: var(--muted);
       font-weight: 700;
     }
+    .manual-decision span { white-space: nowrap; }
     .manual-decision input {
-      width: 100%;
+      flex: 1 1 180px;
+      min-width: 140px;
       border: 1px solid #e7b9c3;
       border-radius: 6px;
       padding: 8px 9px;
@@ -62,7 +76,8 @@ export function decisionStyles() {
     @media (max-width: 900px) {
       .decision-panel { grid-template-columns: 1fr; align-items: stretch; }
       .decision-actions { display: flex; flex-wrap: wrap; }
-      .manual-decision { grid-template-columns: 1fr; }
+      .manual-decision { flex-direction: column; align-items: stretch; }
+      .manual-decision span { white-space: normal; }
       .decision-status { white-space: normal; }
     }
   `;

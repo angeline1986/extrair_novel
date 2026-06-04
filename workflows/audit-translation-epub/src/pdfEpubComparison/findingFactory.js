@@ -54,6 +54,18 @@ function titleDuplicateKey(finding) {
   ].join('|');
 }
 
+function characterDuplicateKey(finding) {
+  if (finding.group !== 'characters') return null;
+  return [
+    finding.group,
+    finding.chapter,
+    finding.type,
+    normalizeComparable(finding.problematicTerm || finding.original).slice(0, 60),
+    normalizeComparable(finding.location || finding.translation).slice(0, 180),
+    normalizeComparable(finding.recommendation).slice(0, 80),
+  ].join('|');
+}
+
 function titleTargetFromRecommendation(value) {
   const text = String(value || '').trim();
   const quoted = text.match(/"([^"]+)"/)?.[1];
@@ -67,7 +79,7 @@ function titleTargetFromRecommendation(value) {
 }
 
 function dedupeKey(finding) {
-  return titleDuplicateKey(finding) || [
+  return titleDuplicateKey(finding) || characterDuplicateKey(finding) || [
     finding.group,
     finding.chapter,
     finding.type,

@@ -261,6 +261,19 @@ function normalizeText(value, limit = 700) {
   return text.length > limit ? `${text.slice(0, limit - 3)}...` : text;
 }
 
+function approvedPdfEpubApplicationLabel(item) {
+  if (item.review?.replacement?.from && item.review?.replacement?.to) {
+    const replacement = replacementForDecision(item, item.review.replacement.to) || item.review.replacement;
+    return `${replacement.from} -> ${replacement.to}`;
+  }
+  const quotedRecommendation = String(item.recommendation || '').match(/"([^"]+)"/)?.[1]?.trim();
+  if (quotedRecommendation) {
+    const replacement = replacementForDecision(item, quotedRecommendation);
+    if (replacement?.from && replacement?.to) return `${replacement.from} -> ${replacement.to}`;
+  }
+  return item.recommendation || 'Correcao aprovada.';
+}
+
 function visibleLength(value) {
   return String(value || '').length;
 }
@@ -697,7 +710,7 @@ async function applyApprovedPdfEpubFindings() {
   console.log();
   log('Pendentes de aplicacao:', 'yellow');
   for (const item of pendingApplicationItems.slice(0, 10)) {
-    console.log(`   ${item.id} · Capitulo ${item.chapter} · ${item.recommendation}`);
+    console.log(`   ${item.id} · Capitulo ${item.chapter} · ${approvedPdfEpubApplicationLabel(item)}`);
   }
   if (pendingApplicationItems.length > 10) console.log(`   ... e mais ${pendingApplicationItems.length - 10} achados`);
 

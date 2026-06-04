@@ -5,7 +5,7 @@ function quotedOptions(value) {
 }
 
 function isManualCheck(item) {
-  return /^(verificar|validar|conferir|avaliar)\b/i.test(String(item?.recommendation || '').trim());
+  return /^(verificar|validar|conferir|avaliar|revisar)\b/i.test(String(item?.recommendation || '').trim());
 }
 
 function directRecommendation(item) {
@@ -34,6 +34,9 @@ function masculineSuggestion(item) {
     envergonhada: 'envergonhado',
     nervosa: 'nervoso',
     focada: 'focado',
+    perfeita: 'perfeito',
+    chocada: 'chocado',
+    assustada: 'assustado',
   }[term] || null;
 }
 
@@ -79,7 +82,10 @@ function keepLabelText(item, isTitle) {
   if (isTitle && /^\s*\d+[.)]?\s+/.test(String(item?.original || ''))) {
     return item.original;
   }
-  return isTitle ? titleTextFromItem(item) : (item.translation || item.problematicTerm || item.original || 'texto atual');
+  if (isTitle) return titleTextFromItem(item);
+  const value = String(item.problematicTerm || item.sourceTerm || item.original || 'texto atual').trim();
+  if (value.length > 40 || /[.!?]\s|\n|\r/.test(value)) return 'texto atual';
+  return value;
 }
 
 export function replacementForDecision(item, replacementText) {

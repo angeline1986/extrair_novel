@@ -131,6 +131,23 @@ function titleReplacement(item) {
   };
 }
 
+function reviewReplacement(item) {
+  if (!item.review?.replacement?.from || !item.review?.replacement?.to) return null;
+
+  const from = String(item.review.replacement.from).trim();
+  let to = String(item.review.replacement.to).trim();
+  if (!from || !to) return null;
+
+  if (/titulo|título/i.test(`${item.location || ''} ${item.type || ''}`)) {
+    const chapterMatch = from.match(/^(\d+[.)]\s*)/);
+    const titleOnly = stripChapterPrefix(cleanTitleRecommendation(to));
+    to = chapterMatch && titleOnly ? `${chapterMatch[1]}${titleOnly}` : titleOnly;
+  }
+
+  if (!to || from === to) return null;
+  return { from, to };
+}
+
 function termReplacement(item) {
   const from = item.problematicTerm || item.sourceTerm || item.original;
   const to = quotedRecommendation(item.recommendation) || item.recommendation;
@@ -141,12 +158,8 @@ function termReplacement(item) {
 }
 
 function replacementFromItem(item) {
-  if (item.review?.replacement?.from && item.review?.replacement?.to) {
-    return {
-      from: String(item.review.replacement.from).trim(),
-      to: String(item.review.replacement.to).trim(),
-    };
-  }
+  const reviewed = reviewReplacement(item);
+  if (reviewed) return reviewed;
   return titleReplacement(item) || termReplacement(item);
 }
 
