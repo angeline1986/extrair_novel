@@ -28,11 +28,12 @@ function renderReportDetails(audit) {
         </div>
       </section>
       <div class="details-note">
-        Lista completa: <code>reports/txt/pdf-epub-comparison-full.txt</code> · JSON completo: <code>state/pdf-epub-comparison.json</code>
+        Lista completa: <code>reports/txt/pdf-epub-comparison-full.txt</code> · JSON completo: <code>state/pdf-epub/comparison.json</code>
       </div>
       <div class="decision-export">
         <span>Decisões marcadas nesta página: <strong id="decision-count">0</strong></span>
         <button id="export-decisions" type="button">Exportar decisões</button>
+        <button id="clear-decisions" type="button">Limpar decisões da página</button>
       </div>
     </details>`;
 }

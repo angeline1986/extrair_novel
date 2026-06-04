@@ -3,9 +3,10 @@ export function reportInteractionScript(audit = {}) {
   const epubPath = JSON.stringify(audit.inputs?.epubTarget?.relativePath || audit.inputs?.epub?.filename || null);
   return `
     (function() {
-      const storageKey = 'pdfEpubComparisonDecisions';
       const reportGeneratedAt = ${generatedAt};
       const epubTarget = ${epubPath};
+      const storageScope = [reportGeneratedAt || 'unknown-report', epubTarget || 'unknown-epub'].join('::');
+      const storageKey = 'pdfEpubComparisonDecisions::' + storageScope;
       const load = () => JSON.parse(localStorage.getItem(storageKey) || '{}');
       const save = (value) => localStorage.setItem(storageKey, JSON.stringify(value));
       const countEl = document.getElementById('decision-count');
@@ -34,6 +35,15 @@ export function reportInteractionScript(audit = {}) {
         save(decisions);
         markRow(payload.id, payload);
         updateCount();
+      }
+
+      function clearDecisionMarks() {
+        document.querySelectorAll('[data-review-id]').forEach((panel) => {
+          panel.dataset.currentDecision = '';
+        });
+        document.querySelectorAll('[data-decision-status]').forEach((status) => {
+          status.textContent = 'Sem decisão';
+        });
       }
 
       document.querySelectorAll('.decision-btn').forEach((button) => {
@@ -74,6 +84,12 @@ export function reportInteractionScript(audit = {}) {
         link.download = 'pdf-epub-decisions-export.json';
         link.click();
         URL.revokeObjectURL(link.href);
+      });
+
+      document.getElementById('clear-decisions')?.addEventListener('click', () => {
+        localStorage.removeItem(storageKey);
+        clearDecisionMarks();
+        updateCount();
       });
 
       save(currentDecisions());

@@ -30,6 +30,7 @@ import {
   replacementForDecision,
 } from './pdfEpubComparison/reviewDecision.js';
 import { writePdfEpubComparisonFullText } from './pdfEpubComparisonReportWriter.js';
+import { pdfEpubStatePath, statePaths } from './statePaths.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workflowRoot = path.resolve(__dirname, '..');
@@ -47,8 +48,8 @@ const reportPattern = path.join(reportsJsonDir, 'audit-report-*.json');
 const readerReportPath = path.join(reportsHtmlDir, 'reader-report-latest.html');
 const reviewQueuePath = path.join(stateDir, 'review-queue.json');
 const assistedReviewPath = path.join(stateDir, 'assisted-review-suggestions.json');
-const pdfEpubComparisonStatePath = path.join(stateDir, 'pdf-epub-comparison.json');
-const pdfEpubReviewQueuePath = path.join(stateDir, 'pdf-epub-review-queue.json');
+const pdfEpubComparisonStatePath = statePaths.pdfEpub.comparison;
+const pdfEpubReviewQueuePath = statePaths.pdfEpub.reviewQueue;
 const pdfEpubComparisonFullTxtPath = path.join(reportsTxtDir, 'pdf-epub-comparison-full.txt');
 
 const rl = readline.createInterface({
@@ -164,13 +165,14 @@ function runPdfEpubComparisonReport() {
 }
 
 function exportPdfEpubFullFindings() {
-  if (!fs.existsSync(pdfEpubComparisonStatePath)) {
+  const comparisonReadPath = pdfEpubStatePath('comparison');
+  if (!fs.existsSync(comparisonReadPath)) {
     log(`\nJSON PDF x EPUB ainda nao existe: ${displayPath(pdfEpubComparisonStatePath)}`, 'yellow');
     log('Gere o relatorio PDF x EPUB primeiro.', 'dim');
     return;
   }
 
-  const audit = readJson(pdfEpubComparisonStatePath, null);
+  const audit = readJson(comparisonReadPath, null);
   if (!audit) {
     log('\nNao foi possivel ler o JSON PDF x EPUB.', 'red');
     return;
@@ -612,7 +614,8 @@ async function viewContextItems() {
 }
 
 async function ensurePdfEpubComparisonState() {
-  if (fs.existsSync(pdfEpubComparisonStatePath)) return readJson(pdfEpubComparisonStatePath);
+  const comparisonReadPath = pdfEpubStatePath('comparison');
+  if (fs.existsSync(comparisonReadPath)) return readJson(comparisonReadPath);
 
   log('\nRelatorio PDF x EPUB ainda nao existe. Gerando agora...', 'yellow');
   await generatePdfEpubComparisonReportFromMenu({ warnOnly: false });
@@ -658,17 +661,17 @@ async function readPdfEpubReviewDecision(item) {
 }
 
 function buildAndPersistPdfEpubReviewQueue() {
-  const audit = readJson(pdfEpubComparisonStatePath);
+  const audit = readJson(pdfEpubStatePath('comparison'));
   if (!audit) return null;
 
-  const existingQueue = readJson(pdfEpubReviewQueuePath);
+  const existingQueue = readJson(pdfEpubStatePath('reviewQueue'));
   const queue = buildPdfEpubReviewQueue({ audit, existingQueue });
   writeJson(pdfEpubReviewQueuePath, queue);
   return queue;
 }
 
 async function applyApprovedPdfEpubFindings() {
-  const queue = readJson(pdfEpubReviewQueuePath);
+  const queue = readJson(pdfEpubStatePath('reviewQueue'));
   if (!queue) {
     log('\nFila PDF x EPUB ainda nao existe. Valide achados primeiro.', 'yellow');
     return;
@@ -745,7 +748,7 @@ async function importPdfEpubDecisionsFromReport() {
   try {
     const payload = readJson(decisionsPath, {});
     const isReaderReport = payload.source === 'epub_reader_report';
-    if (!isReaderReport && !fs.existsSync(pdfEpubReviewQueuePath)) buildAndPersistPdfEpubReviewQueue();
+    if (!isReaderReport && !fs.existsSync(pdfEpubStatePath('reviewQueue'))) buildAndPersistPdfEpubReviewQueue();
     const report = isReaderReport
       ? importReaderReportDecisions({ decisionsPath, reviewQueuePath })
       : importPdfEpubDecisions({ decisionsPath, queuePath: pdfEpubReviewQueuePath });
@@ -1210,6 +1213,9 @@ function generatedStateFilesForRecentAudit() {
     'reauditoria-summary.json',
     'pdf-epub-comparison.json',
     'pdf-epub-review-queue.json',
+    'pdf-epub/comparison.json',
+    'pdf-epub/review-queue.json',
+    'pdf-epub/application-report.json',
   ].map((file) => path.join(stateDir, file));
 }
 
@@ -1226,6 +1232,10 @@ function generatedStateFilesForNewWork() {
     'reauditoria-summary.json',
     'pdf-epub-comparison.json',
     'pdf-epub-review-queue.json',
+    'pdf-epub-application-report.json',
+    'pdf-epub/comparison.json',
+    'pdf-epub/review-queue.json',
+    'pdf-epub/application-report.json',
   ].map((file) => path.join(stateDir, file));
 }
 

@@ -9,6 +9,7 @@ import archiver from 'archiver';
 import { resolveEpubTarget } from './epubTargetResolver.js';
 import { readManifest, sanitizeManifest } from './manifestUtils.js';
 import { refreshPdfEpubReviewQueueSummary } from './pdfEpubReviewQueue.js';
+import { ensureStateDirs, pdfEpubStatePath, statePaths } from './statePaths.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workflowRoot = path.resolve(__dirname, '..');
@@ -16,15 +17,15 @@ const workflowRoot = path.resolve(__dirname, '..');
 const paths = {
   inputFixedDir: path.join(workflowRoot, 'input-fixed'),
   outputDir: path.join(workflowRoot, 'output'),
-  stateDir: path.join(workflowRoot, 'state'),
   manifestPath: path.join(workflowRoot, 'input-fixed/manifest.json'),
-  reviewQueuePath: path.join(workflowRoot, 'state/pdf-epub-review-queue.json'),
-  applicationReportPath: path.join(workflowRoot, 'state/pdf-epub-application-report.json'),
+  reviewQueuePath: statePaths.pdfEpub.reviewQueue,
+  applicationReportPath: statePaths.pdfEpub.applicationReport,
   workflowEventsPath: path.join(workflowRoot, 'logs/workflow-events.jsonl'),
 };
 
 function ensureDirs() {
-  for (const dir of [paths.inputFixedDir, paths.outputDir, paths.stateDir, path.dirname(paths.workflowEventsPath)]) {
+  ensureStateDirs();
+  for (const dir of [paths.inputFixedDir, paths.outputDir, path.dirname(paths.workflowEventsPath)]) {
     fs.mkdirSync(dir, { recursive: true });
   }
 }
@@ -326,7 +327,7 @@ function markAppliedItems(queue, changes, report) {
 
 export async function applyApprovedPdfEpubFindings({ sourcePath = null } = {}) {
   ensureDirs();
-  const queue = readJson(paths.reviewQueuePath);
+  const queue = readJson(pdfEpubStatePath('reviewQueue'));
   if (!queue) throw new Error('Fila PDF x EPUB nao encontrada. Valide achados primeiro.');
 
   const { replacements, skipped } = approvedReplacements(queue);

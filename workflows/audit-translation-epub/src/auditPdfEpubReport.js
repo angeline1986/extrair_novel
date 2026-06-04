@@ -11,6 +11,7 @@ import {
   writePdfEpubComparisonReport,
 } from './pdfEpubComparisonReportWriter.js';
 import { readFirstPdfFromDir } from './pdfReader.js';
+import { ensureStateDirs, statePaths } from './statePaths.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workflowRoot = path.resolve(__dirname, '..');
@@ -21,8 +22,7 @@ const paths = {
   entitiesGlossaryPath: path.join(workflowRoot, 'input/glossary/entities.json'),
   reportsHtmlDir: path.join(workflowRoot, 'reports/html'),
   reportsTxtDir: path.join(workflowRoot, 'reports/txt'),
-  stateDir: path.join(workflowRoot, 'state'),
-  statePath: path.join(workflowRoot, 'state/pdf-epub-comparison.json'),
+  statePath: statePaths.pdfEpub.comparison,
   htmlPath: path.join(workflowRoot, 'reports/html/pdf-epub-comparison-latest.html'),
   txtPath: path.join(workflowRoot, 'reports/txt/pdf-epub-comparison-full.txt'),
 };
@@ -39,7 +39,7 @@ function relativeToWorkflow(filePath) {
 function ensureDirs() {
   fs.mkdirSync(paths.reportsHtmlDir, { recursive: true });
   fs.mkdirSync(paths.reportsTxtDir, { recursive: true });
-  fs.mkdirSync(paths.stateDir, { recursive: true });
+  ensureStateDirs();
 }
 
 export async function runPdfEpubComparisonReport() {

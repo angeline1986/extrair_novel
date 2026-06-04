@@ -187,8 +187,9 @@ Saidas geradas:
 ```txt
 reports/html/pdf-epub-comparison-latest.html
 reports/txt/pdf-epub-comparison-full.txt
-state/pdf-epub-comparison.json
-state/pdf-epub-review-queue.json
+state/pdf-epub/comparison.json
+state/pdf-epub/review-queue.json
+state/pdf-epub/application-report.json
 ```
 
 Diferença entre os relatorios HTML:
@@ -215,8 +216,10 @@ reports/txt/pdf-epub-comparison-full.txt
 O JSON completo fica em:
 
 ```txt
-state/pdf-epub-comparison.json
+state/pdf-epub/comparison.json
 ```
+
+Arquivos legados como `state/pdf-epub-comparison.json` ainda podem ser lidos como fallback durante a migracao.
 
 Importante: gerar `pdf-epub-comparison-latest.html` **nao aplica correcoes automaticamente**. Para corrigir o EPUB, valide primeiro os achados em `Revisar sugestoes > Validar achados PDF x EPUB`; depois use `Aplicar achados PDF x EPUB aprovados`. Somente achados aprovados e com substituicao clara geram uma nova versao do EPUB.
 
