@@ -36,6 +36,7 @@ import { buildXhtmlMap } from './xhtmlMapper.js';
 import { buildChapterAlignment } from './chapterAligner.js';
 import { buildSemanticConsistencyAudit } from './semanticConsistencyAudit.js';
 import { buildEditorialReadabilityAudit } from './editorialReadabilityAudit.js';
+import { correctionStatePath, ensureStateDirs, epubAuditStatePath, statePaths } from './statePaths.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workflowRoot = path.resolve(__dirname, '..');
@@ -54,6 +55,7 @@ const paths = {
   reportsJsonDir: path.join(workflowRoot, 'reports/json'),
   reportsHtmlDir: path.join(workflowRoot, 'reports/html'),
   stateDir: path.join(workflowRoot, 'state'),
+  epubAuditStateDir: statePaths.epubAudit.dir,
   outputDir: path.join(workflowRoot, 'output'),
   workflowEventsPath: path.join(workflowRoot, 'logs/workflow-events.jsonl'),
   assistedReviewModelTracePath: path.join(workflowRoot, 'logs/assisted-review-model-trace.json'),
@@ -76,6 +78,7 @@ function parseArgs(argv) {
 }
 
 function ensureDirs() {
+  ensureStateDirs();
   const dirs = [
     paths.sourceDir,
     paths.sourcePdfDir,
@@ -88,6 +91,7 @@ function ensureDirs() {
     paths.reportsJsonDir,
     paths.reportsHtmlDir,
     paths.stateDir,
+    paths.epubAuditStateDir,
     paths.outputDir,
   ];
 
@@ -308,9 +312,9 @@ function readJsonIfExists(filePath) {
 }
 
 function writeCorrectionMarkdownReport(outputPath) {
-  const correctionReport = readJsonIfExists(path.join(paths.stateDir, 'correction-report.json'));
-  const postValidation = readJsonIfExists(path.join(paths.stateDir, 'post-correction-validation.json'));
-  const reauditoriaSummary = readJsonIfExists(path.join(paths.stateDir, 'reauditoria-summary.json'));
+  const correctionReport = readJsonIfExists(correctionStatePath('correctionReport'));
+  const postValidation = readJsonIfExists(correctionStatePath('postCorrectionValidation'));
+  const reauditoriaSummary = readJsonIfExists(correctionStatePath('reauditSummary'));
   const applied = correctionReport?.appliedCorrections || [];
   const skipped = correctionReport?.skippedActions || [];
   const correctionValidation = postValidation?.correctionValidation || {};
@@ -354,8 +358,8 @@ function writeCorrectionMarkdownReport(outputPath) {
 }
 
 function writeReviewQueueReports({ correctionPlan, semanticAudit, sourceDoc, xhtmlMap, chapterAlignment, createdAt }) {
-  const reviewQueuePath = path.join(paths.stateDir, 'review-queue.json');
-  const existingQueue = readJsonIfExists(reviewQueuePath);
+  const reviewQueuePath = statePaths.epubAudit.reviewQueue;
+  const existingQueue = readJsonIfExists(epubAuditStatePath('reviewQueue'));
   const reviewQueue = buildReviewQueue({
     correctionPlan,
     semanticAudit,
@@ -384,7 +388,7 @@ async function writeAssistedReviewReports({ reviewQueue, createdAt }) {
     createdAt,
     modelAdapter,
   });
-  const assistedReviewPath = path.join(paths.stateDir, 'assisted-review-suggestions.json');
+  const assistedReviewPath = statePaths.epubAudit.assistedReviewSuggestions;
   fs.writeFileSync(assistedReviewPath, JSON.stringify(assistedReview, null, 2), 'utf8');
 
   const assistedReviewMarkdownPath = path.join(paths.reportsTxtDir, 'assisted-review-suggestions-latest.md');
@@ -522,11 +526,11 @@ async function writeReports({ sourceDoc, translationDoc, logInfo, alignedDoc, is
   const jsonPath = path.join(paths.reportsJsonDir, `audit-report-${timestamp}.json`);
   fs.writeFileSync(jsonPath, JSON.stringify(report, null, 2), 'utf8');
   pruneOldAuditReports(jsonPath);
-  const correctionPlanPath = path.join(paths.stateDir, 'correction-plan.json');
+  const correctionPlanPath = statePaths.corrections.correctionPlan;
   fs.writeFileSync(correctionPlanPath, JSON.stringify(correctionPlan, null, 2), 'utf8');
-  const semanticCandidatesPath = path.join(paths.stateDir, 'semantic-candidates.json');
+  const semanticCandidatesPath = statePaths.epubAudit.semanticCandidates;
   fs.writeFileSync(semanticCandidatesPath, JSON.stringify(semanticAudit, null, 2), 'utf8');
-  const editorialFindingsPath = path.join(paths.stateDir, 'editorial-findings.json');
+  const editorialFindingsPath = statePaths.epubAudit.editorialFindings;
   fs.writeFileSync(editorialFindingsPath, JSON.stringify(editorialAudit, null, 2), 'utf8');
   const { reviewQueue, reviewQueuePath, reviewQueueMarkdownPath } = writeReviewQueueReports({
     correctionPlan,

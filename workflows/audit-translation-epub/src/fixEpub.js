@@ -16,6 +16,7 @@ import {
   formatReviewQueueValidation,
   validateReviewQueue,
 } from './correction/reviewQueueValidator.js';
+import { correctionStatePath, epubAuditStatePath, ensureStateDirs, statePaths } from './statePaths.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workflowRoot = path.resolve(__dirname, '..');
@@ -31,12 +32,12 @@ const paths = {
   stateDir: path.join(workflowRoot, 'state'),
   workflowEventsPath: path.join(workflowRoot, 'logs/workflow-events.jsonl'),
   manifestPath: path.join(workflowRoot, 'input-fixed/manifest.json'),
-  correctionPlanPath: path.join(workflowRoot, 'state/correction-plan.json'),
-  correctionReportPath: path.join(workflowRoot, 'state/correction-report.json'),
-  postCorrectionValidationPath: path.join(workflowRoot, 'state/post-correction-validation.json'),
-  reauditReportPath: path.join(workflowRoot, 'state/reaudit-report.json'),
-  reauditoriaSummaryPath: path.join(workflowRoot, 'state/reauditoria-summary.json'),
-  reviewQueuePath: path.join(workflowRoot, 'state/review-queue.json'),
+  correctionPlanPath: statePaths.corrections.correctionPlan,
+  correctionReportPath: statePaths.corrections.correctionReport,
+  postCorrectionValidationPath: statePaths.corrections.postCorrectionValidation,
+  reauditReportPath: statePaths.corrections.reauditReport,
+  reauditoriaSummaryPath: statePaths.corrections.reauditSummary,
+  reviewQueuePath: statePaths.epubAudit.reviewQueue,
 };
 
 function parseArgs(argv) {
@@ -51,6 +52,7 @@ function parseArgs(argv) {
 }
 
 function ensureDirs() {
+  ensureStateDirs();
   const dirs = [
     paths.translatedDir,
     paths.translationLogInputDir,
@@ -250,7 +252,8 @@ function validateEpubPackage(filePath) {
 }
 
 function loadCorrectionPlan() {
-  if (!fs.existsSync(paths.correctionPlanPath)) {
+  const correctionPlanPath = correctionStatePath('correctionPlan');
+  if (!fs.existsSync(correctionPlanPath)) {
     return {
       schemaVersion: '1.0',
       workflow: 'audit-translation-epub',
@@ -267,12 +270,13 @@ function loadCorrectionPlan() {
     };
   }
 
-  return JSON.parse(fs.readFileSync(paths.correctionPlanPath, 'utf8'));
+  return JSON.parse(fs.readFileSync(correctionPlanPath, 'utf8'));
 }
 
 function loadReviewQueue() {
-  if (!fs.existsSync(paths.reviewQueuePath)) return null;
-  return JSON.parse(fs.readFileSync(paths.reviewQueuePath, 'utf8'));
+  const reviewQueuePath = epubAuditStatePath('reviewQueue');
+  if (!fs.existsSync(reviewQueuePath)) return null;
+  return JSON.parse(fs.readFileSync(reviewQueuePath, 'utf8'));
 }
 
 function buildApplicationPlan(correctionPlan, reviewQueue) {

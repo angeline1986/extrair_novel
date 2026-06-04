@@ -7,10 +7,11 @@ import {
   formatReviewQueueValidation,
   validateReviewQueue,
 } from './correction/reviewQueueValidator.js';
+import { epubAuditStatePath } from './statePaths.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workflowRoot = path.resolve(__dirname, '..');
-const defaultQueuePath = path.join(workflowRoot, 'state/review-queue.json');
+const defaultQueuePath = epubAuditStatePath('reviewQueue');
 
 function parseArgs(argv) {
   const args = { file: defaultQueuePath };

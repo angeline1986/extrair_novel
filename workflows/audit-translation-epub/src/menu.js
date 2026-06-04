@@ -30,7 +30,7 @@ import {
   replacementForDecision,
 } from './pdfEpubComparison/reviewDecision.js';
 import { writePdfEpubComparisonFullText } from './pdfEpubComparisonReportWriter.js';
-import { pdfEpubStatePath, statePaths } from './statePaths.js';
+import { epubAuditStatePath, pdfEpubStatePath, statePaths } from './statePaths.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workflowRoot = path.resolve(__dirname, '..');
@@ -46,8 +46,8 @@ const reportsHtmlDir = path.join(reportsDir, 'html');
 const summaryPath = path.join(reportsTxtDir, 'epub-audit-summary-latest.txt');
 const reportPattern = path.join(reportsJsonDir, 'audit-report-*.json');
 const readerReportPath = path.join(reportsHtmlDir, 'reader-report-latest.html');
-const reviewQueuePath = path.join(stateDir, 'review-queue.json');
-const assistedReviewPath = path.join(stateDir, 'assisted-review-suggestions.json');
+const reviewQueuePath = statePaths.epubAudit.reviewQueue;
+const assistedReviewPath = statePaths.epubAudit.assistedReviewSuggestions;
 const pdfEpubComparisonStatePath = statePaths.pdfEpub.comparison;
 const pdfEpubReviewQueuePath = statePaths.pdfEpub.reviewQueue;
 const pdfEpubComparisonFullTxtPath = path.join(reportsTxtDir, 'pdf-epub-comparison-full.txt');
@@ -398,8 +398,8 @@ function availableSuggestions(reviewQueue, assistedReview) {
 }
 
 async function reviewReadySuggestions() {
-  const reviewQueue = readJson(reviewQueuePath);
-  const assistedReview = readJson(assistedReviewPath);
+  const reviewQueue = readJson(epubAuditStatePath('reviewQueue'));
+  const assistedReview = readJson(epubAuditStatePath('assistedReviewSuggestions'));
 
   if (!reviewQueue || !assistedReview) {
     log('\nFila de revisao ainda nao existe. Rode a auditoria primeiro.', 'yellow');
@@ -502,8 +502,8 @@ async function reviewReadySuggestions() {
 }
 
 async function viewContextItems() {
-  const reviewQueue = readJson(reviewQueuePath);
-  const assistedReview = readJson(assistedReviewPath);
+  const reviewQueue = readJson(epubAuditStatePath('reviewQueue'));
+  const assistedReview = readJson(epubAuditStatePath('assistedReviewSuggestions'));
 
   if (!reviewQueue || !assistedReview) {
     log('\nFila de revisao ainda nao existe. Rode a auditoria primeiro.', 'yellow');
@@ -1208,9 +1208,15 @@ function generatedStateFilesForRecentAudit() {
     'editorial-findings.json',
     'semantic-candidates.json',
     'assisted-review-suggestions.json',
+    'epub-audit/editorial-findings.json',
+    'epub-audit/semantic-candidates.json',
+    'epub-audit/assisted-review-suggestions.json',
     'post-correction-validation.json',
     'reaudit-report.json',
     'reauditoria-summary.json',
+    'corrections/post-correction-validation.json',
+    'corrections/reaudit-report.json',
+    'corrections/reaudit-summary.json',
     'pdf-epub-comparison.json',
     'pdf-epub-review-queue.json',
     'pdf-epub/comparison.json',
@@ -1223,13 +1229,22 @@ function generatedStateFilesForNewWork() {
   return [
     'correction-plan.json',
     'correction-report.json',
+    'corrections/correction-plan.json',
+    'corrections/correction-report.json',
     'editorial-findings.json',
     'review-queue.json',
     'semantic-candidates.json',
     'assisted-review-suggestions.json',
+    'epub-audit/editorial-findings.json',
+    'epub-audit/review-queue.json',
+    'epub-audit/semantic-candidates.json',
+    'epub-audit/assisted-review-suggestions.json',
     'post-correction-validation.json',
     'reaudit-report.json',
     'reauditoria-summary.json',
+    'corrections/post-correction-validation.json',
+    'corrections/reaudit-report.json',
+    'corrections/reaudit-summary.json',
     'pdf-epub-comparison.json',
     'pdf-epub-review-queue.json',
     'pdf-epub-application-report.json',

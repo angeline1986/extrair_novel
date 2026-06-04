@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { epubAuditStatePath } from './statePaths.js';
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -63,7 +64,7 @@ function applyDecision(item, decision, now) {
 
 export function importReaderReportDecisions({ decisionsPath, reviewQueuePath }) {
   const payload = readJson(decisionsPath);
-  const reviewQueue = readJson(reviewQueuePath);
+  const reviewQueue = readJson(epubAuditStatePath('reviewQueue'));
   const items = reviewQueue.items || [];
   const itemById = new Map(items.map((item) => [item.id, item]));
   const summary = { approved: 0, kept: 0, skipped: 0, missing: 0 };

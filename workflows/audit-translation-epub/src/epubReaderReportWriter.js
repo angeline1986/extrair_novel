@@ -7,6 +7,7 @@ import {
   readerDecisionStyles,
   renderReaderDecisionControls,
 } from './epubReaderDecisionWidgets.js';
+import { correctionStatePath, epubAuditStatePath } from './statePaths.js';
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -26,6 +27,26 @@ function readJsonIfExists(dir, filename) {
   const filePath = path.join(dir, filename);
   if (!fs.existsSync(filePath)) return null;
 
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function readEpubAuditJson(name) {
+  const filePath = epubAuditStatePath(name);
+  if (!fs.existsSync(filePath)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function readCorrectionJson(name) {
+  const filePath = correctionStatePath(name);
+  if (!fs.existsSync(filePath)) return null;
   try {
     return JSON.parse(fs.readFileSync(filePath, 'utf8'));
   } catch {
@@ -468,13 +489,13 @@ export function writeEpubReaderReport(report, htmlPath, {
   stateDir,
   relativeWorkflowPath = (value) => value,
 } = {}) {
-  const correctionReport = readJsonIfExists(stateDir, 'correction-report.json');
-  const postValidation = readJsonIfExists(stateDir, 'post-correction-validation.json');
-  const reauditoriaSummary = readJsonIfExists(stateDir, 'reauditoria-summary.json');
-  const reviewQueue = readJsonIfExists(stateDir, 'review-queue.json');
-  const assistedReview = readJsonIfExists(stateDir, 'assisted-review-suggestions.json');
-  const semanticAudit = readJsonIfExists(stateDir, 'semantic-candidates.json');
-  const editorialFindings = readJsonIfExists(stateDir, 'editorial-findings.json');
+  const correctionReport = readCorrectionJson('correctionReport');
+  const postValidation = readCorrectionJson('postCorrectionValidation');
+  const reauditoriaSummary = readCorrectionJson('reauditSummary');
+  const reviewQueue = readEpubAuditJson('reviewQueue');
+  const assistedReview = readEpubAuditJson('assistedReviewSuggestions');
+  const semanticAudit = readEpubAuditJson('semanticCandidates');
+  const editorialFindings = readEpubAuditJson('editorialFindings');
   const summary = buildReaderSummary({
     report,
     correctionReport,

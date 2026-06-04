@@ -23,6 +23,7 @@ import {
   statusBadge,
   statusClass,
 } from '../../audit-translation-docx/src/reportWriter/dashboard/htmlUtils.js';
+import { correctionStatePath, epubAuditStatePath } from './statePaths.js';
 
 function sumIssueOccurrences(report, predicate) {
   return (report?.issues || [])
@@ -776,13 +777,13 @@ function readJsonIfExists(logsDir, filename) {
 
 function loadCorrectionArtifacts(stateDir, traceDir = stateDir) {
   return {
-    correctionReport: readJsonIfExists(stateDir, 'correction-report.json'),
-    postValidation: readJsonIfExists(stateDir, 'post-correction-validation.json'),
-    reauditoriaSummary: readJsonIfExists(stateDir, 'reauditoria-summary.json'),
-    reviewQueue: readJsonIfExists(stateDir, 'review-queue.json'),
-    assistedReview: readJsonIfExists(stateDir, 'assisted-review-suggestions.json'),
+    correctionReport: readJsonIfExists(path.dirname(correctionStatePath('correctionReport')), path.basename(correctionStatePath('correctionReport'))),
+    postValidation: readJsonIfExists(path.dirname(correctionStatePath('postCorrectionValidation')), path.basename(correctionStatePath('postCorrectionValidation'))),
+    reauditoriaSummary: readJsonIfExists(path.dirname(correctionStatePath('reauditSummary')), path.basename(correctionStatePath('reauditSummary'))),
+    reviewQueue: readJsonIfExists(path.dirname(epubAuditStatePath('reviewQueue')), path.basename(epubAuditStatePath('reviewQueue'))),
+    assistedReview: readJsonIfExists(path.dirname(epubAuditStatePath('assistedReviewSuggestions')), path.basename(epubAuditStatePath('assistedReviewSuggestions'))),
     assistedReviewModelTrace: readJsonIfExists(traceDir, 'assisted-review-model-trace.json'),
-    semanticCandidates: readJsonIfExists(stateDir, 'semantic-candidates.json'),
+    semanticCandidates: readJsonIfExists(path.dirname(epubAuditStatePath('semanticCandidates')), path.basename(epubAuditStatePath('semanticCandidates'))),
   };
 }
 
