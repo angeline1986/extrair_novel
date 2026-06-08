@@ -82,10 +82,15 @@ export function severityWeight(severity) {
   return { critical: 0, high: 1, medium: 2, low: 3 }[severity] ?? 2;
 }
 
+function chapterWeight(chapter) {
+  const number = Number(chapter);
+  return Number.isFinite(number) ? number : 9999;
+}
+
 export function sortFindings(findings) {
   return [...(findings || [])].sort((a, b) =>
+    chapterWeight(a.chapter) - chapterWeight(b.chapter) ||
     severityWeight(a.severity) - severityWeight(b.severity) ||
-    Number(a.chapter || 9999) - Number(b.chapter || 9999) ||
     String(a.type || '').localeCompare(String(b.type || ''), 'pt-BR')
   );
 }

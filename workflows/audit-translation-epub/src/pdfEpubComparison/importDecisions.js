@@ -61,6 +61,27 @@ function itemReplacementKey(item, decision) {
   return replacementKey(replacement.from, replacement.to, item.chapter, item.type);
 }
 
+function matchingItemForDecision(items, decision) {
+  return items.find((item) => decisionMatchesItem(item, decision)) || null;
+}
+
+function cloneItemForDecision(item, decision, now) {
+  const from = String(decision.from || item.problematicTerm || '').trim();
+  return {
+    ...item,
+    id: decision.id,
+    stableKey: `${item.stableKey || item.id || 'pdf-epub'}::decision::${replacementKey(from, decision.to || decision.decision || '', decision.chapter, decision.type)}`,
+    dedupeKey: null,
+    status: 'pending',
+    original: from || item.original,
+    problematicTerm: from || item.problematicTerm,
+    review: { approvedBy: null, reviewedAt: null, notes: null },
+    application: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
 function decisionMatchesItem(item, decision) {
   if (decision.chapter && String(item.chapter) !== String(decision.chapter)) return false;
   if (decision.type && item.type && String(item.type) !== String(decision.type)) return false;
@@ -119,7 +140,18 @@ export function importPdfEpubDecisions({ decisionsPath, queuePath }) {
   const now = new Date().toISOString();
 
   for (const decision of decisions) {
-    const item = byId.get(decision.id) || byReplacement.get(replacementKey(decision.from, decision.to, decision.chapter, decision.type));
+    let item = byId.get(decision.id);
+    if (!item) {
+      const matchedItem = byReplacement.get(replacementKey(decision.from, decision.to, decision.chapter, decision.type))
+        || matchingItemForDecision(queue.items || [], decision);
+      if (matchedItem && decision.id && decision.id !== matchedItem.id) {
+        item = cloneItemForDecision(matchedItem, decision, now);
+        queue.items.push(item);
+        byId.set(item.id, item);
+      } else {
+        item = matchedItem;
+      }
+    }
     if (!item) {
       summary.missing += 1;
       continue;

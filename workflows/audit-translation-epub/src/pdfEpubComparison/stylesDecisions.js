@@ -32,6 +32,11 @@ export function decisionStyles() {
       border: 0;
       background: transparent;
     }
+    .decision-panel + .decision-panel {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px dashed #e7b9c3;
+    }
     .decision-panel > strong {
       color: #613247;
       text-transform: uppercase;

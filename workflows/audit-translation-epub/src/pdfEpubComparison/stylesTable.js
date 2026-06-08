@@ -35,6 +35,13 @@ export function tableStyles() {
     }
     .impact-col { text-align: center; }
     .chapter-type-col strong { display: block; color: #2b1320; font-size: 1rem; }
+    .chapter-title {
+      display: block;
+      margin-top: 5px;
+      color: #5f3143;
+      font-weight: 700;
+      line-height: 1.25;
+    }
     .chapter-type-col small { display: block; margin-top: 6px; color: #A53860; font-weight: 700; }
     .term-col code {
       display: inline-block;
@@ -72,6 +79,18 @@ export function tableStyles() {
       border: 1px solid var(--success-line);
       color: var(--success-ink);
     }
+    .english-evidence-box {
+      background: #f4f8ff;
+      border: 1px solid #b9d2ff;
+      color: #1f3f72;
+    }
+    .english-evidence-box small {
+      display: block;
+      margin-top: 6px;
+      color: #4f6280;
+      font-weight: 700;
+      line-height: 1.35;
+    }
     .decision-row td {
       padding: 0 18px 20px;
       background: #fffafa;
@@ -80,5 +99,23 @@ export function tableStyles() {
     .finding-row td { border-bottom: 0; }
     .empty-cell { padding: 28px; text-align: center; color: var(--muted); }
     .finding-row:hover td { background: #fffafa; }
+    .english-source-row .context-col blockquote {
+      max-height: 70vh;
+      overflow: auto;
+    }
+    .english-source-row .context-col p {
+      margin: 0 0 12px;
+    }
+    .english-full-text {
+      margin-top: 12px;
+    }
+    .english-full-text summary {
+      cursor: pointer;
+      color: #A53860;
+      font-weight: 800;
+    }
+    .english-full-text p:first-of-type {
+      margin-top: 12px;
+    }
   `;
 }

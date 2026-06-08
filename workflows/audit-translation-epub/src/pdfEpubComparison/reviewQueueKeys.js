@@ -56,6 +56,7 @@ function normalizedRecommendation(value) {
 }
 
 export function dedupeKeyFromFinding(category, finding) {
+  if (finding?.dedupeKey) return finding.dedupeKey;
   const recommendation = normalizedRecommendation(finding?.recommendation);
   const title = bestTitleLikeValue(finding);
   if (!recommendation || !title) return null;
@@ -64,6 +65,7 @@ export function dedupeKeyFromFinding(category, finding) {
 }
 
 export function stableKeyFromFinding(category, finding) {
+  if (finding?.stableKey) return finding.stableKey;
   return [
     category?.id || '-',
     finding?.chapter || '-',

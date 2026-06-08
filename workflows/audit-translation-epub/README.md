@@ -179,8 +179,28 @@ Pelo menu, use:
 3. Exportar lista completa de achados
 5. Revisar sugestoes
    2. Validar achados PDF x EPUB
-   3. Aplicar achados PDF x EPUB aprovados
+   3. Importar decisoes aprovadas
+   4. Aplicar correcoes aprovadas
 ```
+
+Fluxo recomendado de validacao pelo HTML:
+
+```txt
+1. Gere ou abra reports/html/pdf-epub-comparison-latest.html.
+2. Marque as decisoes no proprio relatorio.
+3. Use "Exportar decisoes" no HTML para baixar pdf-epub-decisions-export.json.
+4. No menu, use Revisar sugestoes > Importar decisoes aprovadas.
+5. Depois use Revisar sugestoes > Aplicar correcoes aprovadas.
+```
+
+Tambem e possivel executar os passos principais diretamente:
+
+```bash
+npm run audit:translation:epub:pdf-report
+npm run audit:translation:epub:apply-pdf-approved
+```
+
+O comando `audit:translation:epub:pdf-report` apenas gera o relatorio. O comando `audit:translation:epub:apply-pdf-approved` aplica as correcoes aprovadas que ainda estiverem pendentes em `state/pdf-epub/review-queue.json`, cria uma nova versao em `input-fixed/vN/`, copia o EPUB final para `output/` e atualiza `state/pdf-epub/application-report.json`.
 
 Saidas geradas:
 
@@ -206,8 +226,9 @@ O relatorio PDF x EPUB organiza achados em abas editoriais maiores. O campo `Tip
 - `Terminologia`: glossario, termos perigosos e escolhas terminologicas inconsistentes.
 - `Titulos`: titulos divergentes, literais, duplicados ou com idioma residual.
 - `Editorial`: achados heurísticos que nao se encaixam nas demais abas.
+- `Inglês`: capitulos em ingles alinhados, usados como apoio para dupla validacao editorial.
 
-O HTML PDF x EPUB pode exibir apenas os achados mais prioritarios por aba. Quando houver mais achados do que o limite exibido, o proprio relatorio informa quantos foram encontrados e aponta para a lista completa:
+O HTML PDF x EPUB exibe todos os achados de cada aba e permite filtrar pelo campo `Termo original`. A lista completa em TXT tambem fica disponivel em:
 
 ```txt
 reports/txt/pdf-epub-comparison-full.txt
@@ -222,7 +243,11 @@ state/pdf-epub/comparison.json
 Arquivos legados como `state/pdf-epub-comparison.json` ainda podem ser lidos como fallback durante a migracao.
 Depois que os novos arquivos em `state/pdf-epub/`, `state/epub-audit/` e `state/corrections/` forem gerados, os arquivos antigos em `state/*.json` podem ser removidos pelo menu `Manutencao > Limpar estado legado migrado`.
 
-Importante: gerar `pdf-epub-comparison-latest.html` **nao aplica correcoes automaticamente**. Para corrigir o EPUB, valide primeiro os achados em `Revisar sugestoes > Validar achados PDF x EPUB`; depois use `Aplicar achados PDF x EPUB aprovados`. Somente achados aprovados e com substituicao clara geram uma nova versao do EPUB.
+Importante: gerar `pdf-epub-comparison-latest.html` **nao aplica correcoes automaticamente**. Para corrigir o EPUB, marque decisoes no relatorio, exporte o JSON, importe as decisoes pelo menu e depois use `Aplicar correcoes aprovadas`. Somente achados aprovados e com substituicao clara geram uma nova versao do EPUB.
+
+Ao gerar um novo relatorio, pendencias antigas de `state/pdf-epub/review-queue.json` com status `pending` sao reincorporadas ao HTML para nao sumirem da auditoria. Itens `approved` e `rejected` nao voltam para a fila visual, pois ja possuem uma decisao. O resumo do JSON informa quantos achados vieram da deteccao atual e quantos foram carregados da fila pendente.
+
+Quando uma ocorrencia apresentar mais de um termo, como `sozinha / envergonhada`, o relatorio exibe uma linha de decisao por termo. Assim e possivel manter um termo e aplicar correcao em outro no mesmo contexto.
 
 O arquivo `state/epub-audit/review-queue.json` registra acoes `auto_review` e `manual_only` que ainda nao devem ser aplicadas automaticamente. Cada item nasce como `pending` e pode ser preparado futuramente para `approved`, `rejected` ou `needs_context`, sem alterar o EPUB nesta milestone.
 

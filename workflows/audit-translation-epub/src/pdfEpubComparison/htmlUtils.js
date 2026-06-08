@@ -24,7 +24,11 @@ export function safeId(value) {
 
 export function highlightTerm(value, term) {
   const escaped = escapeHtml(value || '-');
-  if (!term) return escaped;
-  const pattern = new RegExp(`(${escapeRegExp(escapeHtml(term))})`, 'gi');
-  return escaped.replace(pattern, '<strong>$1</strong>');
+  const terms = (Array.isArray(term) ? term : String(term || '').split(/\s*\/\s*/))
+    .map((item) => escapeHtml(String(item || '').trim()))
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length);
+  if (!terms.length) return escaped;
+  const pattern = new RegExp(`(^|[^\\p{L}\\p{N}])(${terms.map(escapeRegExp).join('|')})(?=$|[^\\p{L}\\p{N}])`, 'giu');
+  return escaped.replace(pattern, '$1<strong>$2</strong>');
 }

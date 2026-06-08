@@ -35,6 +35,7 @@ function masculineSuggestion(item) {
     nervosa: 'nervoso',
     focada: 'focado',
     perfeita: 'perfeito',
+    bonita: 'bonito',
     chocada: 'chocado',
     assustada: 'assustado',
   }[term] || null;

@@ -13,8 +13,10 @@ export function makeFinding({
   severity = 'medium',
   confidence = 'medium',
   classification = 'heuristic',
+  ...metadata
 }) {
   return {
+    ...metadata,
     group,
     chapter: chapterLabel(chapter),
     type,

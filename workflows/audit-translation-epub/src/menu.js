@@ -6,11 +6,11 @@ import readline from 'readline';
 import { fileURLToPath } from 'url';
 import { spawnSync } from 'child_process';
 import { fixEpub } from './fixEpub.js';
+import { importReaderReportDecisions } from './importReaderReportDecisions.js';
 import {
-  findLatestReaderDecisionExport,
-  importReaderReportDecisions,
-} from './importReaderReportDecisions.js';
-import { applyApprovedPdfEpubFindings as applyApprovedPdfEpubFindingsToEpub } from './applyPdfEpubApprovedFindings.js';
+  applyApprovedPdfEpubFindings as applyApprovedPdfEpubFindingsToEpub,
+  reconcileApprovedPdfEpubApplications,
+} from './applyPdfEpubApprovedFindings.js';
 import { runPdfEpubComparisonReport as generatePdfEpubComparisonReport } from './auditPdfEpubReport.js';
 import {
   buildPdfEpubReviewQueue,
@@ -20,10 +20,7 @@ import {
   filterPendingItems,
   pendingCategoryOptions,
 } from './pdfEpubComparison/menuReviewFilters.js';
-import {
-  findLatestDecisionExport,
-  importPdfEpubDecisions,
-} from './pdfEpubComparison/importDecisions.js';
+import { importPdfEpubDecisions } from './pdfEpubComparison/importDecisions.js';
 import {
   applyReviewDecision,
   decisionOptionsForItem,
@@ -263,7 +260,9 @@ function normalizeText(value, limit = 700) {
 
 function approvedPdfEpubApplicationLabel(item) {
   if (item.review?.replacement?.from && item.review?.replacement?.to) {
-    const replacement = replacementForDecision(item, item.review.replacement.to) || item.review.replacement;
+    const replacement = /t[ií]tulo/i.test(`${item.location || ''} ${item.type || ''}`)
+      ? replacementForDecision(item, item.review.replacement.to) || item.review.replacement
+      : item.review.replacement;
     return `${replacement.from} -> ${replacement.to}`;
   }
   const quotedRecommendation = String(item.recommendation || '').match(/"([^"]+)"/)?.[1]?.trim();
@@ -684,6 +683,13 @@ function buildAndPersistPdfEpubReviewQueue() {
 }
 
 async function applyApprovedPdfEpubFindings() {
+  try {
+    const { reconciled } = reconcileApprovedPdfEpubApplications();
+    if (reconciled) log(`Achados ja presentes no EPUB atual marcados como aplicados: ${reconciled}`, 'green');
+  } catch (error) {
+    log(`Nao foi possivel reconciliar aplicacoes existentes: ${error.message}`, 'yellow');
+  }
+
   const queue = readJson(pdfEpubStatePath('reviewQueue'));
   if (!queue) {
     log('\nFila PDF x EPUB ainda nao existe. Valide achados primeiro.', 'yellow');
@@ -747,14 +753,71 @@ async function offerApplyApprovedPdfEpubFindings(queue) {
   }
 }
 
+function decisionExportCandidates() {
+  const dirs = [
+    path.join(process.env.HOME || '', 'Downloads'),
+    path.join(workflowRoot, 'reports/json'),
+    workflowRoot,
+  ];
+  const candidates = [];
+  const seen = new Set();
+
+  for (const dir of dirs) {
+    if (!dir || !fs.existsSync(dir)) continue;
+    for (const name of fs.readdirSync(dir)) {
+      if (!/^(reader-report-decisions-export|pdf-epub-decisions-export).*\.json$/i.test(name)) continue;
+      const filePath = path.join(dir, name);
+      if (seen.has(filePath)) continue;
+      seen.add(filePath);
+      const stats = fs.statSync(filePath);
+      const payload = readJson(filePath, {});
+      const source = payload.source === 'epub_reader_report' ? 'Reader report' : 'PDF x EPUB';
+      const decisions = Array.isArray(payload.decisions) ? payload.decisions.length : 0;
+      candidates.push({ filePath, source, decisions, mtimeMs: stats.mtimeMs });
+    }
+  }
+
+  return candidates.sort((a, b) => b.mtimeMs - a.mtimeMs).slice(0, 12);
+}
+
+async function selectDecisionExportPath() {
+  const candidates = decisionExportCandidates();
+
+  if (!candidates.length) {
+    const answer = (await ask(color('Nenhum export encontrado. Informe o caminho do JSON: ', 'yellow'))).trim();
+    return answer ? path.resolve(answer) : null;
+  }
+
+  console.log();
+  log('EXPORTS DE DECISÕES ENCONTRADOS', 'cyan');
+  console.log();
+  candidates.forEach((candidate, index) => {
+    const date = new Date(candidate.mtimeMs).toLocaleString('pt-BR');
+    log(`  ${index + 1}. ${candidate.source} · ${candidate.decisions} decisao(oes) · ${date}`, 'white');
+    log(`     ${displayPath(candidate.filePath)}`, 'dim');
+    console.log();
+  });
+  log(`  ${candidates.length + 1}. Informar caminho manualmente`, 'white');
+  log(`  ${candidates.length + 2}. Voltar`, 'white');
+  console.log();
+
+  const choice = (await ask(color(`Escolha uma opcao (1-${candidates.length + 2}): `, 'yellow'))).trim();
+  const index = Number(choice);
+  if (Number.isInteger(index) && index >= 1 && index <= candidates.length) {
+    return candidates[index - 1].filePath;
+  }
+  if (index === candidates.length + 1) {
+    const answer = (await ask(color('Caminho do JSON exportado: ', 'yellow'))).trim();
+    return answer ? path.resolve(answer) : null;
+  }
+  return null;
+}
+
 async function importPdfEpubDecisionsFromReport() {
-  const fallbackPath = findLatestDecisionExport(workflowRoot) || findLatestReaderDecisionExport(workflowRoot);
-  const fallbackLabel = fallbackPath ? displayPath(fallbackPath) : 'nenhum encontrado';
-  const answer = (await ask(color(`Caminho do JSON exportado pelo relatorio (Enter para ${fallbackLabel}): `, 'yellow'))).trim();
-  const decisionsPath = answer ? path.resolve(answer) : fallbackPath;
+  const decisionsPath = await selectDecisionExportPath();
 
   if (!decisionsPath || !fs.existsSync(decisionsPath)) {
-    log('\nArquivo de decisoes nao encontrado.', 'red');
+    log('\nImportacao cancelada ou arquivo de decisoes nao encontrado.', 'yellow');
     return;
   }
 

@@ -2,11 +2,16 @@ import fs from 'fs';
 import path from 'path';
 
 export function markdownForChapter(chapter) {
+  const auditChapter = chapter.auditChapter || chapter.siteChapter || '-';
   return [
-    `# ${chapter.title || `Site chapter ${chapter.siteChapter || '-'}`}`,
+    `# Chapter ${auditChapter}: ${chapter.title || `Site chapter ${chapter.siteChapter || '-'}`}`,
     '',
+    `Audit chapter: ${auditChapter}`,
+    `Source site chapter: ${chapter.siteChapter || '-'}`,
+    `Chapter title: ${chapter.title || `Site chapter ${chapter.siteChapter || '-'}`}`,
     `Source: ${chapter.source}`,
-    'Alignment: auxiliary text; chapter number is not reliable',
+    `Alignment: English source chapter ${chapter.siteChapter || '-'} corresponds to audit/report chapter ${auditChapter}.`,
+    'Usage: auxiliary English source for double-checking terms, names, gender and meaning during audit.',
     '',
     ...chapter.paragraphs.flatMap((paragraph) => [paragraph, '']),
   ].join('\n').trimEnd();
@@ -27,6 +32,11 @@ export function writeEnglishChapterOutputs(outputDir, chapters, failures = []) {
     .filter((chapter) => chapter.paragraphCount === 0)
     .map((chapter) => ({ siteChapter: chapter.siteChapter, source: chapter.source }));
   const label = rangeLabel(extractedChapters);
+  const chaptersWithAuditMapping = extractedChapters.map((chapter) => ({
+    ...chapter,
+    auditChapter: chapter.auditChapter || chapter.siteChapter || null,
+    alignmentNote: `English source chapter ${chapter.siteChapter || '-'} corresponds to audit/report chapter ${chapter.auditChapter || chapter.siteChapter || '-'}.`,
+  }));
   const payload = {
     schemaVersion: '1.0',
     source: 'borntobenovel',
@@ -39,7 +49,7 @@ export function writeEnglishChapterOutputs(outputDir, chapters, failures = []) {
     titleSelector: '#chapterContent p:nth-child(1) strong',
     skippedEmptyChapters,
     failures,
-    chapters: extractedChapters,
+    chapters: chaptersWithAuditMapping,
   };
 
   const jsonPath = path.join(outputDir, `accidental-baby-en-chapters-${label}.json`);

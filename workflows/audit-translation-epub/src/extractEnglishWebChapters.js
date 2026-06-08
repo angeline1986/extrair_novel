@@ -9,7 +9,7 @@ import { writeEnglishChapterOutputs } from './englishSource/chapterWriter.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workflowRoot = path.resolve(__dirname, '..');
-const outputDir = path.join(workflowRoot, 'input/source/english');
+const outputDir = path.join(workflowRoot, 'input/source/english/fragments');
 const baseUrl = 'https://borntobenovel.com/novel/accidental-baby/chapters/ch-';
 
 function defaultUrls() {

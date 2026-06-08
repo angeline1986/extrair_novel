@@ -4,7 +4,7 @@ import { stableKeyFromFinding, stableReviewId } from './reviewQueueKeys.js';
 
 function itemFromFinding(category, finding) {
   return {
-    id: stableReviewId(stableKeyFromFinding(category, finding)),
+    id: finding.reviewId || stableReviewId(stableKeyFromFinding(category, finding)),
     categoryId: category.id,
     categoryLabel: category.label,
     type: finding.type || category.label,
@@ -16,6 +16,28 @@ function itemFromFinding(category, finding) {
     problematicTerm: finding.problematicTerm || '',
     sourceTerm: finding.original || '',
   };
+}
+
+function termsForDecision(finding) {
+  if (Array.isArray(finding.decisionTerms) && finding.decisionTerms.length) {
+    return finding.decisionTerms;
+  }
+  const value = String(finding.problematicTerm || '').trim();
+  const terms = value
+    .split(/\s*\/\s*/)
+    .map((term) => term.trim())
+    .filter(Boolean);
+  return terms.length > 1 ? terms : [value || finding.original || ''];
+}
+
+function itemForTerm(category, finding, term) {
+  if (!term || term === finding.problematicTerm) return itemFromFinding(category, finding);
+  const { reviewId, stableKey, dedupeKey, ...termFinding } = finding;
+  return itemFromFinding(category, {
+    ...termFinding,
+    problematicTerm: term,
+    original: term,
+  });
 }
 
 function buttonForOption(item, option) {
@@ -37,7 +59,12 @@ export function reviewIdForFinding(category, finding) {
 }
 
 export function renderDecisionControls(category, finding) {
-  const item = itemFromFinding(category, finding);
+  return termsForDecision(finding)
+    .map((term) => renderDecisionPanel(itemForTerm(category, finding, term), term))
+    .join('');
+}
+
+function renderDecisionPanel(item, term) {
   const options = decisionOptionsForItem(item).filter((option) => ['keep', 'apply'].includes(option.action));
   return `
     <div class="decision-panel"
@@ -46,7 +73,7 @@ export function renderDecisionControls(category, finding) {
       data-chapter="${escapeHtml(item.chapter)}"
       data-type="${escapeHtml(item.type)}"
       data-term="${escapeHtml(item.problematicTerm || item.original || '')}">
-      <strong>Decisão</strong>
+      <strong>Decisão${term ? `: ${escapeHtml(term)}` : ''}</strong>
       <div class="decision-actions">${options.map((option) => buttonForOption(item, option)).join('')}</div>
       <label class="manual-decision">
         <span>Editar manualmente</span>

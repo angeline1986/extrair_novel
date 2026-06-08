@@ -225,6 +225,42 @@ function replacementsAlreadyApplied(zip, replacements) {
   return replacements.length > 0 && replacements.every((replacement) => replacementAlreadyPresent(zip, replacement));
 }
 
+export function reconcileApprovedPdfEpubApplications() {
+  const queuePath = pdfEpubStatePath('reviewQueue');
+  const queue = readJson(queuePath);
+  if (!queue) return { reconciled: 0 };
+
+  const target = resolveEpubTarget({ workflowRoot });
+  const zip = new AdmZip(target.filePath);
+  const now = new Date().toISOString();
+  let reconciled = 0;
+
+  for (const item of queue.items || []) {
+    if (item.status !== 'approved') continue;
+    if (item.application?.finalPath || item.application?.appliedAt) continue;
+    const replacement = replacementFromItem(item);
+    if (!replacement) continue;
+    if (!replacementAlreadyPresent(zip, replacement)) continue;
+
+    item.application = {
+      appliedAt: now,
+      version: null,
+      finalPath: relativeWorkflowPath(target.filePath),
+      inferred: true,
+      replacement,
+    };
+    item.updatedAt = now;
+    reconciled += 1;
+  }
+
+  if (reconciled) {
+    refreshPdfEpubReviewQueueSummary(queue);
+    writeJson(paths.reviewQueuePath, queue);
+  }
+
+  return { reconciled };
+}
+
 function updateXmlText(html, replacements) {
   const $ = cheerio.load(html, { xmlMode: true, decodeEntities: false });
   const changes = [];
