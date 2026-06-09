@@ -36,6 +36,8 @@ function masculineSuggestion(item) {
     focada: 'focado',
     perfeita: 'perfeito',
     bonita: 'bonito',
+    fofa: 'fofo',
+    garota: 'garoto',
     chocada: 'chocado',
     assustada: 'assustado',
   }[term] || null;

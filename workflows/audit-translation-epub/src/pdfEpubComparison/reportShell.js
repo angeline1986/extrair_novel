@@ -89,19 +89,6 @@ function reportScript() {
 
 export function buildPdfEpubComparisonHtml(audit) {
   const categories = audit?.categories || [];
-  const englishChapters = audit?.englishSource?.chapters || [];
-  const reportTabs = englishChapters.length
-    ? [
-        ...categories,
-        {
-          id: 'english_source',
-          label: 'Inglês',
-          description: 'Capítulos fonte em inglês para apoio da auditoria.',
-          count: englishChapters.length,
-          chapters: englishChapters,
-        },
-      ]
-    : categories;
   const generatedAt = audit?.generatedAt || new Date().toISOString();
   return `<!doctype html>
 <html lang="pt-BR">
@@ -125,8 +112,8 @@ export function buildPdfEpubComparisonHtml(audit) {
       </div>
     </header>
     ${renderReportDetails(audit)}
-    ${renderTabs(reportTabs)}
-    <div class="tab-content">${reportTabs.map(renderPane).join('')}</div>
+    ${renderTabs(categories)}
+    <div class="tab-content">${categories.map(renderPane).join('')}</div>
     <footer>Gerado em ${escapeHtml(generatedAt)}. Nenhuma correcao automatica foi aplicada.</footer>
   </main>
   <script>${reportScript()}</script>

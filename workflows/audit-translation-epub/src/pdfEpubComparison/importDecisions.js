@@ -73,6 +73,85 @@ function matchingItemForDecision(items, decision) {
   return items.find((item) => decisionMatchesItem(item, decision)) || null;
 }
 
+function comparisonFindings(value, findings = []) {
+  if (Array.isArray(value)) {
+    for (const item of value) comparisonFindings(item, findings);
+    return findings;
+  }
+  if (!value || typeof value !== 'object') return findings;
+  if (value.chapter && value.type && value.translation) findings.push(value);
+  for (const child of Object.values(value)) comparisonFindings(child, findings);
+  return findings;
+}
+
+function matchingComparisonFinding(findings, decision) {
+  const context = normalize(decision.context);
+  return findings.find((finding) => {
+    if (decision.chapter && String(finding.chapter) !== String(decision.chapter)) return false;
+    if (decision.type && finding.type && String(finding.type) !== String(decision.type)) return false;
+    const translation = normalize(finding.translation || finding.location);
+    return context && (translation === context || translation.includes(context) || context.includes(translation));
+  }) || null;
+}
+
+function itemFromComparisonFinding(finding, decision, now) {
+  const from = String(decision.from || finding.problematicTerm || finding.original || '').trim();
+  return {
+    id: decision.id,
+    stableKey: `comparison::decision::${replacementKey(from, decision.to || decision.decision || '', decision.chapter, decision.type, decision.context, decision.occurrenceIndex)}`,
+    dedupeKey: null,
+    origin: 'pdf_epub_comparison',
+    categoryId: decision.categoryId || finding.group || 'editorial',
+    categoryLabel: finding.group || decision.categoryId || 'Editorial',
+    group: finding.group || decision.categoryId || 'editorial',
+    type: decision.type || finding.type,
+    status: 'pending',
+    chapter: String(decision.chapter || finding.chapter || ''),
+    severity: finding.severity || 'medium',
+    confidence: finding.confidence || 'medium',
+    original: from || finding.original,
+    translation: finding.translation || decision.context,
+    problem: finding.problem || '',
+    recommendation: finding.recommendation || '',
+    location: finding.location || finding.translation || decision.context,
+    problematicTerm: from || finding.problematicTerm,
+    sourceTerm: finding.original || from,
+    review: { approvedBy: null, reviewedAt: null, notes: null },
+    application: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+function itemFromDecision(decision, now) {
+  const from = String(decision.from || decision.term || '').trim();
+  return {
+    id: decision.id,
+    stableKey: `export::decision::${replacementKey(from, decision.to || decision.decision || '', decision.chapter, decision.type, decision.context, decision.occurrenceIndex)}`,
+    dedupeKey: null,
+    origin: 'pdf_epub_comparison',
+    categoryId: decision.categoryId || 'editorial',
+    categoryLabel: decision.categoryId || 'Editorial',
+    group: decision.categoryId || 'editorial',
+    type: decision.type || 'Decisao exportada',
+    status: 'pending',
+    chapter: String(decision.chapter || ''),
+    severity: 'medium',
+    confidence: 'human',
+    original: from,
+    translation: decision.context || '',
+    problem: 'Ocorrencia validada no relatorio PDF x EPUB.',
+    recommendation: '',
+    location: decision.context || '',
+    problematicTerm: from,
+    sourceTerm: from,
+    review: { approvedBy: null, reviewedAt: null, notes: null },
+    application: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
 function cloneItemForDecision(item, decision, now) {
   const from = String(decision.from || item.problematicTerm || '').trim();
   return {
@@ -153,6 +232,10 @@ export function importPdfEpubDecisions({ decisionsPath, queuePath }) {
   const payload = readJson(decisionsPath);
   const queue = readJson(queuePath);
   const decisions = payload.decisions || [];
+  const comparisonPath = path.join(path.dirname(queuePath), 'comparison.json');
+  const findings = fs.existsSync(comparisonPath)
+    ? comparisonFindings(readJson(comparisonPath))
+    : [];
   const { byId, byReplacement } = itemIndexes(queue.items || [], decisions);
   const summary = { approved: 0, kept: 0, skipped: 0, missing: 0 };
   const now = new Date().toISOString();
@@ -175,6 +258,19 @@ export function importPdfEpubDecisions({ decisionsPath, queuePath }) {
         byId.set(item.id, item);
       } else {
         item = matchedItem;
+      }
+      if (!item) {
+        const finding = matchingComparisonFinding(findings, decision);
+        if (finding && decision.id) {
+          item = itemFromComparisonFinding(finding, decision, now);
+          queue.items.push(item);
+          byId.set(item.id, item);
+        }
+      }
+      if (!item && decision.id && decision.context && decision.from) {
+        item = itemFromDecision(decision, now);
+        queue.items.push(item);
+        byId.set(item.id, item);
       }
     }
     if (!item) {

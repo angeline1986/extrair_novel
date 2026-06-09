@@ -3,7 +3,6 @@ import { dedupeFindings } from './findingFactory.js';
 import { dedupeKeyFromFinding, stableKeyFromFinding } from './reviewQueueKeys.js';
 import { indexSectionsByChapter, stripChapterNumber, titleForSection } from './textUtils.js';
 import { englishChapterTitleMap } from './englishSource.js';
-import { buildPronounEvidenceIndex, evidenceForFinding } from './englishPronounEvidence.js';
 import { detectCharacterFindings, feminineMarkersIn } from './detectors/characters.js';
 import { detectCoverageFindings } from './detectors/coverage.js';
 import { detectMeaningFindings } from './detectors/meaning.js';
@@ -147,71 +146,6 @@ function enrichFindingWithChapterTitle(finding, chapterTitles) {
   };
 }
 
-function pendingFindingFromQueueItem(item, pronounEvidenceIndex) {
-  const group = item.categoryId || item.group || 'editorial';
-  const decisionTerms = group === 'characters'
-    ? [...new Set([
-      item.problematicTerm,
-      ...feminineMarkersIn(`${item.translation || ''} ${item.location || ''} ${item.problem || ''}`),
-    ].filter(Boolean))]
-    : [];
-  const finding = {
-    group,
-    chapter: item.chapter || '-',
-    type: item.type || item.categoryLabel || 'Achado pendente',
-    original: item.original || item.sourceTerm || '',
-    translation: item.translation || '',
-    problem: item.problem || 'Achado pendente de validacao anterior.',
-    recommendation: item.recommendation || 'Validar manualmente no contexto.',
-    location: item.location || item.translation || '',
-    problematicTerm: item.problematicTerm || '',
-    decisionTerms,
-    severity: item.severity || 'medium',
-    confidence: item.confidence || 'medium',
-    classification: 'pending_review_carryover',
-    carriedOver: true,
-    reviewId: item.id,
-    stableKey: item.stableKey,
-    dedupeKey: item.dedupeKey,
-    reviewStatus: item.status,
-  };
-  if (group !== 'characters') return finding;
-  const englishEvidence = evidenceForFinding(finding, pronounEvidenceIndex);
-  return {
-    ...finding,
-    englishEvidence,
-    sourceValidation: {
-      status: englishEvidence.status,
-      confidence: englishEvidence.confidence,
-      reason: englishEvidence.reason,
-    },
-    decisionSuggestions: englishEvidence.suggestions || [],
-  };
-}
-
-function carryOverPendingFindings(existingQueue, currentFindings, pronounEvidenceIndex) {
-  const stableKeys = new Set();
-  const dedupeKeys = new Set();
-
-  for (const finding of currentFindings || []) {
-    const category = { id: finding.group };
-    const stableKey = stableKeyFromFinding(category, finding);
-    const dedupeKey = dedupeKeyFromFinding(category, finding);
-    if (stableKey) stableKeys.add(stableKey);
-    if (dedupeKey) dedupeKeys.add(dedupeKey);
-  }
-
-  return (existingQueue?.items || [])
-    .filter((item) => item.status === 'pending')
-    .map((item) => pendingFindingFromQueueItem(item, pronounEvidenceIndex))
-    .filter((finding) => {
-      const category = { id: finding.group };
-      const stableKey = stableKeyFromFinding(category, finding);
-      const dedupeKey = dedupeKeyFromFinding(category, finding);
-      return !(stableKey && stableKeys.has(stableKey)) && !(dedupeKey && dedupeKeys.has(dedupeKey));
-    });
-}
-
 export function buildPdfEpubComparisonAudit({
   pdfDoc,
   epubDoc,
@@ -223,7 +157,6 @@ export function buildPdfEpubComparisonAudit({
   const pdfByChapter = indexSectionsByChapter(pdfDoc);
   const epubByChapter = indexSectionsByChapter(epubDoc);
   const chapterTitles = buildChapterTitleMap({ pdfByChapter, epubByChapter, englishSource });
-  const pronounEvidenceIndex = buildPronounEvidenceIndex(epubDoc, englishSource);
   const rawDetectedFindings = [
     ...detectCoverageFindings(pdfByChapter, epubByChapter, epubDoc),
     ...detectTitleFindings(pdfByChapter, epubByChapter),
@@ -238,9 +171,7 @@ export function buildPdfEpubComparisonAudit({
     !findingAlreadyResolved(finding, resolvedContexts, resolvedKeys)
   );
   const suppressedResolvedFindings = rawDetectedFindings.length - detectedFindings.length;
-  const carriedOverFindings = carryOverPendingFindings(existingQueue, detectedFindings, pronounEvidenceIndex)
-    .map((finding) => enrichFindingWithChapterTitle(finding, chapterTitles));
-  const findings = sortFindings(dedupeFindings([...detectedFindings, ...carriedOverFindings]));
+  const findings = sortFindings(dedupeFindings(detectedFindings));
   const categories = buildGroupedCategories(findings);
   const decisionSuggestions = findings.flatMap((finding) => finding.decisionSuggestions || []);
 
@@ -253,7 +184,7 @@ export function buildPdfEpubComparisonAudit({
       totalFindings: findings.length,
       detectedFindings: detectedFindings.length,
       suppressedResolvedFindings,
-      carriedOverPendingFindings: carriedOverFindings.length,
+      carriedOverPendingFindings: 0,
       decisionSuggestions: {
         total: decisionSuggestions.length,
         highConfidence: decisionSuggestions.filter((item) => item.confidence === 'high').length,

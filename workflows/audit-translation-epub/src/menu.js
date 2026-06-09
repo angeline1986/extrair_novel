@@ -11,7 +11,6 @@ import {
   applyApprovedPdfEpubFindings as applyApprovedPdfEpubFindingsToEpub,
   reconcileApprovedPdfEpubApplications,
 } from './applyPdfEpubApprovedFindings.js';
-import { runPdfEpubComparisonReport as generatePdfEpubComparisonReport } from './auditPdfEpubReport.js';
 import {
   buildPdfEpubReviewQueue,
   refreshPdfEpubReviewQueueSummary,
@@ -182,7 +181,15 @@ function exportPdfEpubFullFindings() {
 
 async function generatePdfEpubComparisonReportFromMenu({ warnOnly = false } = {}) {
   try {
-    const htmlPath = await generatePdfEpubComparisonReport();
+    const result = spawnSync(process.execPath, ['workflows/audit-translation-epub/src/auditPdfEpubReport.js'], {
+      cwd: projectRoot,
+      stdio: 'inherit',
+      env: process.env,
+    });
+    if (result.status !== 0) {
+      throw new Error(`processo encerrado com codigo ${result.status ?? 'desconhecido'}`);
+    }
+    const htmlPath = path.join(reportsHtmlDir, 'pdf-epub-comparison-latest.html');
     log(`Relatorio PDF x EPUB: ${displayPath(htmlPath)}`, 'cyan');
     return true;
   } catch (error) {

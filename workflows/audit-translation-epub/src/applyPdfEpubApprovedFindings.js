@@ -122,7 +122,12 @@ function contextRange(text, context) {
 function scopedReplacementRange(text, replacement) {
   const scope = replacement.scope;
   if (!scope?.context) return null;
-  const context = contextRange(text, scope.context);
+  const context = bestContextCandidate(
+    text,
+    scope.context,
+    replacement.from,
+    scope.occurrenceIndex || 0
+  );
   if (!context) return null;
   const localText = String(text || '').slice(context.start, context.end);
   const localRange = occurrenceRange(localText, replacement.from, scope.occurrenceIndex || 0);
@@ -130,6 +135,7 @@ function scopedReplacementRange(text, replacement) {
   return {
     start: context.start + localRange.start,
     end: context.start + localRange.end,
+    similarity: context.similarity ?? 1,
   };
 }
 
@@ -140,21 +146,33 @@ export function replaceScopedText(text, replacements) {
     .sort((a, b) => b.range.start - a.range.start);
   let nextText = String(text || '');
   const changes = [];
-  const usedRanges = new Set();
+  const changesByRange = new Map();
 
   for (const { replacement, range } of planned) {
     const rangeKey = `${range.start}:${range.end}`;
-    if (usedRanges.has(rangeKey)) continue;
-    usedRanges.add(rangeKey);
+    const existingChange = changesByRange.get(rangeKey);
+    if (existingChange) {
+      if (existingChange.to === replacement.to) {
+        existingChange.reviewQueueItemIds = [...new Set([
+          ...(existingChange.reviewQueueItemIds || []),
+          ...(replacement.reviewQueueItemIds || []),
+          replacement.reviewQueueItemId,
+        ].filter(Boolean))];
+      }
+      continue;
+    }
     nextText = `${nextText.slice(0, range.start)}${replacement.to}${nextText.slice(range.end)}`;
-    changes.push({
+    const change = {
       reviewQueueItemId: replacement.reviewQueueItemId,
+      reviewQueueItemIds: replacement.reviewQueueItemIds,
       from: replacement.from,
       to: replacement.to,
       count: 1,
       occurrenceIndex: replacement.scope.occurrenceIndex,
       context: replacement.scope.context,
-    });
+    };
+    changesByRange.set(rangeKey, change);
+    changes.push(change);
   }
   return { text: nextText, changes };
 }
@@ -228,10 +246,17 @@ function replacementFromItem(item) {
   return titleReplacement(item) || termReplacement(item);
 }
 
-function approvedReplacements(queue) {
+function chapterEntryMap(epubDoc) {
+  return new Map((epubDoc.sections || []).map((section) => [
+    String(section.chapterNumber || section.index + 1),
+    section.path,
+  ]));
+}
+
+function approvedReplacements(queue, entriesByChapter = new Map()) {
   const replacements = [];
   const skipped = [];
-  const seen = new Set();
+  const seen = new Map();
 
   for (const item of queue.items || []) {
     if (item.status !== 'approved') continue;
@@ -245,47 +270,76 @@ function approvedReplacements(queue) {
       continue;
     }
     const key = [
+      entriesByChapter.get(String(item.chapter)) || '',
       replacement.from,
       replacement.to,
       replacement.scope?.context || '',
       replacement.scope?.occurrenceIndex ?? '',
     ].join('\u0000');
-    if (seen.has(key)) continue;
-    seen.add(key);
-    replacements.push({ ...replacement, reviewQueueItemId: item.id });
-  }
-
-  const scopedGroups = new Map();
-  for (const item of queue.items || []) {
-    const context = item.review?.scope?.context;
-    if (!context || !['approved', 'rejected'].includes(item.status)) continue;
-    if (!scopedGroups.has(context)) scopedGroups.set(context, []);
-    scopedGroups.get(context).push(item);
-  }
-
-  for (const [context, items] of scopedGroups.entries()) {
-    const pendingItems = items.filter((item) =>
-      !item.application?.finalPath
-      && !item.application?.appliedAt
-    );
-    if (!pendingItems.length) continue;
-    const scopedReplacements = items
-      .filter((item) => item.status === 'approved' && item.review?.replacement)
-      .map((item) => ({
-        reviewQueueItemId: item.id,
-        from: item.review.replacement.from,
-        to: item.review.replacement.to,
-        scope: item.review.scope,
-      }));
-    replacements.push({
-      contextCorrection: true,
-      from: context,
-      to: replaceScopedText(context, scopedReplacements).text,
-      reviewQueueItemIds: pendingItems.map((item) => item.id),
-    });
+    const duplicate = seen.get(key);
+    if (duplicate) {
+      duplicate.reviewQueueItemIds.push(item.id);
+      continue;
+    }
+    const queuedReplacement = {
+      ...replacement,
+      entry: entriesByChapter.get(String(item.chapter)) || null,
+      reviewQueueItemId: item.id,
+      reviewQueueItemIds: [item.id],
+    };
+    seen.set(key, queuedReplacement);
+    replacements.push(queuedReplacement);
   }
 
   return { replacements, skipped };
+}
+
+function scopedReplacementAlreadyPresent(html, replacement) {
+  const $ = cheerio.load(html, { xmlMode: true, decodeEntities: false });
+  const candidates = $.root().find('*').addBack().contents().toArray()
+    .filter((node) => node.type === 'text' && node.data?.trim())
+    .map((node) => {
+      const candidate = bestContextCandidate(node.data, replacement.scope.context);
+      if (!candidate) return null;
+      const candidateText = node.data.slice(candidate.start, candidate.end);
+      const oldTermStillPresent = occurrenceRange(
+        candidateText,
+        replacement.from,
+        replacement.scope.occurrenceIndex || 0
+      );
+      const newTermPresent = occurrenceRange(candidateText, replacement.to, 0);
+      return !oldTermStillPresent && newTermPresent ? candidate : null;
+    })
+    .filter((candidate) => candidate?.similarity >= 0.8)
+    .sort((a, b) => b.similarity - a.similarity);
+  return Boolean(candidates[0]);
+}
+
+function reconcilePendingApprovedItems(queue, zip, entriesByChapter, targetPath) {
+  const now = new Date().toISOString();
+  let reconciled = 0;
+  for (const item of queue.items || []) {
+    if (item.status !== 'approved') continue;
+    if (item.application?.finalPath || item.application?.appliedAt) continue;
+    const replacement = replacementFromItem(item);
+    const entryName = entriesByChapter.get(String(item.chapter));
+    if (!replacement?.scope?.context || !entryName) continue;
+    const entry = zip.getEntry(entryName);
+    if (!entry || !scopedReplacementAlreadyPresent(entry.getData().toString('utf8'), replacement)) {
+      continue;
+    }
+    item.application = {
+      appliedAt: now,
+      version: null,
+      finalPath: relativeWorkflowPath(targetPath),
+      inferred: true,
+      replacement,
+    };
+    item.updatedAt = now;
+    reconciled += 1;
+  }
+  if (reconciled) refreshPdfEpubReviewQueueSummary(queue);
+  return reconciled;
 }
 
 function shouldEditEntry(entryName) {
@@ -319,7 +373,7 @@ function tokenSimilarity(left, right) {
   const b = comparableTokens(right);
   if (!a.size || !b.size) return 0;
   const intersection = [...a].filter((token) => b.has(token)).length;
-  return intersection / Math.max(a.size, b.size);
+  return intersection / b.size;
 }
 
 function sentenceRanges(text) {
@@ -338,13 +392,19 @@ function sentenceRanges(text) {
   return ranges;
 }
 
-function bestContextCandidate(text, context) {
+function bestContextCandidate(text, context, term = '', occurrenceIndex = 0) {
   const exact = contextRange(text, context);
-  if (exact) return exact;
+  if (exact) {
+    const exactText = String(text || '').slice(exact.start, exact.end);
+    if (!term || occurrenceRange(exactText, term, occurrenceIndex)) {
+      return { ...exact, similarity: 1 };
+    }
+  }
   const candidates = sentenceRanges(text)
+    .filter((range) => !term || occurrenceRange(range.text, term, occurrenceIndex))
     .map((range) => ({ ...range, similarity: tokenSimilarity(range.text, context) }))
     .sort((a, b) => b.similarity - a.similarity);
-  return candidates[0]?.similarity >= 0.78 ? candidates[0] : null;
+  return candidates[0]?.similarity >= 0.5 ? candidates[0] : null;
 }
 
 function replaceContextCorrections(text, corrections) {
@@ -412,30 +472,16 @@ export function reconcileApprovedPdfEpubApplications() {
   if (!queue) return { reconciled: 0 };
 
   const target = resolveEpubTarget({ workflowRoot });
+  const sourceEpub = readEpubFile(target.filePath);
   const zip = new AdmZip(target.filePath);
-  const now = new Date().toISOString();
-  let reconciled = 0;
-
-  for (const item of queue.items || []) {
-    if (item.status !== 'approved') continue;
-    if (item.application?.finalPath || item.application?.appliedAt) continue;
-    const replacement = replacementFromItem(item);
-    if (!replacement) continue;
-    if (!replacementAlreadyPresent(zip, replacement)) continue;
-
-    item.application = {
-      appliedAt: now,
-      version: null,
-      finalPath: relativeWorkflowPath(target.filePath),
-      inferred: true,
-      replacement,
-    };
-    item.updatedAt = now;
-    reconciled += 1;
-  }
+  const reconciled = reconcilePendingApprovedItems(
+    queue,
+    zip,
+    chapterEntryMap(sourceEpub),
+    target.filePath
+  );
 
   if (reconciled) {
-    refreshPdfEpubReviewQueueSummary(queue);
     writeJson(paths.reviewQueuePath, queue);
   }
 
@@ -450,9 +496,26 @@ function updateXmlText(html, replacements, entryName = '') {
   );
 
   $('script, style').remove();
-  $.root().find('*').addBack().contents().each((_, node) => {
-    if (node.type !== 'text') return;
-    if (!node.data || !node.data.trim()) return;
+  const textNodes = $.root().find('*').addBack().contents().toArray()
+    .filter((node) => node.type === 'text' && node.data?.trim());
+  const scopedAssignments = new Map();
+  const scoped = entryReplacements.filter((replacement) =>
+    replacement.scope?.context && !replacement.contextCorrection
+  );
+  for (const replacement of scoped) {
+    const candidates = textNodes
+      .map((node) => ({ node, range: scopedReplacementRange(node.data, replacement) }))
+      .filter((candidate) => candidate.range)
+      .sort((a, b) => b.range.similarity - a.range.similarity);
+    const selected = candidates[0];
+    if (!selected) continue;
+    if (!scopedAssignments.has(selected.node)) scopedAssignments.set(selected.node, []);
+    scopedAssignments.get(selected.node).push(replacement);
+  }
+
+  for (const node of textNodes) {
+    if (node.type !== 'text') continue;
+    if (!node.data || !node.data.trim()) continue;
 
     let text = node.data;
     const cleanedTitle = cleanupGeneratedTitleText(text);
@@ -472,9 +535,8 @@ function updateXmlText(html, replacements, entryName = '') {
     text = contextResult.text;
     changes.push(...contextResult.changes);
 
-    const scoped = entryReplacements.filter((replacement) => replacement.scope?.context && !replacement.contextCorrection);
     const global = entryReplacements.filter((replacement) => !replacement.scope?.context && !replacement.contextCorrection);
-    const scopedResult = replaceScopedText(text, scoped);
+    const scopedResult = replaceScopedText(text, scopedAssignments.get(node) || []);
     text = scopedResult.text;
     changes.push(...scopedResult.changes);
 
@@ -491,7 +553,7 @@ function updateXmlText(html, replacements, entryName = '') {
       }
     }
     node.data = text;
-  });
+  }
 
   return { html: $.xml(), changes };
 }
@@ -521,56 +583,27 @@ function writeEpubZip(zip, outputPath) {
   });
 }
 
-function validateGeneratedEpub(filePath, expectedChanges) {
+function validateGeneratedEpub(filePath, expectedChanges, expectedEntries) {
   const zip = new AdmZip(filePath);
   const entries = zip.getEntries();
   const epubDoc = readEpubFile(filePath);
   const scopedChanges = expectedChanges.filter((change) => change.context);
-  const contextCorrections = expectedChanges.filter((change) => change.contextCorrection);
   const unresolvedScopedChanges = [];
-  const changesByContext = new Map();
-  for (const change of scopedChanges) {
-    if (!changesByContext.has(change.context)) changesByContext.set(change.context, []);
-    changesByContext.get(change.context).push(change);
-  }
+  const entriesByName = new Map(entries.map((entry) => [entry.entryName, entry]));
 
-  for (const [context, changes] of changesByContext.entries()) {
-    const replacements = changes.map((change) => ({
-      reviewQueueItemId: change.reviewQueueItemId,
-      from: change.from,
-      to: change.to,
-      scope: { context, occurrenceIndex: change.occurrenceIndex },
-    }));
-    const expectedContext = replaceScopedText(context, replacements).text;
-    const found = entries.some((entry) =>
-      !entry.isDirectory
-      && shouldEditEntry(entry.entryName)
-      && contextRange(entry.getData().toString('utf8'), expectedContext)
-    );
-    if (!found) {
-      unresolvedScopedChanges.push(...changes.map((change) => ({
+  for (const [entryName, expectedHtml] of expectedEntries.entries()) {
+    const actualHtml = entriesByName.get(entryName)?.getData().toString('utf8');
+    if (actualHtml === expectedHtml) continue;
+    unresolvedScopedChanges.push(...expectedChanges
+      .filter((change) => change.entry === entryName && change.context)
+      .map((change) => ({
         reviewQueueItemId: change.reviewQueueItemId,
+        reviewQueueItemIds: change.reviewQueueItemIds,
         from: change.from,
         to: change.to,
         occurrenceIndex: change.occurrenceIndex,
+        entry: entryName,
       })));
-    }
-  }
-
-  for (const change of contextCorrections) {
-    const found = entries.some((entry) =>
-      !entry.isDirectory
-      && shouldEditEntry(entry.entryName)
-      && contextRange(entry.getData().toString('utf8'), change.to)
-    );
-    if (!found) {
-      unresolvedScopedChanges.push({
-        reviewQueueItemId: change.reviewQueueItemId,
-        from: change.from,
-        to: change.to,
-        contextCorrection: true,
-      });
-    }
   }
 
   return {
@@ -579,7 +612,7 @@ function validateGeneratedEpub(filePath, expectedChanges) {
     hasContainer: entries.some((entry) => entry.entryName === 'META-INF/container.xml'),
     sections: epubDoc.sections?.length || 0,
     paragraphs: epubDoc.paragraphCount || 0,
-    scopedChanges: scopedChanges.length + contextCorrections.length,
+    scopedChanges: scopedChanges.length,
     unresolvedScopedChanges,
     valid: entries.length > 0
       && entries.some((entry) => entry.entryName === 'mimetype')
@@ -618,8 +651,12 @@ function updateManifest({ version, numericVersion, sourcePath, versionPath, fina
 function markAppliedItems(queue, changes, report) {
   const changedByItem = new Map();
   for (const change of changes) {
-    if (!change.reviewQueueItemId) continue;
-    changedByItem.set(change.reviewQueueItemId, (changedByItem.get(change.reviewQueueItemId) || 0) + change.count);
+    const itemIds = change.reviewQueueItemIds?.length
+      ? change.reviewQueueItemIds
+      : [change.reviewQueueItemId].filter(Boolean);
+    for (const itemId of itemIds) {
+      changedByItem.set(itemId, (changedByItem.get(itemId) || 0) + change.count);
+    }
   }
 
   for (const item of queue.items || []) {
@@ -644,22 +681,35 @@ export async function applyApprovedPdfEpubFindings({
   const queue = readJson(pdfEpubStatePath('reviewQueue'));
   if (!queue) throw new Error('Fila PDF x EPUB nao encontrada. Valide achados primeiro.');
 
-  const { replacements: approved, skipped } = approvedReplacements(queue);
-  const replacements = [...approved, ...manualReplacements];
-
   const target = sourcePath
     ? { filePath: sourcePath, filename: path.basename(sourcePath), source: 'explicit' }
     : resolveEpubTarget({ workflowRoot });
   if (!target.filePath) throw new Error('Nenhum EPUB alvo encontrado para aplicar achados aprovados.');
+  const sourceEpub = readEpubFile(target.filePath);
+  const entriesByChapter = chapterEntryMap(sourceEpub);
+  const sourceZip = new AdmZip(target.filePath);
+  const reconciled = reconcilePendingApprovedItems(
+    queue,
+    sourceZip,
+    entriesByChapter,
+    target.filePath
+  );
+  if (reconciled) writeJson(paths.reviewQueuePath, queue);
+  const { replacements: approved, skipped } = approvedReplacements(
+    queue,
+    entriesByChapter
+  );
+  const replacements = [...approved, ...manualReplacements];
 
   const { version, numericVersion, dir } = nextVersionDir();
   const baseName = path.basename(target.filePath, path.extname(target.filePath)).replace(/_v\d+.*$/i, '');
   const outputName = `${baseName}_${version}_pdf_epub_fixed.epub`;
   const versionPath = path.join(dir, outputName);
   const finalPath = path.join(paths.outputDir, outputName);
-  const zip = new AdmZip(target.filePath);
+  const zip = sourceZip;
   const changedEntries = [];
   const allChanges = [];
+  const expectedEntries = new Map();
 
   for (const entry of zip.getEntries()) {
     if (entry.isDirectory || !shouldEditEntry(entry.entryName)) continue;
@@ -667,6 +717,7 @@ export async function applyApprovedPdfEpubFindings({
     const result = updateXmlText(html, replacements, entry.entryName);
     if (!result.changes.length) continue;
     zip.updateFile(entry.entryName, Buffer.from(result.html, 'utf8'));
+    expectedEntries.set(entry.entryName, result.html);
     allChanges.push(...result.changes.map((change) => ({ ...change, entry: entry.entryName })));
     changedEntries.push({
       entry: entry.entryName,
@@ -718,12 +769,15 @@ export async function applyApprovedPdfEpubFindings({
     };
   }
 
-  await writeEpubZip(zip, versionPath);
-  fs.copyFileSync(versionPath, finalPath);
-  report.validation = validateGeneratedEpub(finalPath, allChanges);
+  const candidatePath = `${versionPath}.tmp`;
+  await writeEpubZip(zip, candidatePath);
+  report.validation = validateGeneratedEpub(candidatePath, allChanges, expectedEntries);
   if (!report.validation.valid) {
+    fs.rmSync(candidatePath, { force: true });
     throw new Error(`EPUB gerado falhou na validacao: ${report.validation.unresolvedScopedChanges.length} correcao(oes) por ocorrencia nao foram confirmadas.`);
   }
+  fs.renameSync(candidatePath, versionPath);
+  fs.copyFileSync(versionPath, finalPath);
   report.manifest = updateManifest({ version, numericVersion, sourcePath: target.filePath, versionPath, finalPath, report });
   markAppliedItems(queue, allChanges, report);
   writeJson(paths.reviewQueuePath, queue);
