@@ -50,15 +50,23 @@ function normalize(value) {
     .trim();
 }
 
-function replacementKey(from, to, chapter = '', type = '') {
-  return `${chapter || '-'}::${normalize(type)}::${normalize(from)}::${normalize(to)}`;
+function replacementKey(from, to, chapter = '', type = '', context = '', occurrenceIndex = null) {
+  const occurrence = Number.isInteger(occurrenceIndex) ? occurrenceIndex : '-';
+  return `${chapter || '-'}::${normalize(type)}::${normalize(from)}::${normalize(to)}::${normalize(context)}::${occurrence}`;
 }
 
 function itemReplacementKey(item, decision) {
   if (!decisionMatchesItem(item, decision)) return null;
   const replacement = replacementFromDecision(item, decision);
   if (!replacement?.from || !replacement?.to) return null;
-  return replacementKey(replacement.from, replacement.to, item.chapter, item.type);
+  return replacementKey(
+    replacement.from,
+    replacement.to,
+    item.chapter,
+    item.type,
+    decision.context,
+    decision.occurrenceIndex
+  );
 }
 
 function matchingItemForDecision(items, decision) {
@@ -70,7 +78,7 @@ function cloneItemForDecision(item, decision, now) {
   return {
     ...item,
     id: decision.id,
-    stableKey: `${item.stableKey || item.id || 'pdf-epub'}::decision::${replacementKey(from, decision.to || decision.decision || '', decision.chapter, decision.type)}`,
+    stableKey: `${item.stableKey || item.id || 'pdf-epub'}::decision::${replacementKey(from, decision.to || decision.decision || '', decision.chapter, decision.type, decision.context, decision.occurrenceIndex)}`,
     dedupeKey: null,
     status: 'pending',
     original: from || item.original,
@@ -109,9 +117,18 @@ function itemIndexes(items, decisions) {
 }
 
 function applyDecision(item, decision, now) {
+  const scope = decision.context ? {
+    context: decision.context,
+    occurrenceIndex: Number.isInteger(decision.occurrenceIndex) ? decision.occurrenceIndex : 0,
+  } : null;
   if (decision.decision === 'keep') {
     item.status = 'rejected';
-    item.review = { ...(item.review || {}), reviewedAt: now, notes: 'Mantido via importacao do relatorio PDF x EPUB.' };
+    item.review = {
+      ...(item.review || {}),
+      reviewedAt: now,
+      notes: 'Mantido via importacao do relatorio PDF x EPUB.',
+      scope,
+    };
     item.updatedAt = now;
     return 'kept';
   }
@@ -125,6 +142,7 @@ function applyDecision(item, decision, now) {
     reviewedAt: now,
     notes: 'Correcao aprovada via importacao do relatorio PDF x EPUB.',
     replacement,
+    scope,
   };
   item.application = null;
   item.updatedAt = now;
@@ -142,7 +160,14 @@ export function importPdfEpubDecisions({ decisionsPath, queuePath }) {
   for (const decision of decisions) {
     let item = byId.get(decision.id);
     if (!item) {
-      const matchedItem = byReplacement.get(replacementKey(decision.from, decision.to, decision.chapter, decision.type))
+      const matchedItem = byReplacement.get(replacementKey(
+        decision.from,
+        decision.to,
+        decision.chapter,
+        decision.type,
+        decision.context,
+        decision.occurrenceIndex
+      ))
         || matchingItemForDecision(queue.items || [], decision);
       if (matchedItem && decision.id && decision.id !== matchedItem.id) {
         item = cloneItemForDecision(matchedItem, decision, now);

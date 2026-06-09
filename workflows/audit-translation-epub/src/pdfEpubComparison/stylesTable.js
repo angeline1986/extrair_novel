@@ -64,6 +64,14 @@ export function tableStyles() {
       padding: 0 3px;
       border-radius: 3px;
     }
+    .term-occurrence-number {
+      display: inline-block;
+      margin-left: 2px;
+      color: #7b304c;
+      font-size: 0.62em;
+      line-height: 1;
+      vertical-align: super;
+    }
     .analysis-box { padding: 10px 12px; border-radius: 6px; line-height: 1.35; }
     .analysis-box + .analysis-box { margin-top: 10px; }
     .analysis-box strong {

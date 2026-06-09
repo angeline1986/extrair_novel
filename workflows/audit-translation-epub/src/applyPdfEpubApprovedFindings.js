@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import AdmZip from 'adm-zip';
 import * as cheerio from 'cheerio';
 import archiver from 'archiver';
+import { readEpubFile } from './epubReader.js';
 import { resolveEpubTarget } from './epubTargetResolver.js';
 import { readManifest, sanitizeManifest } from './manifestUtils.js';
 import { refreshPdfEpubReviewQueueSummary } from './pdfEpubReviewQueue.js';
@@ -59,6 +60,10 @@ function nextVersionDir() {
   const versions = fs.readdirSync(paths.inputFixedDir)
     .map((name) => name.match(/^v(\d+)$/i))
     .filter(Boolean)
+    .filter((match) => {
+      const dir = path.join(paths.inputFixedDir, match[0]);
+      return fs.readdirSync(dir).some((filename) => /\.epub$/i.test(filename));
+    })
     .map((match) => Number(match[1]));
 
   const next = versions.length ? Math.max(...versions) + 1 : 1;
@@ -92,6 +97,66 @@ function replaceText(text, from, to) {
     return `${prefix}${to}`;
   });
   return { text: nextText, count };
+}
+
+function occurrenceRange(text, term, occurrenceIndex = 0) {
+  const matches = [...String(text || '').matchAll(replacementRegex(term))];
+  const match = matches[occurrenceIndex];
+  if (!match) return null;
+  const start = (match.index || 0) + match[1].length;
+  return { start, end: start + match[2].length };
+}
+
+function contextRange(text, context) {
+  const source = String(context || '').trim();
+  if (!source) return null;
+  const pattern = source
+    .split(/\s+/)
+    .map(escapedRegex)
+    .join('\\s+');
+  const match = String(text || '').match(new RegExp(pattern, 'u'));
+  if (!match) return null;
+  return { start: match.index || 0, end: (match.index || 0) + match[0].length };
+}
+
+function scopedReplacementRange(text, replacement) {
+  const scope = replacement.scope;
+  if (!scope?.context) return null;
+  const context = contextRange(text, scope.context);
+  if (!context) return null;
+  const localText = String(text || '').slice(context.start, context.end);
+  const localRange = occurrenceRange(localText, replacement.from, scope.occurrenceIndex || 0);
+  if (!localRange) return null;
+  return {
+    start: context.start + localRange.start,
+    end: context.start + localRange.end,
+  };
+}
+
+export function replaceScopedText(text, replacements) {
+  const planned = replacements
+    .map((replacement) => ({ replacement, range: scopedReplacementRange(text, replacement) }))
+    .filter((item) => item.range)
+    .sort((a, b) => b.range.start - a.range.start);
+  let nextText = String(text || '');
+  const changes = [];
+  const usedRanges = new Set();
+
+  for (const { replacement, range } of planned) {
+    const rangeKey = `${range.start}:${range.end}`;
+    if (usedRanges.has(rangeKey)) continue;
+    usedRanges.add(rangeKey);
+    nextText = `${nextText.slice(0, range.start)}${replacement.to}${nextText.slice(range.end)}`;
+    changes.push({
+      reviewQueueItemId: replacement.reviewQueueItemId,
+      from: replacement.from,
+      to: replacement.to,
+      count: 1,
+      occurrenceIndex: replacement.scope.occurrenceIndex,
+      context: replacement.scope.context,
+    });
+  }
+  return { text: nextText, changes };
 }
 
 function quotedRecommendation(value) {
@@ -145,7 +210,7 @@ function reviewReplacement(item) {
   }
 
   if (!to || from === to) return null;
-  return { from, to };
+  return { from, to, scope: item.review?.scope || null };
 }
 
 function termReplacement(item) {
@@ -179,10 +244,45 @@ function approvedReplacements(queue) {
       skipped.push({ id: item.id, reason: 'no_clear_replacement' });
       continue;
     }
-    const key = `${replacement.from}\u0000${replacement.to}`;
+    const key = [
+      replacement.from,
+      replacement.to,
+      replacement.scope?.context || '',
+      replacement.scope?.occurrenceIndex ?? '',
+    ].join('\u0000');
     if (seen.has(key)) continue;
     seen.add(key);
     replacements.push({ ...replacement, reviewQueueItemId: item.id });
+  }
+
+  const scopedGroups = new Map();
+  for (const item of queue.items || []) {
+    const context = item.review?.scope?.context;
+    if (!context || !['approved', 'rejected'].includes(item.status)) continue;
+    if (!scopedGroups.has(context)) scopedGroups.set(context, []);
+    scopedGroups.get(context).push(item);
+  }
+
+  for (const [context, items] of scopedGroups.entries()) {
+    const pendingItems = items.filter((item) =>
+      !item.application?.finalPath
+      && !item.application?.appliedAt
+    );
+    if (!pendingItems.length) continue;
+    const scopedReplacements = items
+      .filter((item) => item.status === 'approved' && item.review?.replacement)
+      .map((item) => ({
+        reviewQueueItemId: item.id,
+        from: item.review.replacement.from,
+        to: item.review.replacement.to,
+        scope: item.review.scope,
+      }));
+    replacements.push({
+      contextCorrection: true,
+      from: context,
+      to: replaceScopedText(context, scopedReplacements).text,
+      reviewQueueItemIds: pendingItems.map((item) => item.id),
+    });
   }
 
   return { replacements, skipped };
@@ -206,7 +306,88 @@ function cleanupGeneratedTitleText(text) {
   return null;
 }
 
+function comparableTokens(value) {
+  return new Set(String(value || '')
+    .toLocaleLowerCase('pt-BR')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .match(/\p{L}+/gu) || []);
+}
+
+function tokenSimilarity(left, right) {
+  const a = comparableTokens(left);
+  const b = comparableTokens(right);
+  if (!a.size || !b.size) return 0;
+  const intersection = [...a].filter((token) => b.has(token)).length;
+  return intersection / Math.max(a.size, b.size);
+}
+
+function sentenceRanges(text) {
+  const ranges = [];
+  const pattern = /[^.!?…]+(?:[.!?…]+|$)/gu;
+  for (const match of String(text || '').matchAll(pattern)) {
+    const raw = match[0];
+    const leading = raw.match(/^\s*/u)?.[0].length || 0;
+    const trailing = raw.match(/\s*$/u)?.[0].length || 0;
+    ranges.push({
+      start: (match.index || 0) + leading,
+      end: (match.index || 0) + raw.length - trailing,
+      text: raw.slice(leading, raw.length - trailing),
+    });
+  }
+  return ranges;
+}
+
+function bestContextCandidate(text, context) {
+  const exact = contextRange(text, context);
+  if (exact) return exact;
+  const candidates = sentenceRanges(text)
+    .map((range) => ({ ...range, similarity: tokenSimilarity(range.text, context) }))
+    .sort((a, b) => b.similarity - a.similarity);
+  return candidates[0]?.similarity >= 0.78 ? candidates[0] : null;
+}
+
+function replaceContextCorrections(text, corrections) {
+  const planned = corrections
+    .map((correction) => ({ correction, range: bestContextCandidate(text, correction.from) }))
+    .filter((item) => item.range)
+    .sort((a, b) => b.range.start - a.range.start);
+  let nextText = String(text || '');
+  const changes = [];
+
+  for (const { correction, range } of planned) {
+    nextText = `${nextText.slice(0, range.start)}${correction.to}${nextText.slice(range.end)}`;
+    for (const reviewQueueItemId of correction.reviewQueueItemIds || []) {
+      changes.push({
+        reviewQueueItemId,
+        from: correction.from,
+        to: correction.to,
+        count: 1,
+        contextCorrection: true,
+      });
+    }
+  }
+  return { text: nextText, changes };
+}
+
 function replacementAlreadyPresent(zip, replacement) {
+  if (replacement.contextCorrection) {
+    return zip.getEntries().some((entry) =>
+      !entry.isDirectory
+      && shouldEditEntry(entry.entryName)
+      && contextRange(entry.getData().toString('utf8'), replacement.to)
+    );
+  }
+  if (replacement.scope?.context) {
+    const expectedContext = replaceScopedText(replacement.scope.context, [replacement]).text;
+    for (const entry of zip.getEntries()) {
+      if (entry.isDirectory || !shouldEditEntry(entry.entryName)) continue;
+      const text = entry.getData().toString('utf8');
+      if (contextRange(text, replacement.scope.context)) return false;
+      if (contextRange(text, expectedContext)) return true;
+    }
+    return false;
+  }
   let foundBefore = false;
   let foundAfter = false;
 
@@ -261,9 +442,12 @@ export function reconcileApprovedPdfEpubApplications() {
   return { reconciled };
 }
 
-function updateXmlText(html, replacements) {
+function updateXmlText(html, replacements, entryName = '') {
   const $ = cheerio.load(html, { xmlMode: true, decodeEntities: false });
   const changes = [];
+  const entryReplacements = replacements.filter((replacement) =>
+    !replacement.entry || replacement.entry === entryName
+  );
 
   $('script, style').remove();
   $.root().find('*').addBack().contents().each((_, node) => {
@@ -283,7 +467,18 @@ function updateXmlText(html, replacements) {
       text = cleanedTitle;
     }
 
-    for (const replacement of replacements) {
+    const contextCorrections = entryReplacements.filter((replacement) => replacement.contextCorrection);
+    const contextResult = replaceContextCorrections(text, contextCorrections);
+    text = contextResult.text;
+    changes.push(...contextResult.changes);
+
+    const scoped = entryReplacements.filter((replacement) => replacement.scope?.context && !replacement.contextCorrection);
+    const global = entryReplacements.filter((replacement) => !replacement.scope?.context && !replacement.contextCorrection);
+    const scopedResult = replaceScopedText(text, scoped);
+    text = scopedResult.text;
+    changes.push(...scopedResult.changes);
+
+    for (const replacement of global) {
       const result = replaceText(text, replacement.from, replacement.to);
       if (result.count > 0) {
         changes.push({
@@ -326,6 +521,73 @@ function writeEpubZip(zip, outputPath) {
   });
 }
 
+function validateGeneratedEpub(filePath, expectedChanges) {
+  const zip = new AdmZip(filePath);
+  const entries = zip.getEntries();
+  const epubDoc = readEpubFile(filePath);
+  const scopedChanges = expectedChanges.filter((change) => change.context);
+  const contextCorrections = expectedChanges.filter((change) => change.contextCorrection);
+  const unresolvedScopedChanges = [];
+  const changesByContext = new Map();
+  for (const change of scopedChanges) {
+    if (!changesByContext.has(change.context)) changesByContext.set(change.context, []);
+    changesByContext.get(change.context).push(change);
+  }
+
+  for (const [context, changes] of changesByContext.entries()) {
+    const replacements = changes.map((change) => ({
+      reviewQueueItemId: change.reviewQueueItemId,
+      from: change.from,
+      to: change.to,
+      scope: { context, occurrenceIndex: change.occurrenceIndex },
+    }));
+    const expectedContext = replaceScopedText(context, replacements).text;
+    const found = entries.some((entry) =>
+      !entry.isDirectory
+      && shouldEditEntry(entry.entryName)
+      && contextRange(entry.getData().toString('utf8'), expectedContext)
+    );
+    if (!found) {
+      unresolvedScopedChanges.push(...changes.map((change) => ({
+        reviewQueueItemId: change.reviewQueueItemId,
+        from: change.from,
+        to: change.to,
+        occurrenceIndex: change.occurrenceIndex,
+      })));
+    }
+  }
+
+  for (const change of contextCorrections) {
+    const found = entries.some((entry) =>
+      !entry.isDirectory
+      && shouldEditEntry(entry.entryName)
+      && contextRange(entry.getData().toString('utf8'), change.to)
+    );
+    if (!found) {
+      unresolvedScopedChanges.push({
+        reviewQueueItemId: change.reviewQueueItemId,
+        from: change.from,
+        to: change.to,
+        contextCorrection: true,
+      });
+    }
+  }
+
+  return {
+    zipReadable: entries.length > 0,
+    hasMimetype: entries.some((entry) => entry.entryName === 'mimetype'),
+    hasContainer: entries.some((entry) => entry.entryName === 'META-INF/container.xml'),
+    sections: epubDoc.sections?.length || 0,
+    paragraphs: epubDoc.paragraphCount || 0,
+    scopedChanges: scopedChanges.length + contextCorrections.length,
+    unresolvedScopedChanges,
+    valid: entries.length > 0
+      && entries.some((entry) => entry.entryName === 'mimetype')
+      && entries.some((entry) => entry.entryName === 'META-INF/container.xml')
+      && !unresolvedScopedChanges.length,
+  };
+}
+
 function updateManifest({ version, numericVersion, sourcePath, versionPath, finalPath, report }) {
   const manifest = loadManifest();
   manifest.currentVersion = numericVersion;
@@ -361,7 +623,6 @@ function markAppliedItems(queue, changes, report) {
   }
 
   for (const item of queue.items || []) {
-    if (item.status !== 'approved') continue;
     const replacements = changedByItem.get(item.id) || 0;
     if (!replacements) continue;
     item.application = {
@@ -369,17 +630,22 @@ function markAppliedItems(queue, changes, report) {
       version: report.version,
       finalPath: relativeWorkflowPath(report.finalPath),
       replacements,
+      action: item.status === 'rejected' ? 'kept_or_restored' : 'applied',
     };
   }
   refreshPdfEpubReviewQueueSummary(queue);
 }
 
-export async function applyApprovedPdfEpubFindings({ sourcePath = null } = {}) {
+export async function applyApprovedPdfEpubFindings({
+  sourcePath = null,
+  manualReplacements = [],
+} = {}) {
   ensureDirs();
   const queue = readJson(pdfEpubStatePath('reviewQueue'));
   if (!queue) throw new Error('Fila PDF x EPUB nao encontrada. Valide achados primeiro.');
 
-  const { replacements, skipped } = approvedReplacements(queue);
+  const { replacements: approved, skipped } = approvedReplacements(queue);
+  const replacements = [...approved, ...manualReplacements];
 
   const target = sourcePath
     ? { filePath: sourcePath, filename: path.basename(sourcePath), source: 'explicit' }
@@ -398,7 +664,7 @@ export async function applyApprovedPdfEpubFindings({ sourcePath = null } = {}) {
   for (const entry of zip.getEntries()) {
     if (entry.isDirectory || !shouldEditEntry(entry.entryName)) continue;
     const html = entry.getData().toString('utf8');
-    const result = updateXmlText(html, replacements);
+    const result = updateXmlText(html, replacements, entry.entryName);
     if (!result.changes.length) continue;
     zip.updateFile(entry.entryName, Buffer.from(result.html, 'utf8'));
     allChanges.push(...result.changes.map((change) => ({ ...change, entry: entry.entryName })));
@@ -435,6 +701,9 @@ export async function applyApprovedPdfEpubFindings({ sourcePath = null } = {}) {
         version: null,
       };
     }
+    if (replacements.length) {
+      throw new Error(`${replacements.length} correcao(oes) aprovada(s) nao puderam ser localizadas no EPUB alvo.`);
+    }
     const alreadyApplied = skipped.filter((item) => item.reason === 'approved_item_already_applied').length;
     return {
       ...report,
@@ -451,6 +720,10 @@ export async function applyApprovedPdfEpubFindings({ sourcePath = null } = {}) {
 
   await writeEpubZip(zip, versionPath);
   fs.copyFileSync(versionPath, finalPath);
+  report.validation = validateGeneratedEpub(finalPath, allChanges);
+  if (!report.validation.valid) {
+    throw new Error(`EPUB gerado falhou na validacao: ${report.validation.unresolvedScopedChanges.length} correcao(oes) por ocorrencia nao foram confirmadas.`);
+  }
   report.manifest = updateManifest({ version, numericVersion, sourcePath: target.filePath, versionPath, finalPath, report });
   markAppliedItems(queue, allChanges, report);
   writeJson(paths.reviewQueuePath, queue);
@@ -474,8 +747,11 @@ export async function applyApprovedPdfEpubFindings({ sourcePath = null } = {}) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   applyApprovedPdfEpubFindings()
-    .then((report) => {
+    .then(async (report) => {
+      const { runPdfEpubComparisonReport } = await import('./auditPdfEpubReport.js');
+      const reportPath = await runPdfEpubComparisonReport();
       console.log(report.noOp ? report.message : relativeWorkflowPath(report.finalPath));
+      console.log(`Relatorio atualizado: ${relativeWorkflowPath(reportPath)}`);
     })
     .catch((error) => {
       console.error(`Erro ao aplicar achados PDF x EPUB: ${error.message}`);

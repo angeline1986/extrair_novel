@@ -47,16 +47,19 @@ function chapterTitle(finding) {
 
 function renderEnglishEvidence(finding) {
   const evidence = finding?.englishEvidence;
-  if (!evidence || !evidence.text) return '';
+  if (!evidence) return '';
   const statusLabel = {
     confirmed_by_english: 'Evidência EN confirmada',
     english_context_found: 'Contexto EN encontrado',
     no_english_match: 'Sem confirmação EN',
+    english_chapter_unavailable: 'Capítulo EN indisponível',
+    english_alignment_uncertain: 'Alinhamento EN incerto',
+    english_pronouns_mixed: 'Pronomes EN mistos',
   }[evidence.status] || 'Evidência EN';
   return `
     <div class="analysis-box english-evidence-box">
       <strong>${escapeHtml(statusLabel)}</strong>
-      <span>${escapeHtml(evidence.text)}</span>
+      ${evidence.text ? `<span>${escapeHtml(evidence.text)}</span>` : ''}
       <small>${escapeHtml(evidence.reason || '')}</small>
     </div>`;
 }

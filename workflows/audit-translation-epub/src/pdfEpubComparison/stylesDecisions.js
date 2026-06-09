@@ -23,6 +23,17 @@ export function decisionStyles() {
     }
     .decision-export button:hover,
     .decision-btn:hover { background: #fff0f2; }
+    .clear-line-decision {
+      border: 0;
+      background: transparent;
+      color: #7b5b68;
+      padding: 6px 2px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+    .clear-line-decision:hover { color: #A53860; }
     .decision-panel {
       display: flex;
       flex-wrap: wrap;
@@ -75,6 +86,15 @@ export function decisionStyles() {
     }
     .decision-status {
       color: #A53860;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .decision-suggestion {
+      color: #315b3b;
+      background: #eef8ef;
+      border: 1px solid #b8dfbe;
+      border-radius: 5px;
+      padding: 5px 7px;
       font-weight: 800;
       white-space: nowrap;
     }

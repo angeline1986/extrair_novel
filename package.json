@@ -25,6 +25,7 @@
     "audit:translation:epub:menu": "node workflows/audit-translation-epub/src/menu.js",
     "audit:translation:epub:pdf-report": "node workflows/audit-translation-epub/src/auditPdfEpubReport.js",
     "audit:translation:epub:apply-pdf-approved": "node workflows/audit-translation-epub/src/applyPdfEpubApprovedFindings.js",
+    "audit:translation:epub:apply-verified-editorial": "node workflows/audit-translation-epub/src/applyVerifiedEditorialCorrections.js",
     "audit:epub:menu": "node workflows/audit-translation-epub/src/menu.js",
     "fix:translation:epub": "node workflows/audit-translation-epub/src/fixEpub.js",
     "review:translation:epub:validate": "node workflows/audit-translation-epub/src/validateReviewQueue.js",

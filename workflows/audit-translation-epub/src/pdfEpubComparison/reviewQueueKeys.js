@@ -73,5 +73,6 @@ export function stableKeyFromFinding(category, finding) {
     finding?.original || '-',
     finding?.translation || finding?.location || '-',
     finding?.recommendation || '-',
+    finding?.occurrenceKey || '-',
   ].join('::');
 }

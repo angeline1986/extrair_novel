@@ -30,5 +30,19 @@ export function highlightTerm(value, term) {
     .sort((a, b) => b.length - a.length);
   if (!terms.length) return escaped;
   const pattern = new RegExp(`(^|[^\\p{L}\\p{N}])(${terms.map(escapeRegExp).join('|')})(?=$|[^\\p{L}\\p{N}])`, 'giu');
-  return escaped.replace(pattern, '$1<strong>$2</strong>');
+  const totals = new Map();
+  for (const match of escaped.matchAll(pattern)) {
+    const key = match[2].toLocaleLowerCase('pt-BR');
+    totals.set(key, (totals.get(key) || 0) + 1);
+  }
+  const seen = new Map();
+  return escaped.replace(pattern, (match, prefix, value) => {
+    const key = value.toLocaleLowerCase('pt-BR');
+    const occurrence = (seen.get(key) || 0) + 1;
+    seen.set(key, occurrence);
+    const marker = totals.get(key) > 1
+      ? `<small class="term-occurrence-number">${occurrence}</small>`
+      : '';
+    return `${prefix}<strong>${value}${marker}</strong>`;
+  });
 }

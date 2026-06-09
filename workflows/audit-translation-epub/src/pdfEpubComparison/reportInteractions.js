@@ -7,8 +7,11 @@ export function reportInteractionScript(audit = {}) {
       const epubTarget = ${epubPath};
       const storageScope = [reportGeneratedAt || 'unknown-report', epubTarget || 'unknown-epub'].join('::');
       const storageKey = 'pdfEpubComparisonDecisions::' + storageScope;
+      const dismissedKey = storageKey + '::dismissedSuggestions';
       const load = () => JSON.parse(localStorage.getItem(storageKey) || '{}');
       const save = (value) => localStorage.setItem(storageKey, JSON.stringify(value));
+      const loadDismissed = () => new Set(JSON.parse(localStorage.getItem(dismissedKey) || '[]'));
+      const saveDismissed = (value) => localStorage.setItem(dismissedKey, JSON.stringify([...value]));
       const countEl = document.getElementById('decision-count');
       const currentIds = new Set([...document.querySelectorAll('[data-review-id]')].map((item) => item.dataset.reviewId));
 
@@ -32,8 +35,24 @@ export function reportInteractionScript(audit = {}) {
       function setDecision(payload) {
         const decisions = currentDecisions();
         decisions[payload.id] = payload;
+        const dismissed = loadDismissed();
+        dismissed.delete(payload.id);
+        saveDismissed(dismissed);
         save(decisions);
         markRow(payload.id, payload);
+        updateCount();
+      }
+
+      function clearDecision(id) {
+        const decisions = currentDecisions();
+        delete decisions[id];
+        const dismissed = loadDismissed();
+        dismissed.add(id);
+        saveDismissed(dismissed);
+        save(decisions);
+        markRow(id, null);
+        const input = document.querySelector('[data-manual-input="' + id + '"]');
+        if (input) input.value = '';
         updateCount();
       }
 
@@ -65,8 +84,14 @@ export function reportInteractionScript(audit = {}) {
             chapter: panel?.dataset.chapter || '',
             type: panel?.dataset.type || '',
             term: panel?.dataset.term || '',
+            context: panel?.dataset.context || '',
+            occurrenceIndex: Number(panel?.dataset.occurrenceIndex || 0),
           });
         });
+      });
+
+      document.querySelectorAll('[data-clear-decision]').forEach((button) => {
+        button.addEventListener('click', () => clearDecision(button.dataset.clearDecision));
       });
 
       document.getElementById('export-decisions')?.addEventListener('click', () => {
@@ -88,12 +113,20 @@ export function reportInteractionScript(audit = {}) {
 
       document.getElementById('clear-decisions')?.addEventListener('click', () => {
         localStorage.removeItem(storageKey);
+        localStorage.removeItem(dismissedKey);
         clearDecisionMarks();
         updateCount();
       });
 
       save(currentDecisions());
       Object.entries(load()).forEach(([id, decision]) => markRow(id, decision));
+      const dismissedSuggestions = loadDismissed();
+      document.querySelectorAll('.decision-panel[data-suggested-decision][data-suggestion-confidence="high"][data-suggestion-source="english_alignment"]').forEach((panel) => {
+        const id = panel.dataset.reviewId;
+        if (load()[id] || dismissedSuggestions.has(id)) return;
+        const action = panel.dataset.suggestedDecision === 'keep' ? 'keep' : 'apply';
+        panel.querySelector('.decision-btn[data-action="' + action + '"]')?.click();
+      });
       updateCount();
     })();
   `;
