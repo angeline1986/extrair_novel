@@ -27,6 +27,7 @@ import {
 } from './pdfEpubComparison/reviewDecision.js';
 import { writePdfEpubComparisonFullText } from './pdfEpubComparisonReportWriter.js';
 import { epubAuditStatePath, pdfEpubStatePath, statePaths } from './statePaths.js';
+import { createCompactWorkBackup } from './workBackup.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workflowRoot = path.resolve(__dirname, '..');
@@ -1075,6 +1076,30 @@ async function editorialReviewMenu() {
   }
 }
 
+function formatBytes(bytes) {
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let value = Number(bytes || 0);
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${value.toFixed(unit ? 1 : 0)} ${units[unit]}`;
+}
+
+async function backupCurrentWork() {
+  try {
+    log('\nCriando backup enxuto da obra atual...', 'cyan');
+    const backup = await createCompactWorkBackup({ workflowRoot });
+    log(`Backup criado: ${displayPath(backup.outputPath)}`, 'green');
+    log(`Tamanho: ${formatBytes(backup.bytes)} · Versao final: v${backup.metadata.currentVersion || '-'}`, 'dim');
+    return backup;
+  } catch (error) {
+    log(`Backup nao criado: ${error.message}`, 'red');
+    return null;
+  }
+}
+
 async function maintenanceMenu() {
   while (true) {
     console.log();
@@ -1089,10 +1114,13 @@ async function maintenanceMenu() {
     log('  3. Limpar estado legado migrado', 'red');
     log('     Remove arquivos antigos em state/ ja migrados para subpastas', 'dim');
     console.log();
-    log('  4. Voltar', 'white');
+    log('  4. Fazer backup enxuto da obra atual', 'green');
+    log('     Salva EPUB final, fontes, decisoes, estado e relatorios essenciais', 'dim');
+    console.log();
+    log('  5. Voltar', 'white');
     console.log();
 
-    const choice = (await ask(color('Escolha uma opcao (1/2/3/4): ', 'yellow'))).trim();
+    const choice = (await ask(color('Escolha uma opcao (1/2/3/4/5): ', 'yellow'))).trim();
     if (choice === '1') {
       await cleanRecentAudit();
       return;
@@ -1105,7 +1133,11 @@ async function maintenanceMenu() {
       await cleanMigratedLegacyState();
       return;
     }
-    if (choice === '4') return;
+    if (choice === '4') {
+      await backupCurrentWork();
+      continue;
+    }
+    if (choice === '5') return;
     log('\nOpcao invalida.', 'red');
   }
 }
@@ -1483,6 +1515,13 @@ async function cleanAllForNewWork() {
   }
 
   log('\nEsta acao preserva input/source, input/translated, input/glossary e input/translation-log.', 'yellow');
+  if (await confirmYesNo('Criar backup enxuto antes de iniciar nova obra?')) {
+    const backup = await backupCurrentWork();
+    if (!backup) {
+      log('Limpeza cancelada porque o backup nao foi concluido.', 'yellow');
+      return;
+    }
+  }
   if (!(await confirmTypedCleanup('NOVA OBRA'))) {
     log('Limpeza cancelada.', 'dim');
     return;

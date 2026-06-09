@@ -24,6 +24,9 @@ workflows/audit-translation-docx/input-fixed/*
 !workflows/audit-translation-docx/input-fixed/.gitkeep
 workflows/audit-translation-epub/input-fixed/*
 !workflows/audit-translation-epub/input-fixed/.gitkeep
+workflows/audit-translation-epub/backups/*
+!workflows/audit-translation-epub/backups/
+!workflows/audit-translation-epub/backups/.gitkeep
 workflows/audit-translation-docx/logs_old/
 .DS_Store
 ~$*.docx
