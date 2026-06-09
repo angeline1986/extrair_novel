@@ -488,6 +488,54 @@ export function reconcileApprovedPdfEpubApplications() {
   return { reconciled };
 }
 
+function normalizeChapterHeading($, entryName) {
+  if (!/^chapter_\d+\.xhtml$/i.test(path.basename(entryName))) return null;
+  const body = $('body').first();
+  if (!body.length) return null;
+
+  const elements = body.children().toArray();
+  const firstContent = elements.find((node) => {
+    if (node.type !== 'tag') return false;
+    return $(node).text().replace(/\s+/g, ' ').trim();
+  });
+  if (!firstContent) return null;
+
+  const existingHeading = $(firstContent).is('h1') ? $(firstContent) : null;
+  const firstParagraph = elements
+    .map((node) => $(node))
+    .find((element) => element.is('p') && /^\s*\d+\.\s+\S/u.test(element.text()));
+  const canonicalTitle = existingHeading?.text().replace(/\s+/g, ' ').trim()
+    || firstParagraph?.text().replace(/\s+/g, ' ').trim();
+  if (!canonicalTitle) return null;
+
+  const duplicateParagraph = existingHeading
+    ? elements
+      .slice(elements.indexOf(firstContent) + 1)
+      .map((node) => $(node))
+      .find((element) => element.is('p') && /^\s*\d+\.\s+\S/u.test(element.text()))
+    : firstParagraph;
+
+  if (
+    existingHeading
+    && existingHeading.attr('class') === 'calibre7'
+    && existingHeading.attr('lang') === 'pt'
+    && !duplicateParagraph
+  ) {
+    return null;
+  }
+
+  const heading = $('<h1></h1>')
+    .addClass('calibre7')
+    .attr('dir', 'auto')
+    .attr('lang', 'pt')
+    .text(canonicalTitle);
+  if (existingHeading) existingHeading.replaceWith(heading);
+  else firstParagraph.replaceWith(heading);
+  if (existingHeading && duplicateParagraph) duplicateParagraph.remove();
+
+  return { from: duplicateParagraph?.text().trim() || canonicalTitle, to: canonicalTitle };
+}
+
 function updateXmlText(html, replacements, entryName = '') {
   const $ = cheerio.load(html, { xmlMode: true, decodeEntities: false });
   const changes = [];
@@ -496,6 +544,15 @@ function updateXmlText(html, replacements, entryName = '') {
   );
 
   $('script, style').remove();
+  const headingChange = normalizeChapterHeading($, entryName);
+  if (headingChange) {
+    changes.push({
+      reviewQueueItemId: null,
+      ...headingChange,
+      count: 1,
+      source: 'chapter_heading_normalization',
+    });
+  }
   const textNodes = $.root().find('*').addBack().contents().toArray()
     .filter((node) => node.type === 'text' && node.data?.trim());
   const scopedAssignments = new Map();
