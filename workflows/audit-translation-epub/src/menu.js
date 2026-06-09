@@ -108,13 +108,15 @@ function printHeader() {
   console.log();
   log('  2. 📄 Relatórios', 'white');
   console.log();
-  log('  3. ✅ Revisão editorial', 'cyan');
+  log('  3. 📥 Importar e aplicar decisões', 'cyan');
   console.log();
-  log('  4. 🔍 Auditoria', 'white');
+  log('  4. ✅ Revisão editorial', 'cyan');
   console.log();
-  log('  5. 🧹 Manutenção', 'red');
+  log('  5. 🔍 Auditoria', 'white');
   console.log();
-  log('  6. ❌ Sair', 'magenta');
+  log('  6. 🧹 Manutenção', 'red');
+  console.log();
+  log('  7. ❌ Sair', 'magenta');
   console.log();
   console.log('─'.repeat(64));
   console.log();
@@ -689,7 +691,7 @@ function buildAndPersistPdfEpubReviewQueue() {
   return queue;
 }
 
-async function applyApprovedPdfEpubFindings() {
+async function applyApprovedPdfEpubFindings({ refreshReport = true } = {}) {
   try {
     const { reconciled } = reconcileApprovedPdfEpubApplications();
     if (reconciled) log(`Achados ja presentes no EPUB atual marcados como aplicados: ${reconciled}`, 'green');
@@ -717,6 +719,7 @@ async function applyApprovedPdfEpubFindings() {
   if (!pendingApplicationItems.length) {
     log('\nTodos os achados PDF x EPUB aprovados ja foram aplicados anteriormente.', 'green');
     log(`Fila: ${displayPath(pdfEpubReviewQueuePath)}`, 'cyan');
+    if (refreshReport) await generatePdfEpubComparisonReportFromMenu({ warnOnly: true });
     return;
   }
 
@@ -744,7 +747,7 @@ async function applyApprovedPdfEpubFindings() {
     log(`Substituicoes aplicadas: ${report.totalReplacements}`, 'green');
     log(`Arquivo final: ${displayPath(report.finalPath)}`, 'cyan');
 
-    await generatePdfEpubComparisonReportFromMenu({ warnOnly: true });
+    if (refreshReport) await generatePdfEpubComparisonReportFromMenu({ warnOnly: true });
   } catch (error) {
     log(`Aplicacao PDF x EPUB nao executada: ${error.message}`, 'yellow');
   }
@@ -758,6 +761,11 @@ async function offerApplyApprovedPdfEpubFindings(queue) {
   if (answer === 's' || answer === 'sim' || answer === 'y') {
     await applyApprovedPdfEpubFindings();
   }
+}
+
+async function synchronizePdfEpubAndReport() {
+  await applyApprovedPdfEpubFindings({ refreshReport: false });
+  await generatePdfEpubComparisonReportFromMenu({ warnOnly: true });
 }
 
 function decisionExportCandidates() {
@@ -953,16 +961,10 @@ async function reviewSuggestionsMenu() {
     log('  2. Validar achados PDF x EPUB', 'white');
     log('     Aprovar achados editoriais para revisão/correção posterior', 'dim');
     console.log();
-    log('  3. Importar decisões aprovadas', 'white');
-    log('     Importar JSON exportado pelo relatorio editorial ou PDF x EPUB', 'dim');
-    console.log();
-    log('  4. Aplicar correções aprovadas', 'white');
-    log('     Gerar nova versao do EPUB a partir das correcoes aprovadas', 'dim');
-    console.log();
-    log('  5. Voltar', 'white');
+    log('  3. Voltar', 'white');
     console.log();
 
-    const choice = (await ask(color('Escolha uma opcao (1/2/3/4/5): ', 'yellow'))).trim();
+    const choice = (await ask(color('Escolha uma opcao (1/2/3): ', 'yellow'))).trim();
     if (choice === '1') {
       await reviewReadySuggestions();
       return;
@@ -971,15 +973,42 @@ async function reviewSuggestionsMenu() {
       await validatePdfEpubFindings();
       continue;
     }
-    if (choice === '3') {
+    if (choice === '3') return;
+    log('\nOpcao invalida.', 'red');
+  }
+}
+
+async function importAndApplyDecisionsMenu() {
+  while (true) {
+    console.log();
+    log('IMPORTAR E APLICAR DECISÕES', 'cyan');
+    console.log();
+    log('  1. Importar decisões aprovadas', 'white');
+    log('     Importar JSON exportado pelo relatório editorial ou PDF x EPUB', 'dim');
+    console.log();
+    log('  2. Aplicar correções aprovadas', 'white');
+    log('     Registrar e aplicar as correções que estão pendentes', 'dim');
+    console.log();
+    log('  3. Gerar/atualizar EPUB e relatório', 'white');
+    log('     Retomar a última aplicação e garantir que os arquivos estejam atualizados', 'dim');
+    console.log();
+    log('  4. Voltar', 'white');
+    console.log();
+
+    const choice = (await ask(color('Escolha uma opcao (1/2/3/4): ', 'yellow'))).trim();
+    if (choice === '1') {
       await importPdfEpubDecisionsFromReport();
       continue;
     }
-    if (choice === '4') {
+    if (choice === '2') {
       await applyApprovedPdfEpubFindings();
-      return;
+      continue;
     }
-    if (choice === '5') return;
+    if (choice === '3') {
+      await synchronizePdfEpubAndReport();
+      continue;
+    }
+    if (choice === '4') return;
     log('\nOpcao invalida.', 'red');
   }
 }
@@ -1498,15 +1527,17 @@ async function main() {
       await reportsMenu();
       await pause();
     } else if (choice === '3') {
+      await importAndApplyDecisionsMenu();
+    } else if (choice === '4') {
       await editorialReviewMenu();
       await pause();
-    } else if (choice === '4') {
+    } else if (choice === '5') {
       await auditMenu();
       await pause();
-    } else if (choice === '5') {
+    } else if (choice === '6') {
       await maintenanceMenu();
       await pause();
-    } else if (choice === '6') {
+    } else if (choice === '7') {
       rl.close();
       return;
     } else {
