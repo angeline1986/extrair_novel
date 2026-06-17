@@ -47,6 +47,19 @@ function ensureDirs() {
   ensureStateDirs();
 }
 
+function maybeBuildAlignedEnglishChapters() {
+  if (!fs.existsSync(paths.sourceEnglishFragmentsDir)) return null;
+
+  const hasLegacyFragments = fs.readdirSync(paths.sourceEnglishFragmentsDir)
+    .some((filename) => /^accidental-baby-en-ch-\d+\.md$/i.test(filename));
+  if (!hasLegacyFragments) return null;
+
+  return buildAlignedEnglishChapters(
+    paths.sourceEnglishFragmentsDir,
+    path.join(paths.sourceEnglishDir, 'aligned')
+  );
+}
+
 export async function runPdfEpubComparisonReport() {
   ensureDirs();
 
@@ -61,7 +74,7 @@ export async function runPdfEpubComparisonReport() {
   }
 
   const epubDoc = readEpubFile(epubTarget.filePath);
-  buildAlignedEnglishChapters(paths.sourceEnglishFragmentsDir, path.join(paths.sourceEnglishDir, 'aligned'));
+  maybeBuildAlignedEnglishChapters();
   const englishSource = readEnglishSourceChapters(paths.sourceEnglishDir);
   const glossary = {
     terms: readJsonIfExists(paths.termsGlossaryPath, { terms: [] }),
