@@ -1,0 +1,512 @@
+{
+  "currentVersion": 33,
+  "currentPath": "output",
+  "origin": "input/translated",
+  "versions": [
+    {
+      "version": 1,
+      "source": "input/translated/ilide.info-bebe-accidental_br.epub",
+      "output": "input-fixed/v1",
+      "file": "ilide.info-bebe-accidental_br_v1_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v1_fixed.epub",
+      "createdAt": "2026-06-02T01:25:18.707Z",
+      "step": 1,
+      "metadata": {
+        "replacementsApplied": 0,
+        "changedEntries": 0,
+        "packageValidation": {
+          "mimetypeFirst": true,
+          "mimetypeValid": true,
+          "hasContainer": true
+        },
+        "postCorrectionValidation": {
+          "status": "OK",
+          "textChanged": false,
+          "confirmedCorrections": 0
+        }
+      }
+    },
+    {
+      "version": 2,
+      "source": "output/ilide.info-bebe-accidental_br_v5_fixed.epub",
+      "output": "input-fixed/v2",
+      "file": "ilide.info-bebe-accidental_br_v2_pdf_epub_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v2_pdf_epub_fixed.epub",
+      "createdAt": "2026-06-02T01:38:06.296Z",
+      "step": 2,
+      "metadata": {
+        "source": "pdf_epub_review_queue",
+        "approvedItems": 11,
+        "replacementsApplied": 53,
+        "changedEntries": 22
+      }
+    },
+    {
+      "version": 3,
+      "source": "input/translated/ilide.info-bebe-accidental_br.epub",
+      "output": "input-fixed/v3",
+      "file": "ilide.info-bebe-accidental_br_v3_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v3_fixed.epub",
+      "createdAt": "2026-06-03T20:58:43.176Z",
+      "step": 3,
+      "metadata": {
+        "replacementsApplied": 0,
+        "changedEntries": 0,
+        "packageValidation": {
+          "mimetypeFirst": true,
+          "mimetypeValid": true,
+          "hasContainer": true
+        },
+        "postCorrectionValidation": {
+          "status": "OK",
+          "textChanged": false,
+          "confirmedCorrections": 0
+        }
+      }
+    },
+    {
+      "version": 4,
+      "source": "input/translated/ilide.info-bebe-accidental_br.epub",
+      "output": "input-fixed/v4",
+      "file": "ilide.info-bebe-accidental_br_v4_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v4_fixed.epub",
+      "createdAt": "2026-06-04T01:02:15.085Z",
+      "step": 4,
+      "metadata": {
+        "replacementsApplied": 0,
+        "changedEntries": 0,
+        "packageValidation": {
+          "mimetypeFirst": true,
+          "mimetypeValid": true,
+          "hasContainer": true
+        },
+        "postCorrectionValidation": {
+          "status": "OK",
+          "textChanged": false,
+          "confirmedCorrections": 0
+        }
+      }
+    },
+    {
+      "version": 5,
+      "source": "output/ilide.info-bebe-accidental_br_v4_fixed.epub",
+      "output": "input-fixed/v5",
+      "file": "ilide.info-bebe-accidental_br_v5_pdf_epub_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v5_pdf_epub_fixed.epub",
+      "createdAt": "2026-06-04T02:26:33.399Z",
+      "step": 5,
+      "metadata": {
+        "source": "pdf_epub_review_queue",
+        "approvedItems": 8,
+        "replacementsApplied": 23,
+        "changedEntries": 13
+      }
+    },
+    {
+      "version": 6,
+      "source": "output/ilide.info-bebe-accidental_br_v5_pdf_epub_fixed.epub",
+      "output": "input-fixed/v6",
+      "file": "ilide.info-bebe-accidental_br_v6_pdf_epub_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v6_pdf_epub_fixed.epub",
+      "createdAt": "2026-06-04T02:28:12.504Z",
+      "step": 6,
+      "metadata": {
+        "source": "pdf_epub_review_queue",
+        "approvedItems": 9,
+        "replacementsApplied": 1,
+        "changedEntries": 1
+      }
+    },
+    {
+      "version": 7,
+      "source": "output/ilide.info-bebe-accidental_br_v6_pdf_epub_fixed.epub",
+      "output": "input-fixed/v7",
+      "file": "ilide.info-bebe-accidental_br_v7_pdf_epub_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v7_pdf_epub_fixed.epub",
+      "createdAt": "2026-06-04T21:01:57.057Z",
+      "step": 7,
+      "metadata": {
+        "source": "pdf_epub_review_queue",
+        "approvedItems": 30,
+        "replacementsApplied": 552,
+        "changedEntries": 25
+      }
+    },
+    {
+      "version": 8,
+      "source": "output/ilide.info-bebe-accidental_br_v7_pdf_epub_fixed.epub",
+      "output": "input-fixed/v8",
+      "file": "ilide.info-bebe-accidental_br_v8_pdf_epub_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v8_pdf_epub_fixed.epub",
+      "createdAt": "2026-06-04T22:14:45.982Z",
+      "step": 8,
+      "metadata": {
+        "source": "pdf_epub_review_queue",
+        "approvedItems": 33,
+        "replacementsApplied": 8,
+        "changedEntries": 5
+      }
+    },
+    {
+      "version": 9,
+      "source": "output/ilide.info-bebe-accidental_br_v8_pdf_epub_fixed.epub",
+      "output": "input-fixed/v9",
+      "file": "ilide.info-bebe-accidental_br_v9_pdf_epub_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v9_pdf_epub_fixed.epub",
+      "createdAt": "2026-06-04T22:23:31.835Z",
+      "step": 9,
+      "metadata": {
+        "source": "pdf_epub_review_queue",
+        "approvedItems": 36,
+        "replacementsApplied": 30,
+        "changedEntries": 16
+      }
+    },
+    {
+      "version": 11,
+      "source": "output/ilide.info-bebe-accidental_br_v9_pdf_epub_fixed.epub",
+      "output": "input-fixed/v11",
+      "file": "ilide.info-bebe-accidental_br_v11_pdf_epub_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v11_pdf_epub_fixed.epub",
+      "createdAt": "2026-06-08T03:05:13.695Z",
+      "step": 11,
+      "metadata": {
+        "source": "pdf_epub_review_queue",
+        "approvedItems": 55,
+        "replacementsApplied": 128,
+        "changedEntries": 23
+      }
+    },
+    {
+      "version": 12,
+      "source": "output/ilide.info-bebe-accidental_br_v11_pdf_epub_fixed.epub",
+      "output": "input-fixed/v12",
+      "file": "ilide.info-bebe-accidental_br_v12_pdf_epub_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v12_pdf_epub_fixed.epub",
+      "createdAt": "2026-06-08T03:08:22.149Z",
+      "step": 12,
+      "metadata": {
+        "source": "pdf_epub_review_queue",
+        "approvedItems": 59,
+        "replacementsApplied": 35,
+        "changedEntries": 15
+      }
+    },
+    {
+      "version": 13,
+      "source": "output/ilide.info-bebe-accidental_br_v12_pdf_epub_fixed.epub",
+      "output": "input-fixed/v13",
+      "file": "ilide.info-bebe-accidental_br_v13_pdf_epub_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v13_pdf_epub_fixed.epub",
+      "createdAt": "2026-06-08T22:33:41.435Z",
+      "step": 13,
+      "metadata": {
+        "source": "pdf_epub_review_queue",
+        "approvedItems": 176,
+        "replacementsApplied": 13,
+        "changedEntries": 5
+      }
+    },
+    {
+      "version": 14,
+      "source": "output/ilide.info-bebe-accidental_br_v13_pdf_epub_fixed.epub",
+      "output": "input-fixed/v14",
+      "file": "ilide.info-bebe-accidental_br_v14_pdf_epub_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v14_pdf_epub_fixed.epub",
+      "createdAt": "2026-06-08T22:34:51.277Z",
+      "step": 14,
+      "metadata": {
+        "source": "pdf_epub_review_queue",
+        "approvedItems": 176,
+        "replacementsApplied": 4,
+        "changedEntries": 2
+      }
+    },
+    {
+      "version": 15,
+      "source": "output/ilide.info-bebe-accidental_br_v14_pdf_epub_fixed.epub",
+      "output": "input-fixed/v15",
+      "file": "ilide.info-bebe-accidental_br_v15_pdf_epub_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v15_pdf_epub_fixed.epub",
+      "createdAt": "2026-06-08T22:48:25.993Z",
+      "step": 15,
+      "metadata": {
+        "source": "pdf_epub_review_queue",
+        "approvedItems": 207,
+        "replacementsApplied": 9,
+        "changedEntries": 3
+      }
+    },
+    {
+      "version": 16,
+      "source": "output/ilide.info-bebe-accidental_br_v15_pdf_epub_fixed.epub",
+      "output": "input-fixed/v16",
+      "file": "ilide.info-bebe-accidental_br_v16_pdf_epub_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v16_pdf_epub_fixed.epub",
+      "createdAt": "2026-06-09T01:12:59.863Z",
+      "step": 16,
+      "metadata": {
+        "source": "pdf_epub_review_queue",
+        "approvedItems": 207,
+        "replacementsApplied": 9,
+        "changedEntries": 7
+      }
+    },
+    {
+      "version": 17,
+      "source": "output/ilide.info-bebe-accidental_br_v16_pdf_epub_fixed.epub",
+      "output": "input-fixed/v17",
+      "file": "ilide.info-bebe-accidental_br_v17_pdf_epub_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v17_pdf_epub_fixed.epub",
+      "createdAt": "2026-06-09T01:35:58.800Z",
+      "step": 17,
+      "metadata": {
+        "source": "pdf_epub_review_queue",
+        "approvedItems": 207,
+        "replacementsApplied": 61,
+        "changedEntries": 9
+      }
+    },
+    {
+      "version": 18,
+      "source": "output/ilide.info-bebe-accidental_br_v17_pdf_epub_fixed.epub",
+      "output": "input-fixed/v18",
+      "file": "ilide.info-bebe-accidental_br_v18_pdf_epub_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v18_pdf_epub_fixed.epub",
+      "createdAt": "2026-06-09T01:37:31.066Z",
+      "step": 18,
+      "metadata": {
+        "source": "pdf_epub_review_queue",
+        "approvedItems": 207,
+        "replacementsApplied": 6,
+        "changedEntries": 3
+      }
+    },
+    {
+      "version": 19,
+      "source": "output/ilide.info-bebe-accidental_br_v18_pdf_epub_fixed.epub",
+      "output": "input-fixed/v19",
+      "file": "ilide.info-bebe-accidental_br_v19_pdf_epub_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v19_pdf_epub_fixed.epub",
+      "createdAt": "2026-06-09T01:45:56.905Z",
+      "step": 19,
+      "metadata": {
+        "source": "pdf_epub_review_queue",
+        "approvedItems": 207,
+        "replacementsApplied": 55,
+        "changedEntries": 7
+      }
+    },
+    {
+      "version": 20,
+      "source": "output/ilide.info-bebe-accidental_br_v19_pdf_epub_fixed.epub",
+      "output": "input-fixed/v20",
+      "file": "ilide.info-bebe-accidental_br_v20_pdf_epub_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v20_pdf_epub_fixed.epub",
+      "createdAt": "2026-06-09T01:47:25.413Z",
+      "step": 20,
+      "metadata": {
+        "source": "pdf_epub_review_queue",
+        "approvedItems": 207,
+        "replacementsApplied": 3,
+        "changedEntries": 2
+      }
+    },
+    {
+      "version": 21,
+      "source": "output/ilide.info-bebe-accidental_br_v20_pdf_epub_fixed.epub",
+      "output": "input-fixed/v21",
+      "file": "ilide.info-bebe-accidental_br_v21_pdf_epub_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v21_pdf_epub_fixed.epub",
+      "createdAt": "2026-06-09T02:42:16.240Z",
+      "step": 21,
+      "metadata": {
+        "source": "pdf_epub_review_queue",
+        "approvedItems": 380,
+        "replacementsApplied": 6,
+        "changedEntries": 5
+      }
+    },
+    {
+      "version": 22,
+      "source": "output/ilide.info-bebe-accidental_br_v21_pdf_epub_fixed.epub",
+      "output": "input-fixed/v22",
+      "file": "ilide.info-bebe-accidental_br_v22_pdf_epub_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v22_pdf_epub_fixed.epub",
+      "createdAt": "2026-06-09T02:47:11.578Z",
+      "step": 22,
+      "metadata": {
+        "source": "pdf_epub_review_queue",
+        "approvedItems": 380,
+        "replacementsApplied": 3,
+        "changedEntries": 3
+      }
+    },
+    {
+      "version": 23,
+      "source": "output/ilide.info-bebe-accidental_br_v22_pdf_epub_fixed.epub",
+      "output": "input-fixed/v23",
+      "file": "ilide.info-bebe-accidental_br_v23_pdf_epub_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v23_pdf_epub_fixed.epub",
+      "createdAt": "2026-06-09T02:50:54.018Z",
+      "step": 23,
+      "metadata": {
+        "source": "pdf_epub_review_queue",
+        "approvedItems": 380,
+        "replacementsApplied": 1,
+        "changedEntries": 1
+      }
+    },
+    {
+      "version": 24,
+      "source": "output/ilide.info-bebe-accidental_br_v23_pdf_epub_fixed.epub",
+      "output": "input-fixed/v24",
+      "file": "ilide.info-bebe-accidental_br_v24_pdf_epub_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v24_pdf_epub_fixed.epub",
+      "createdAt": "2026-06-09T02:59:29.680Z",
+      "step": 24,
+      "metadata": {
+        "source": "pdf_epub_review_queue",
+        "approvedItems": 381,
+        "replacementsApplied": 8,
+        "changedEntries": 4
+      }
+    },
+    {
+      "version": 25,
+      "source": "output/ilide.info-bebe-accidental_br_v24_pdf_epub_fixed.epub",
+      "output": "input-fixed/v25",
+      "file": "ilide.info-bebe-accidental_br_v25_pdf_epub_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v25_pdf_epub_fixed.epub",
+      "createdAt": "2026-06-09T03:02:27.052Z",
+      "step": 25,
+      "metadata": {
+        "source": "pdf_epub_review_queue",
+        "approvedItems": 381,
+        "replacementsApplied": 2,
+        "changedEntries": 1
+      }
+    },
+    {
+      "version": 26,
+      "source": "output/ilide.info-bebe-accidental_br_v25_pdf_epub_fixed.epub",
+      "output": "input-fixed/v26",
+      "file": "ilide.info-bebe-accidental_br_v26_pdf_epub_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v26_pdf_epub_fixed.epub",
+      "createdAt": "2026-06-09T03:10:24.511Z",
+      "step": 26,
+      "metadata": {
+        "source": "pdf_epub_review_queue",
+        "approvedItems": 385,
+        "replacementsApplied": 4,
+        "changedEntries": 4
+      }
+    },
+    {
+      "version": 27,
+      "source": "output/ilide.info-bebe-accidental_br_v26_pdf_epub_fixed.epub",
+      "output": "input-fixed/v27",
+      "file": "ilide.info-bebe-accidental_br_v27_pdf_epub_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v27_pdf_epub_fixed.epub",
+      "createdAt": "2026-06-09T03:30:24.254Z",
+      "step": 27,
+      "metadata": {
+        "source": "pdf_epub_review_queue",
+        "approvedItems": 392,
+        "replacementsApplied": 1,
+        "changedEntries": 1
+      }
+    },
+    {
+      "version": 28,
+      "source": "output/ilide.info-bebe-accidental_br_v27_pdf_epub_fixed.epub",
+      "output": "input-fixed/v28",
+      "file": "ilide.info-bebe-accidental_br_v28_pdf_epub_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v28_pdf_epub_fixed.epub",
+      "createdAt": "2026-06-09T03:34:20.387Z",
+      "step": 28,
+      "metadata": {
+        "source": "pdf_epub_review_queue",
+        "approvedItems": 395,
+        "replacementsApplied": 3,
+        "changedEntries": 1
+      }
+    },
+    {
+      "version": 29,
+      "source": "output/ilide.info-bebe-accidental_br_v28_pdf_epub_fixed.epub",
+      "output": "input-fixed/v29",
+      "file": "ilide.info-bebe-accidental_br_v29_pdf_epub_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v29_pdf_epub_fixed.epub",
+      "createdAt": "2026-06-09T03:39:03.758Z",
+      "step": 29,
+      "metadata": {
+        "source": "pdf_epub_review_queue",
+        "approvedItems": 396,
+        "replacementsApplied": 1,
+        "changedEntries": 1
+      }
+    },
+    {
+      "version": 30,
+      "source": "output/ilide.info-bebe-accidental_br_v29_pdf_epub_fixed.epub",
+      "output": "input-fixed/v30",
+      "file": "ilide.info-bebe-accidental_br_v30_pdf_epub_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v30_pdf_epub_fixed.epub",
+      "createdAt": "2026-06-09T12:57:43.790Z",
+      "step": 30,
+      "metadata": {
+        "source": "pdf_epub_review_queue",
+        "approvedItems": 399,
+        "replacementsApplied": 2,
+        "changedEntries": 2
+      }
+    },
+    {
+      "version": 31,
+      "source": "output/ilide.info-bebe-accidental_br_v30_pdf_epub_fixed.epub",
+      "output": "input-fixed/v31",
+      "file": "ilide.info-bebe-accidental_br_v31_pdf_epub_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v31_pdf_epub_fixed.epub",
+      "createdAt": "2026-06-09T13:00:11.070Z",
+      "step": 31,
+      "metadata": {
+        "source": "pdf_epub_review_queue",
+        "approvedItems": 400,
+        "replacementsApplied": 2,
+        "changedEntries": 2
+      }
+    },
+    {
+      "version": 32,
+      "source": "output/ilide.info-bebe-accidental_br_v31_pdf_epub_fixed.epub",
+      "output": "input-fixed/v32",
+      "file": "ilide.info-bebe-accidental_br_v32_pdf_epub_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v32_pdf_epub_fixed.epub",
+      "createdAt": "2026-06-09T14:41:20.284Z",
+      "step": 32,
+      "metadata": {
+        "source": "pdf_epub_review_queue",
+        "approvedItems": 401,
+        "replacementsApplied": 1,
+        "changedEntries": 1
+      }
+    },
+    {
+      "version": 33,
+      "source": "output/ilide.info-bebe-accidental_br_v32_pdf_epub_fixed.epub",
+      "output": "input-fixed/v33",
+      "file": "ilide.info-bebe-accidental_br_v33_pdf_epub_fixed.epub",
+      "finalFile": "ilide.info-bebe-accidental_br_v33_pdf_epub_fixed.epub",
+      "createdAt": "2026-06-09T15:46:46.915Z",
+      "step": 33,
+      "metadata": {
+        "source": "pdf_epub_review_queue",
+        "approvedItems": 401,
+        "replacementsApplied": 25,
+        "changedEntries": 25
+      }
+    }
+  ],
+  "finalOutput": "output"
+}

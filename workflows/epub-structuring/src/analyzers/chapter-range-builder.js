@@ -101,5 +101,5 @@ function isHtml(mediaType) {
 }
 
 function isFrontmatter(href) {
-  return /titlepage|cover|copyright|dedication|toc|nav|index_split_000/.test(href);
+  return /titlepage|cover|copyright|dedication|toc|nav/.test(href);
 }

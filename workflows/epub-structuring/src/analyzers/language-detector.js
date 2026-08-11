@@ -1,13 +1,15 @@
+import { languageBase, normalizeLanguageTag } from '../utils/language-utils.js';
+
 export function detectLanguage(epub, htmlDocs) {
-  const metadataLanguage = epub.opf.metadata.language || null;
+  const metadataLanguage = epub.opf.metadata.language ? normalizeLanguageTag(epub.opf.metadata.language) : null;
   const sample = htmlDocs.map((doc) => doc.text).join('\n').slice(0, 50000).toLowerCase();
   const detectedLanguage = guessLanguage(sample);
   return {
     generatedAt: new Date().toISOString(),
     metadataLanguage,
     detectedLanguage,
-    match: !metadataLanguage || !detectedLanguage || metadataLanguage.split('-')[0] === detectedLanguage,
-    warning: metadataLanguage && detectedLanguage && metadataLanguage.split('-')[0] !== detectedLanguage
+    match: !metadataLanguage || !detectedLanguage || languageBase(metadataLanguage) === detectedLanguage,
+    warning: metadataLanguage && detectedLanguage && languageBase(metadataLanguage) !== detectedLanguage
   };
 }
 

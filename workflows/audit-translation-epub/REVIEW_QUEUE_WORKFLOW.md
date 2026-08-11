@@ -109,3 +109,6 @@ npm run fix:translation:epub
 ```
 
 O `fixEpub` aplica somente itens `approved` validos. Itens `pending`, `rejected` e `needs_context` continuam ignorados e aparecem no `correction-report.json`.
+
+
+--------------------------------------

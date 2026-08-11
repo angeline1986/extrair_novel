@@ -1,0 +1,15 @@
+{
+  "name": "pdf-to-epub",
+  "version": "1.0.0",
+  "description": "Workflow para converter PDF em EPUB 3 válido e auditável.",
+  "type": "module",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node src/main.js"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "fs-extra": "^11.3.0",
+    "pdf-parse": "^1.1.1"
+  }
+}

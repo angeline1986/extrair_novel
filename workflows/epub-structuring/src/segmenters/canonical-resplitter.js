@@ -25,6 +25,12 @@ export function performCanonicalResplit(rangeReport, boundaryReport, epub, outpu
   }
 
   const chapters = [];
+  const supplementalItems = [];
+
+  for (const range of rangeReport.supplementalRanges || []) {
+    const item = extractSupplementalByRange(range, epub, outputDir);
+    if (item) supplementalItems.push(item);
+  }
 
   for (const range of ranges) {
     const chapter = extractChapterByRange(range, epub, outputDir);
@@ -41,7 +47,33 @@ export function performCanonicalResplit(rangeReport, boundaryReport, epub, outpu
   return {
     ok,
     chapterCount: chapters.length,
-    chapters
+    chapters,
+    supplementalItems
+  };
+}
+
+function extractSupplementalByRange(range, epub, outputDir) {
+  const file = epub.spineItems.find(item => item.href === range.startFile);
+  if (!file) return null;
+  const html = readZipText(epub.zip, file.fullPath);
+  const $ = cheerio.load(html, { xmlMode: true, decodeEntities: false });
+  const sourceHeadHtml = $('head').html() || '';
+  const bodyContent = range.endDomPath
+    ? extractBodyFragmentFromStartToBoundary(html, range.endDomPath)
+    : extractWholeBodyFragment(html);
+  const xhtml = buildChapterXhtml({ title: range.title, bodyContent, sourceHeadHtml, lang: epub.opf.metadata.language });
+  const outputPath = path.join(outputDir, range.outputFile);
+  fs.writeFileSync(outputPath, xhtml, 'utf8');
+  const wordCount = wordCountFromXhtml(xhtml);
+  return {
+    role: range.role || 'supplemental',
+    title: range.title,
+    outputFile: range.outputFile,
+    href: range.outputFile,
+    wordCount,
+    firstTextPreview: textPreviewFromXhtml(xhtml, 'first', 160),
+    lastTextPreview: textPreviewFromXhtml(xhtml, 'last', 160),
+    ok: wordCount > 0
   };
 }
 
@@ -65,7 +97,8 @@ function extractChapterByRange(range, epub, outputDir) {
       bodyContent = extractBodyFragmentFromBoundaryToEnd(html, range.startDomPath);
     }
 
-    const xhtml = buildChapterXhtml({ title: range.title, bodyContent, sourceHeadHtml });
+    bodyContent = removeTrailingResidualMarker(bodyContent, range.endBeforeChapterNumber);
+    const xhtml = buildChapterXhtml({ title: range.title, bodyContent, sourceHeadHtml, lang: epub.opf.metadata.language });
     return writeChapterFile(range, xhtml, outputDir);
   }
 
@@ -78,7 +111,7 @@ function extractChapterByRange(range, epub, outputDir) {
   const $ = cheerio.load(firstHtml, { xmlMode: true, decodeEntities: false });
   const sourceHeadHtml = $('head').html() || '';
 
-  const xhtml = buildChapterXhtml({ title: range.title, bodyContent, sourceHeadHtml });
+  const xhtml = buildChapterXhtml({ title: range.title, bodyContent, sourceHeadHtml, lang: epub.opf.metadata.language });
   return writeChapterFile(range, xhtml, outputDir);
 }
 
@@ -107,11 +140,22 @@ function extractMultiFileChapter(range, epub) {
   if (range.endFile !== range.startFile && range.endDomPath) {
     const endFile = epub.spineItems.find(item => item.href === range.endFile);
     const endHtml = readZipText(epub.zip, endFile.fullPath);
-    const endContent = extractBodyFragmentFromStartToBoundary(endHtml, range.endDomPath);
-    contentParts.push(endContent);
+    const endContent = extractOptionalBodyStartToBoundary(endHtml, range.endDomPath);
+    if (endContent) contentParts.push(endContent);
   }
 
   return contentParts.join('\n');
+}
+
+function extractOptionalBodyStartToBoundary(html, endDomPath) {
+  try {
+    return extractBodyFragmentFromStartToBoundary(html, endDomPath);
+  } catch (error) {
+    if (String(error?.message || '').startsWith('EMPTY_EXTRACTED_RANGE:')) {
+      return '';
+    }
+    throw error;
+  }
 }
 
 function writeChapterFile(range, xhtml, outputDir) {
@@ -137,4 +181,23 @@ function writeChapterFile(range, xhtml, outputDir) {
     containsNextChapterMarker,
     ok: wordCount > 0 && !containsNextChapterMarker
   };
+}
+
+function removeTrailingResidualMarker(fragment, nextChapterNumber) {
+  if (!nextChapterNumber) return fragment;
+  const $ = cheerio.load(`<body>${fragment}</body>`, { xmlMode: true, decodeEntities: false });
+  const last = $('body').find('p,div,h1,h2,h3,h4').last();
+  if (!last.length) return fragment;
+  const html = last.html() || '';
+  const text = last.text().replace(/\s+/g, ' ').trim();
+  const marker = String(nextChapterNumber);
+  if (text === marker) {
+    last.remove();
+    return $('body').html() || '';
+  }
+  if (text.endsWith(` ${marker}`) && new RegExp(`\\s${marker}\\s*$`).test(html)) {
+    last.html(html.replace(new RegExp(`\\s${marker}\\s*$`), ''));
+    return $('body').html() || '';
+  }
+  return fragment;
 }

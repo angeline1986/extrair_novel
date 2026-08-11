@@ -5,7 +5,9 @@
   "type": "module",
   "main": "src/main.js",
   "scripts": {
-    "start": "node src/main.js"
+    "start": "node src/main.js",
+    "menu": "node src/cli/menu.js",
+    "test": "node --test"
   },
   "dependencies": {
     "adm-zip": "^0.5.16",

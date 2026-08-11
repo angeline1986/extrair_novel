@@ -1,0 +1,6 @@
+input/*.pdf
+output/*
+reports/*
+OEBPS/*
+*.epub
+!.gitkeep

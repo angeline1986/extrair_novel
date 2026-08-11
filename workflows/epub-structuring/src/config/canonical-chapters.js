@@ -14,7 +14,7 @@ export const KNOWN_CANONICAL_BOOKS = [
 ];
 
 export function findKnownCanonicalBook({ epub, pdfPath, pdfText }) {
-  const haystack = [epub?.opf?.metadata?.title, epub?.sourcePath, pdfPath, pdfText?.slice(0, 2000)]
+  const haystack = [epub?.opf?.metadata?.title, epub?.sourcePath]
     .filter(Boolean)
     .join('\n');
   return KNOWN_CANONICAL_BOOKS.find((book) => book.match.some((pattern) => pattern.test(haystack))) || null;

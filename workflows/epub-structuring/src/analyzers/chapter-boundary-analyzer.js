@@ -1,6 +1,8 @@
 import * as cheerio from 'cheerio';
 import { readZipText } from '../utils/zip-utils.js';
 import { cleanText } from '../utils/text-utils.js';
+import { parseChapterHeading, normalizeChapterTitle } from '../utils/chapter-parser.js';
+import { collectDomChapterCandidates, isBibliographicNumberedText } from '../utils/dom-chapter-candidates.js';
 
 export function analyzeChapterBoundaries(epub, chapterReport) {
   const canonicalChapters = chapterReport.chapters;
@@ -37,6 +39,27 @@ export function analyzeChapterBoundaries(epub, chapterReport) {
   const duplicateMatches = [];
   const ambiguousMatches = [];
   const rejectedCandidates = [];
+
+  for (const chapter of canonicalChapters) {
+    if (chapter.detectionSource !== 'book-structure-override' || !chapter.domPath) continue;
+    matches.set(chapter.chapterNumber, {
+      chapterNumber: chapter.chapterNumber,
+      title: chapter.finalTitle || chapter.title,
+      candidate: {
+        href: chapter.sourceHref || chapter.href,
+        spineIndex: chapter.spineIndex,
+        node: 'book-structure-override',
+        nodeIndex: chapter.index,
+        domPath: chapter.domPath,
+        text: chapter.overrideBoundaryText || chapter.overrideMatchedText || chapter.detectedTitle || chapter.title,
+        previousText: '',
+        nextText: '',
+        confidence: 1,
+        combined: false,
+        titleDomPath: null
+      }
+    });
+  }
   
   for (const candidate of allCandidates) {
     const matched = matchToCanonicalStrict(candidate, canonicalChapters, titleFrequency);
@@ -139,73 +162,30 @@ export function analyzeChapterBoundaries(epub, chapterReport) {
 }
 
 function findChapterStartCandidates($, href, spineIndex) {
-  const candidates = [];
   let nodeIndex = 0;
-  const allElements = [];
-  
-  // Coletar todos os elementos relevantes
-  const selectors = 'h1, h2, h3, p, div, span, b, strong';
-  $(selectors).each((_, el) => {
-    const $el = $(el);
-    const text = cleanText($el.text());
-    if (text && !isGenericText(text)) {
-      allElements.push({
-        el,
-        text,
-        tagName: el.tagName,
-        domPath: getDomPath($, el)
-      });
-    }
-  });
-  
-  // Detectar títulos compostos (múltiplos nós adjacentes)
-  for (let i = 0; i < allElements.length; i++) {
-    const current = allElements[i];
-    
-    // Verificar se é um candidato isolado
-    if (hasChapterNumber(current.text)) {
-      const context = getContext($, current.el);
-      candidates.push({
+  return collectDomChapterCandidates($, 'body', { sourceHref: href, spineIndex })
+    .filter((candidate) => hasChapterNumber(candidate.text))
+    .filter((candidate) => {
+      const parsed = parseChapterHeading(candidate.text);
+      return candidate.combined || parsed.format !== 'numbered-punctuation' || !isBibliographicNumberedText(candidate.text);
+    })
+    .map((candidate) => {
+      const target = $(candidate.domPath).get(0);
+      const context = target ? getContext($, target) : { previous: '', next: '' };
+      return {
         href,
         spineIndex,
-        node: current.tagName,
+        node: candidate.combined ? `${candidate.tagName}+sibling` : candidate.tagName,
         nodeIndex: nodeIndex++,
-        domPath: current.domPath,
-        text: current.text,
+        domPath: candidate.domPath,
+        text: candidate.text,
         previousText: context.previous,
-        nextText: context.next,
-        confidence: calculateConfidence(current.text, current.tagName)
-      });
-      continue;
-    }
-    
-    // Verificar se é parte de título composto (ex: "2." seguido de "Reunión")
-    if (isChapterNumberFragment(current.text)) {
-      // Olhar para o próximo elemento
-      if (i + 1 < allElements.length) {
-        const next = allElements[i + 1];
-        const combinedText = `${current.text} ${next.text}`;
-        
-        if (hasChapterNumber(combinedText)) {
-          const context = getContext($, current.el);
-          candidates.push({
-            href,
-            spineIndex,
-            node: `${current.tagName}+${next.tagName}`,
-            nodeIndex: nodeIndex++,
-            domPath: `${current.domPath}+${next.domPath}`,
-            text: combinedText,
-            previousText: context.previous,
-            nextText: getContext($, next.el).next,
-            confidence: calculateConfidence(combinedText, current.tagName) * 0.9
-          });
-          i++;
-        }
-      }
-    }
-  }
-  
-  return candidates;
+        nextText: candidate.titleText || context.next,
+        confidence: calculateConfidence(candidate.text, candidate.tagName),
+        combined: candidate.combined || false,
+        titleDomPath: candidate.titleDomPath || null
+      };
+    });
 }
 
 function getContext($, el) {
@@ -282,29 +262,21 @@ function matchToCanonicalStrict(candidate, canonicalChapters, titleFrequency) {
 }
 
 function normalizeText(text) {
-  return text
-    .toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^\w\s]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return normalizeChapterTitle(text);
 }
 
 function extractChapterNumber(text) {
-  const match = text.match(/^(\d{1,3})[\.\)]\s+/);
-  return match ? parseInt(match[1], 10) : null;
+  const parsed = parseChapterHeading(text);
+  return parsed.matched ? parsed.chapterNumber : null;
 }
 
 function extractTitleOnly(text) {
-  const numberMatch = text.match(/^(\d{1,3})[\.\)]\s+/);
-  if (numberMatch) {
-    return text.substring(numberMatch[0].length).trim();
-  }
-  return text.trim();
+  const parsed = parseChapterHeading(text);
+  return parsed.matched ? parsed.title : text.trim();
 }
 
 function hasChapterNumber(text) {
-  return /^\d{1,3}[\.\)]\s+/.test(text);
+  return parseChapterHeading(text).matched;
 }
 
 function isChapterNumberFragment(text) {
@@ -335,5 +307,5 @@ function isHtml(mediaType) {
 }
 
 function isFrontmatter(href) {
-  return /titlepage|cover|copyright|dedication|toc|nav|index_split_000/.test(href);
+  return /titlepage|cover|copyright|dedication|toc|nav/.test(href);
 }

@@ -1,0 +1,719 @@
+{
+  "schemaVersion": "1.0",
+  "refactorVersion": "0.26.0",
+  "workflow": "audit-translation-epub",
+  "currentPhase": {
+    "id": "phase-practical-organization",
+    "name": "Saidas separadas em reports/state/logs",
+    "status": "active",
+    "description": "Estado operacional foi separado de relatorios e logs para facilitar limpeza e uso incremental."
+  },
+  "timestamps": {
+    "createdAt": "2026-05-24T23:37:47Z",
+    "updatedAt": "2026-05-26T16:10:00Z"
+  },
+  "completedTasks": [
+    {
+      "id": "docs-refactor-plan",
+      "title": "Criar plano tecnico consolidado do refactor",
+      "status": "done"
+    },
+    {
+      "id": "docs-refactor-status",
+      "title": "Criar memoria persistente em Markdown do status do refactor",
+      "status": "done"
+    },
+    {
+      "id": "docs-refactor-state",
+      "title": "Criar estado estruturado legivel por maquina",
+      "status": "done"
+    },
+    {
+      "id": "logs-subfolders",
+      "title": "Definir estrutura de logs em json/html/txt",
+      "status": "done"
+    },
+    {
+      "id": "reports-docx-like",
+      "title": "Aproximar relatorios HTML do padrao visual do workflow DOCX",
+      "status": "done"
+    },
+    {
+      "id": "correction-contracts",
+      "title": "Definir contratos de correctionCandidates e correctionPlan",
+      "status": "done"
+    },
+    {
+      "id": "candidate-builder",
+      "title": "Criar geracao de correctionCandidates a partir dos achados da auditoria",
+      "status": "done"
+    },
+    {
+      "id": "correction-planner",
+      "title": "Criar src/correction/correctionPlanner.js e gerar correction-plan.json",
+      "status": "done"
+    },
+    {
+      "id": "xhtml-mapper",
+      "title": "Criar mapeamento estavel de arquivos XHTML, paragrafos e text nodes",
+      "status": "done"
+    },
+    {
+      "id": "xhtml-correction-engine",
+      "title": "Criar motor de aplicacao segura de correctionPlan em XHTML",
+      "status": "done"
+    },
+    {
+      "id": "terminology-normalizer",
+      "title": "Implementar normalizacao terminologica segura baseada em glossario",
+      "status": "done"
+    },
+    {
+      "id": "entity-normalizer",
+      "title": "Implementar normalizacao de aliases seguros de entidades",
+      "status": "done"
+    },
+    {
+      "id": "post-correction-validation",
+      "title": "Validar EPUB corrigido e confirmar correcoes aplicadas",
+      "status": "done"
+    },
+    {
+      "id": "post-correction-reaudit-full",
+      "title": "Implementar reauditoria automatica completa e comparativo issues/warnings",
+      "status": "done"
+    },
+    {
+      "id": "dashboard-correction-visibility",
+      "title": "Exibir correction report, validacao pos-correcao e reauditoria nos dashboards",
+      "status": "done"
+    },
+    {
+      "id": "review-queue",
+      "title": "Gerar fila de revisao para actions auto_review/manual_only",
+      "status": "done"
+    },
+    {
+      "id": "review-approval-application",
+      "title": "Aplicar somente itens approved da review queue com before/after validos",
+      "status": "done"
+    },
+    {
+      "id": "review-queue-workflow-docs",
+      "title": "Documentar e validar fluxo manual da review queue",
+      "status": "done"
+    },
+    {
+      "id": "assisted-review-suggestions",
+      "title": "Gerar sugestoes assistidas para itens auto_review pendentes",
+      "status": "done"
+    },
+    {
+      "id": "assisted-review-suggestion-quality",
+      "title": "Melhorar qualidade e classificacao das sugestoes assistidas",
+      "status": "done"
+    },
+    {
+      "id": "review-context-enrichment",
+      "title": "Enriquecer review queue e assisted review com contexto expandido",
+      "status": "done"
+    },
+    {
+      "id": "chapter-alignment-safe",
+      "title": "Implementar alinhamento seguro entre EPUB original e traduzido",
+      "status": "done"
+    },
+    {
+      "id": "assisted-review-with-alignment",
+      "title": "Usar originalAlignedText confiavel para sugestoes assistidas conservadoras",
+      "status": "done"
+    },
+    {
+      "id": "paragraph-alignment-safe",
+      "title": "Implementar alinhamento seguro de paragrafo dentro do capitulo",
+      "status": "done"
+    },
+    {
+      "id": "stabilization-and-tests",
+      "title": "Adicionar validacoes minimas do pipeline EPUB",
+      "status": "done"
+    },
+    {
+      "id": "assisted-model-adapter",
+      "title": "Integrar adapter Ollama opcional para sugestoes assistidas",
+      "status": "done"
+    },
+    {
+      "id": "model-output-contract",
+      "title": "Ajustar contrato de saida do modelo para paragrafo completo ou patch localizado",
+      "status": "done"
+    },
+    {
+      "id": "manual-approved-suggestion-test",
+      "title": "Testar aplicacao real de uma sugestao assistida aprovada manualmente",
+      "status": "done"
+    },
+    {
+      "id": "semantic-consistency-audit",
+      "title": "Criar auditoria semantica separada de correctionCandidates",
+      "status": "done"
+    },
+    {
+      "id": "semantic-review-integration",
+      "title": "Integrar candidatos semanticos relevantes a review queue",
+      "status": "done"
+    },
+    {
+      "id": "semantic-review-with-ollama",
+      "title": "Testar review semantica com Ollama habilitado",
+      "status": "done"
+    },
+    {
+      "id": "model-validation-hardening",
+      "title": "Endurecer contrato e validacao das sugestoes do modelo",
+      "status": "done"
+    },
+    {
+      "id": "separate-reports-state-logs",
+      "title": "Separar reports, state e logs no workflow EPUB",
+      "status": "done"
+    }
+  ],
+  "inProgressTasks": [],
+  "pendingTasks": [
+    {
+      "id": "gender-agreement-fixer",
+      "title": "Implementar correcao contextual inicial de genero e concordancia",
+      "priority": "medium",
+      "dependsOn": [
+        "entity-normalizer",
+        "xhtml-correction-engine"
+      ]
+    },
+    {
+      "id": "residual-english-fixer",
+      "title": "Implementar tratamento de residuos em ingles",
+      "priority": "medium",
+      "dependsOn": [
+        "xhtml-correction-engine"
+      ]
+    },
+    {
+      "id": "shared-modules",
+      "title": "Avaliar extracao de componentes compartilhados entre DOCX e EPUB",
+      "priority": "medium",
+      "dependsOn": [
+        "post-correction-reaudit"
+      ]
+    }
+  ],
+  "milestones": [
+    {
+      "id": "m1-contracts",
+      "name": "Contratos de correcao",
+      "status": "done",
+      "deliverables": [
+        "correctionCandidates no audit-report",
+        "correctionPlan gerado sem aplicar alteracoes"
+      ]
+    },
+    {
+      "id": "m2-xhtml-mapping",
+      "name": "Mapeamento XHTML",
+      "status": "done",
+      "deliverables": [
+        "xhtmlMapper.js",
+        "spine/ordem de leitura mapeada",
+        "filePath/spineIndex/paragraphIndex/textNodeIndex/textPreview em candidates",
+        "correctionPlan enriquecido com localizacoes XHTML"
+      ]
+    },
+    {
+      "id": "m3-safe-terminology-application",
+      "name": "Aplicacao segura de terminologia",
+      "status": "done",
+      "deliverables": [
+        "xhtmlCorrectionEngine.js",
+        "aplicacao apenas de actions auto_safe com confidence >= 0.9",
+        "correction-report.json",
+        "EPUB corrigido em output",
+        "auto_review e manual_only ignoradas"
+      ]
+    },
+    {
+      "id": "m4-terminology-glossary",
+      "name": "Glossario terminologico seguro",
+      "status": "done",
+      "deliverables": [
+        "input/glossary/terms.json",
+        "input/glossary/entities.json",
+        "terminologyNormalizer.js",
+        "entityNormalizer.js",
+        "actions auto_safe a partir de glossario",
+        "correction-report com before/after"
+      ]
+    },
+    {
+      "id": "m2-safe-normalization",
+      "name": "Normalizacao segura",
+      "status": "done",
+      "deliverables": [
+        "terminologyNormalizer",
+        "entityNormalizer",
+        "correcoes auto_safe aplicadas em XHTML"
+      ]
+    },
+    {
+      "id": "m5-post-correction-validation",
+      "name": "Validacao pos-correcao",
+      "status": "done",
+      "deliverables": [
+        "postCorrectionValidator.js",
+        "validacao tecnica EPUB",
+        "comparacao textual traduzido vs corrigido",
+        "confirmacao de correcoes no texto final",
+        "post-correction-validation.json"
+      ]
+    },
+    {
+      "id": "m6-automatic-reaudit",
+      "name": "Reauditoria automatica",
+      "status": "done",
+      "deliverables": [
+        "reaudit-report.json",
+        "reauditoria-summary.json",
+        "comparativo issues/warnings antes/depois",
+        "classificacao improvement/regression/neutral"
+      ]
+    },
+    {
+      "id": "m7-correction-report-dashboard",
+      "name": "Dashboard de correcoes",
+      "status": "done",
+      "deliverables": [
+        "secao de correcoes no audit-dashboard-latest.html",
+        "aba Correcoes no validation-report-latest.html",
+        "exibicao de correcoes aplicadas com before/after/filePath/nodeId/confidence",
+        "exibicao de acoes ignoradas auto_review/manual_only",
+        "resumo de validacao pos-correcao e reauditoria",
+        "correction-report-latest.md"
+      ]
+    },
+    {
+      "id": "m8-review-queue",
+      "name": "Fila de revisao",
+      "status": "done",
+      "deliverables": [
+        "reviewQueue.js",
+        "review-queue.json",
+        "review-queue-latest.md",
+        "status pending/approved/rejected/needs_context por item",
+        "resumo da fila no dashboard",
+        "preparacao para aprovacao manual futura sem aplicacao"
+      ]
+    },
+    {
+      "id": "m9-review-approval-application",
+      "name": "Aplicacao de aprovacoes manuais",
+      "status": "done",
+      "deliverables": [
+        "approvedCorrectionsReader.js",
+        "leitura de review-queue.json pelo fixEpub.js",
+        "aplicacao somente de status approved",
+        "pending/rejected/needs_context ignorados",
+        "validacao obrigatoria de before/after antes de aplicar",
+        "correction-report com origem review_queue_approved"
+      ]
+    },
+    {
+      "id": "m10-review-queue-workflow-docs",
+      "name": "Documentacao e validacao da review queue",
+      "status": "done",
+      "deliverables": [
+        "REVIEW_QUEUE_WORKFLOW.md",
+        "validateReviewQueue.js",
+        "reviewQueueValidator.js",
+        "script npm run review:translation:epub:validate",
+        "bloqueio de approved invalido no fixEpub"
+      ]
+    },
+    {
+      "id": "m11-assisted-review-suggestions",
+      "name": "Sugestoes assistidas de revisao",
+      "status": "done",
+      "deliverables": [
+        "assistedReview.js",
+        "assisted-review-suggestions.json",
+        "assisted-review-suggestions-latest.md",
+        "dashboard com sugestoes assistidas",
+        "requiresHumanApproval true em todas as sugestoes"
+      ]
+    },
+    {
+      "id": "m12-assisted-review-suggestion-quality",
+      "name": "Qualidade das sugestoes assistidas",
+      "status": "done",
+      "deliverables": [
+        "suggestionStatus em assisted-review-suggestions.json",
+        "categorias suggestion_available/needs_human_translation/insufficient_context",
+        "reason detalhado",
+        "confidence conservadora",
+        "dashboard com classificacao de sugestoes"
+      ]
+    },
+    {
+      "id": "m13-review-context-enrichment",
+      "name": "Enriquecimento de contexto de revisao",
+      "status": "done",
+      "deliverables": [
+        "previousParagraph/currentParagraph/nextParagraph na review queue",
+        "originalAlignedText quando disponivel",
+        "contexto expandido nas sugestoes assistidas",
+        "dashboard com contexto expandido",
+        "previews limitados"
+      ]
+    },
+    {
+      "id": "m14-chapter-alignment-safe",
+      "name": "Alinhamento seguro de capitulos",
+      "status": "done",
+      "deliverables": [
+        "chapterAligner.js",
+        "alignmentConfidence/alignmentReason",
+        "originalAlignedText apenas com alinhamento confiavel",
+        "fallback por indice com baixa confianca",
+        "dashboards com confianca de alinhamento"
+      ]
+    },
+    {
+      "id": "m15-assisted-review-with-alignment",
+      "name": "Sugestoes assistidas com alinhamento",
+      "status": "done",
+      "deliverables": [
+        "originalAlignedText usado em assistedReview.js",
+        "suggestedAfter apenas com heuristica segura",
+        "reason com relacao original/traducao/contexto",
+        "requiresHumanApproval true",
+        "insufficient_context preservado quando nao ha seguranca"
+      ]
+    },
+    {
+      "id": "m16-paragraph-alignment-safe",
+      "name": "Alinhamento seguro de paragrafos",
+      "status": "done",
+      "deliverables": [
+        "paragraphAlignmentConfidence",
+        "paragraphAlignmentReason",
+        "originalAlignedText apenas com paragrafo confiavel",
+        "heuristicas de nomes/numeros/pontuacao/comprimento",
+        "dashboards com alinhamento de paragrafo"
+      ]
+    },
+    {
+      "id": "m17-stabilization-and-tests",
+      "name": "Estabilizacao e testes minimos",
+      "status": "done",
+      "deliverables": [
+        "validatePipeline.js",
+        "npm run validate:translation:epub",
+        "fixtures temporarias EPUB",
+        "checklist de validacao",
+        "validacao de contratos centrais"
+      ]
+    },
+    {
+      "id": "m18-assisted-model-adapter",
+      "name": "Adapter opcional de modelo assistido",
+      "status": "done",
+      "deliverables": [
+        "modelAdapter.js",
+        "ollamaAdapter.js",
+        "fallback deterministico quando Ollama esta desativado ou falha",
+        "assisted-review-model-trace.json",
+        "validacao conservadora de suggestedAfter",
+        "dashboards com origem Ollama/fallback",
+        "requiresHumanApproval true em todas as sugestoes"
+      ]
+    },
+    {
+      "id": "m3-reaudit",
+      "name": "Reauditoria comparativa",
+      "status": "done",
+      "deliverables": [
+        "auditoria antes/depois",
+        "relatorio de correcoes",
+        "metricas de mudanca textual real"
+      ]
+    },
+    {
+      "id": "m4-contextual-correction",
+      "name": "Correcao contextual",
+      "status": "pending",
+      "deliverables": [
+        "genderAgreementFixer",
+        "residualEnglishFixer",
+        "modo auto_review"
+      ]
+    },
+    {
+      "id": "m19-model-output-contract",
+      "name": "Contrato de saida do modelo",
+      "status": "done",
+      "deliverables": [
+        "prompt explicito para full_paragraph",
+        "targetBefore/replacementAfter/patchMode opcionais",
+        "validacao de localized_patch com targetBefore literal",
+        "trace com patchMode e rejeicoes",
+        "requiresHumanApproval true em todas as sugestoes"
+      ]
+    },
+    {
+      "id": "m20-manual-approved-suggestion-test",
+      "name": "Teste de sugestao aprovada manualmente",
+      "status": "done",
+      "deliverables": [
+        "1 sugestao suggestion_available aprovada",
+        "review queue validada com 1 approved e 1 pending",
+        "fixEpub aplicou review_queue_approved",
+        "validacao pos-correcao OK",
+        "reauditoria improvement",
+        "manifest operacional restaurado apos teste"
+      ]
+    },
+    {
+      "id": "m21-semantic-consistency-audit",
+      "name": "Auditoria semantica e consistencia textual",
+      "status": "done",
+      "deliverables": [
+        "semanticConsistencyAudit.js",
+        "semantic-candidates.json",
+        "semanticCandidates separados do correctionPlan",
+        "dashboard/relatorio com candidatos semanticos",
+        "sem aplicacao automatica"
+      ],
+      "calibration": {
+        "before": {
+          "total": 96,
+          "severity": {
+            "low": 32,
+            "medium": 43,
+            "high": 21
+          }
+        },
+        "after": {
+          "total": 40,
+          "severity": {
+            "low": 8,
+            "medium": 32,
+            "high": 0
+          }
+        },
+        "adjustedRules": [
+          "ignore single-digit footnote-like numbers",
+          "normalize thousands separators before number comparison",
+          "require direct-address treatment signals in quoted text",
+          "tighten repetition anomaly minimum size"
+        ]
+      }
+    },
+    {
+      "id": "m22-semantic-review-integration",
+      "name": "Integracao da review semantica",
+      "status": "done",
+      "deliverables": [
+        "semanticCandidates medium selecionados para review queue",
+        "origin semantic_audit",
+        "status pending",
+        "mode auto_review",
+        "sem auto_safe",
+        "dashboards separam correctionPlan/semantic/review semantica"
+      ]
+    },
+    {
+      "id": "m23-semantic-review-with-ollama",
+      "name": "Review semantica com Ollama",
+      "status": "done",
+      "deliverables": [
+        "33 requisicoes ao Ollama",
+        "32 itens semantic_audit processados",
+        "19 sugestoes suggestion_available",
+        "14 rejeicoes conservadoras",
+        "0 alteracoes em EPUB/output/input-fixed"
+      ],
+      "result": {
+        "ollamaResponded": true,
+        "semanticItemsProcessed": 32,
+        "ollamaSuggestions": 19,
+        "suggestionAvailable": 19,
+        "rejectedByValidation": 14,
+        "insufficientContext": 14,
+        "needsHumanTranslation": 0,
+        "rejectionReasons": {
+          "model_localized_patch_length_ratio_out_of_range:0.31": 3,
+          "model_localized_patch_target_not_found": 3,
+          "model_localized_patch_length_ratio_out_of_range:0.34": 1,
+          "model_localized_patch_does_not_preserve_protected_tokens": 7
+        },
+        "epubOutputChanged": false
+      }
+    },
+    {
+      "id": "m24-model-validation-hardening",
+      "name": "Endurecimento da validacao do modelo",
+      "status": "done",
+      "deliverables": [
+        "prompt do Ollama reforcado para targetBefore literal e patches proporcionais",
+        "validationDetails no assisted-review-model-trace.json",
+        "match seguro entre aspas retas e tipograficas",
+        "bloqueio de numeros alterados",
+        "bloqueio de marcadores/termos ingleses inseguros",
+        "bloqueio de sugestoes semanticas puramente estilisticas",
+        "0 alteracoes em EPUB/output/input-fixed"
+      ],
+      "result": {
+        "before": {
+          "accepted": 19,
+          "rejected": 14,
+          "rejectionReasons": {
+            "model_localized_patch_length_ratio_out_of_range:0.31": 3,
+            "model_localized_patch_target_not_found": 3,
+            "model_localized_patch_length_ratio_out_of_range:0.34": 1,
+            "model_localized_patch_does_not_preserve_protected_tokens": 7
+          }
+        },
+        "after": {
+          "accepted": 13,
+          "rejected": 20,
+          "rejectionReasons": {
+            "model_localized_patch_does_not_preserve_protected_tokens": 8,
+            "model_localized_patch_target_not_found": 5,
+            "model_localized_patch_introduces_unsafe_marker_or_english_term": 2,
+            "model_localized_patch_semantic_overlap_too_low:0.00": 1,
+            "model_localized_patch_does_not_preserve_numbers": 1,
+            "model_localized_patch_style_only_reason": 3
+          },
+          "suggestionAvailable": 13,
+          "insufficientContext": 20
+        },
+        "perceivedFalsePositiveIncrease": false,
+        "epubOutputChanged": false
+      }
+    }
+  ],
+  "priorities": {
+    "high": [
+      "correctionCandidates",
+      "correctionPlan",
+      "xhtmlCorrectionEngine",
+      "terminologyNormalizer",
+      "entityNormalizer",
+      "reauditoria automatica"
+    ],
+    "medium": [
+      "genderAgreementFixer",
+      "residualEnglishFixer",
+      "componentes compartilhados"
+    ],
+    "low": [
+      "reescrita semantica ampla",
+      "reconstrucao automatica de secoes ausentes"
+    ]
+  },
+  "dependencies": {
+    "docxWorkflow": {
+      "reusableIdeas": [
+        "reportWriter",
+        "workflow-events",
+        "versionWorkflow",
+        "entities",
+        "gtPatterns",
+        "fix-gender",
+        "ollamaReviewer"
+      ],
+      "constraints": [
+        "Nao herdar glossario especifico de outra obra",
+        "Nao aplicar manipulacao DOCX ao EPUB",
+        "Adaptar regras ao XHTML"
+      ]
+    }
+  },
+  "moduleStatus": {
+    "audit.js": "emits_correction_candidates",
+    "checks.js": "existing_can_feed_candidates",
+    "epubReader.js": "existing_text_extractor",
+    "xhtmlMapper.js": "implemented_maps_spine_paragraphs_text_nodes",
+    "fixEpub.js": "consumes_correction_plan_runs_validation_and_reaudit",
+    "logReader.js": "existing_can_feed_normalization",
+    "menu.js": "existing_operational",
+    "correctionTypes.js": "implemented",
+    "correctionPlanner.js": "implemented_generates_plan_without_applying",
+    "xhtmlCorrectionEngine.js": "implemented_applies_auto_safe_only",
+    "terminologyNormalizer.js": "implemented_glossary_terms",
+    "entityNormalizer.js": "implemented_safe_aliases_only",
+    "postCorrectionValidator.js": "implemented_validates_epub_and_text_changes",
+    "reviewQueue.js": "implemented_generates_pending_review_items",
+    "approvedCorrectionsReader.js": "implemented_converts_approved_review_items",
+    "epubDashboardWriter.js": "implemented_correction_visibility",
+    "epubValidationWriter.js": "implemented_corrections_tab",
+    "genderAgreementFixer.js": "missing",
+    "residualEnglishFixer.js": "missing",
+    "epubValidator.js": "missing",
+    "epubVersionWorkflow.js": "missing",
+    "reviewQueueValidator": "implemented_validates_manual_review_queue",
+    "validateReviewQueue.js": "implemented_cli_validation",
+    "assistedReview": "hardened_ollama_validation_with_trace_details",
+    "modelAdapter": "implemented_optional_model_contract",
+    "ollamaAdapter": "implemented_optional_assisted_review_provider_with_hardened_patch_prompt",
+    "reviewQueue": "validated_semantic_audit_pending_items_with_ollama",
+    "chapterAligner": "implemented_safe_chapter_and_paragraph_alignment",
+    "validatePipeline": "implemented_contract_validation_script",
+    "approvedCorrectionsReader": "validated_applies_assisted_review_approved_item",
+    "fixEpub": "reads_state_and_reports_separately",
+    "semanticConsistencyAudit": "implemented_generates_separate_semantic_candidates",
+    "audit_js": "writes_reports_state_and_logs_separately",
+    "epubDashboardWriter": "implemented_semantic_review_origin_visibility",
+    "epubValidationWriter": "implemented_semantic_review_origin_visibility",
+    "menu": "cleans_reports_without_removing_operational_state"
+  },
+  "risks": [
+    {
+      "id": "risk-xhtml-breakage",
+      "description": "Correcoes podem quebrar XHTML se aplicadas como string bruta.",
+      "severity": "high",
+      "mitigation": "Aplicar apenas em text nodes parseados."
+    },
+    {
+      "id": "risk-entity-false-positive",
+      "description": "Aliases de outra obra podem gerar normalizacoes erradas.",
+      "severity": "high",
+      "mitigation": "Usar glossario escopado por obra."
+    },
+    {
+      "id": "risk-contextual-overcorrection",
+      "description": "Correcoes de genero/concordancia podem alterar sentido.",
+      "severity": "medium",
+      "mitigation": "Comecar com regras auto_safe e enviar casos ambiguos para auto_review."
+    },
+    {
+      "id": "risk-no-textual-improvement",
+      "description": "EPUB corrigido pode diferir apenas no container, sem melhoria textual.",
+      "severity": "high",
+      "mitigation": "Medir diff textual real antes/depois."
+    }
+  ],
+  "updateProcess": {
+    "requiredFiles": [
+      "EPUB_REFACTOR_PLAN.md",
+      "REFACTOR_STATUS.md",
+      "refactor-state.json"
+    ],
+    "afterEachMajorStep": [
+      "Registrar implementacao concluida",
+      "Registrar decisoes arquiteturais",
+      "Registrar mudancas estruturais",
+      "Registrar problemas e riscos",
+      "Atualizar proximos passos",
+      "Atualizar timestamps"
+    ]
+  }
+}
