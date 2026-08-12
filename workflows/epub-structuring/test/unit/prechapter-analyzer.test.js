@@ -191,9 +191,11 @@ test('listEpubs supports multiple EPUBs without using findSingleEpub', async () 
 
 test('parseEpubSelection supports todos, lists, ranges and dedupe', () => {
   assert.deepEqual(parseEpubSelection('todos', 4).indexes, [1, 2, 3, 4]);
+  assert.deepEqual(parseEpubSelection('5', 4).indexes, [1, 2, 3, 4]);
   assert.deepEqual(parseEpubSelection('1,2,3', 4).indexes, [1, 2, 3]);
   assert.deepEqual(parseEpubSelection('1-4', 4).indexes, [1, 2, 3, 4]);
   assert.deepEqual(parseEpubSelection('1,2,2,3', 4).indexes, [1, 2, 3]);
+  assert.match(parseEpubSelection('5', 4, { allowAll: false }).error, /fora da lista/);
   assert.match(parseEpubSelection('9', 4).error, /fora da lista/);
   assert.match(parseEpubSelection('2-1', 4).error, /Intervalo inválido/);
 });

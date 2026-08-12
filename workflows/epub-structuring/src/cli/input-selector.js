@@ -19,8 +19,8 @@ export async function selectSingleEpub(terminal, inputDir) {
     return { selected: null, epubs, error: 'Nenhum arquivo .epub encontrado em input/.' };
   }
 
-  printEpubList(epubs);
-  const answer = await terminal.ask('Selecione um EPUB ou 0 para voltar: ');
+  printEpubList(epubs, { allowAll: false });
+  const answer = await terminal.ask('Selecione uma opção: ');
   const selectedIndex = Number(String(answer || '').trim());
   if (selectedIndex === 0) return { selected: null, epubs, cancelled: true };
 
@@ -38,9 +38,13 @@ export async function selectMultipleEpubs(terminal, inputDir) {
     return { selected: [], epubs, error: 'Nenhum arquivo .epub encontrado em input/.' };
   }
 
-  printEpubList(epubs);
-  const answer = await terminal.ask('Selecione EPUBs (ex: 1,2, 1-4, todos) ou 0 para voltar: ');
-  const parsed = parseEpubSelection(answer, epubs.length);
+  const allowAll = epubs.length > 1;
+  printEpubList(epubs, { allowAll });
+  const prompt = allowAll
+    ? `Selecione: 1,2 | 1-${epubs.length} | ${epubs.length + 1} para todos | 0 para voltar: `
+    : 'Selecione uma opção: ';
+  const answer = await terminal.ask(prompt);
+  const parsed = parseEpubSelection(answer, epubs.length, { allowAll });
   if (parsed.cancelled) return { selected: [], epubs, cancelled: true };
   if (parsed.error) return { selected: [], epubs, error: parsed.error };
 
@@ -48,11 +52,12 @@ export async function selectMultipleEpubs(terminal, inputDir) {
   return { selected, epubs };
 }
 
-export function parseEpubSelection(value, max) {
+export function parseEpubSelection(value, max, options = {}) {
+  const { allowAll = true } = options;
   const input = String(value || '').trim().toLowerCase();
   if (!input || input === '0') return { indexes: [], cancelled: input === '0', error: input ? null : 'Seleção vazia.' };
   if (!Number.isInteger(max) || max < 1) return { indexes: [], error: 'Nenhum EPUB disponível.' };
-  if (input === 'todos' || input === 'all') {
+  if (allowAll && (input === 'todos' || input === 'all' || input === String(max + 1))) {
     return { indexes: Array.from({ length: max }, (_, index) => index + 1) };
   }
 
@@ -80,10 +85,13 @@ function validIndex(index, max) {
   return Number.isInteger(index) && index >= 1 && index <= max;
 }
 
-function printEpubList(epubs) {
-  process.stdout.write('\nEPUBs encontrados:\n\n');
+function printEpubList(epubs, options = {}) {
+  const { allowAll = false } = options;
+  process.stdout.write('EPUBs encontrados:\n\n');
   for (const epub of epubs) {
-    process.stdout.write(`[${epub.index}] ${epub.name}\n`);
+    process.stdout.write(`  [${epub.index}] ${epub.name}\n`);
   }
+  if (allowAll) process.stdout.write(`\n  [${epubs.length + 1}] Selecionar todos\n`);
+  process.stdout.write('  [0] Voltar\n');
   process.stdout.write('\n');
 }

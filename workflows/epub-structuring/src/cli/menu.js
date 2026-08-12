@@ -1,7 +1,7 @@
 import fs from 'fs-extra';
 import path from 'node:path';
-import { createTerminal, clearScreen, printInfo, printMainMenu, printPrechapterMenu } from './terminal-ui.js';
-import { selectMultipleEpubs, selectSingleEpub } from './input-selector.js';
+import { createTerminal, clearScreen, formatPrompt, printInfo, printMainMenu, printPrechapterMenu, printSectionHeader } from './terminal-ui.js';
+import { selectMultipleEpubs } from './input-selector.js';
 import { analyzePrechapterContent } from '../features/prechapter/prechapter-analyzer.js';
 import { analyzePrechapterBatch, applyPrechapterBatch } from '../features/prechapter/prechapter-batch.js';
 import { fixPrechapterContent } from '../features/prechapter/prechapter-fixer.js';
@@ -39,6 +39,21 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
+const MENU_OPTIONS = {
+  1: { number: 1, title: 'Analisar EPUB', category: 'analysis' },
+  2: { number: 2, title: 'Detectar capítulos', category: 'analysis' },
+  3: { number: 3, title: 'Reestruturar capítulos', category: 'review' },
+  4: { number: 4, title: 'Revisar títulos dos capítulos', category: 'review' },
+  5: { number: 5, title: 'Analisar / reconstruir sumário', category: 'review' },
+  6: { number: 6, title: 'Verificar idioma', category: 'analysis' },
+  7: { number: 7, title: 'Usar fonte de referência', category: 'edit' },
+  8: { number: 8, title: 'Corrigir conteúdo pré-capítulo', category: 'edit' },
+  9: { number: 9, title: 'Converter / reconstruir como EPUB 3', category: 'edit' },
+  10: { number: 10, title: 'Validar EPUB', category: 'system' },
+  11: { number: 11, title: 'Processamento completo', category: 'system' },
+  12: { number: 12, title: 'Ver relatórios', category: 'system' }
+};
+
 async function runMenu() {
   const terminal = createTerminal();
 
@@ -46,7 +61,7 @@ async function runMenu() {
     while (true) {
       clearScreen();
       printMainMenu();
-      const choice = normalizeChoice(await terminal.ask('Escolha uma opção: '));
+      const choice = normalizeChoice(await terminal.ask(formatPrompt('Escolha uma opção: ')));
 
       if (choice === '0') {
         printInfo('Menu encerrado.');
@@ -54,54 +69,54 @@ async function runMenu() {
       }
 
       if (choice === '1') {
-        await analyzeEpubFromMenu(terminal);
+        await analyzeEpubFromMenu(terminal, MENU_OPTIONS[1]);
         continue;
       }
 
       if (choice === '2') {
-        await detectChaptersFromMenu(terminal);
+        await detectChaptersFromMenu(terminal, MENU_OPTIONS[2]);
         continue;
       }
 
       if (choice === '3') {
-        const executed = await runLegacyPipelineFromMenu(terminal, 'Reestruturar capítulos');
+        const executed = await runLegacyPipelineFromMenu(terminal, MENU_OPTIONS[3]);
         if (executed) return;
         continue;
       }
 
       if (choice === '4') {
-        await reviewChapterTitles(terminal);
+        await reviewChapterTitles(terminal, MENU_OPTIONS[4]);
         continue;
       }
 
       if (choice === '5') {
-        await analyzeTocFromMenu(terminal);
+        await analyzeTocFromMenu(terminal, MENU_OPTIONS[5]);
         continue;
       }
 
       if (choice === '6') {
-        await detectLanguageFromMenu(terminal);
+        await detectLanguageFromMenu(terminal, MENU_OPTIONS[6]);
         continue;
       }
 
       if (choice === '7') {
-        await auditWithReferenceSource(terminal);
+        await auditWithReferenceSource(terminal, MENU_OPTIONS[7]);
         continue;
       }
 
       if (choice === '8') {
-        await showPrechapterPlaceholder(terminal);
+        await showPrechapterPlaceholder(terminal, MENU_OPTIONS[8]);
         continue;
       }
 
       if (choice === '9') {
-        const executed = await runLegacyPipelineFromMenu(terminal, 'Converter / reconstruir como EPUB 3');
+        const executed = await runLegacyPipelineFromMenu(terminal, MENU_OPTIONS[9]);
         if (executed) return;
         continue;
       }
 
       if (choice === '10') {
-        await validateEpubFromMenu(terminal);
+        await validateEpubFromMenu(terminal, MENU_OPTIONS[10]);
         continue;
       }
 
@@ -113,7 +128,7 @@ async function runMenu() {
       }
 
       if (choice === '12') {
-        await browseReports(terminal);
+        await browseReports(terminal, MENU_OPTIONS[12]);
         continue;
       }
 
@@ -131,148 +146,163 @@ async function runMenu() {
   }
 }
 
-async function analyzeEpubFromMenu(terminal) {
+async function analyzeEpubFromMenu(terminal, option) {
   clearScreen();
-  const selected = await selectEpubForMenu(terminal);
-  if (!selected) return;
+  printSectionHeader(option);
+  const selectedEpubs = await selectEpubsForMenu(terminal);
+  if (!selectedEpubs) return;
 
-  const { epub, htmlDocs, tocReport } = readSelectedEpub(selected.path);
-  const report = {
-    generatedAt: new Date().toISOString(),
-    sourceFile: path.relative(process.cwd(), selected.path),
-    title: epub.opf.metadata.title || null,
-    author: epub.opf.metadata.creator || null,
-    language: epub.opf.metadata.language || null,
-    identifier: epub.opf.metadata.identifier || null,
-    manifestItems: epub.manifestItems.length,
-    spineItems: epub.spineItems.length,
-    htmlDocuments: htmlDocs.length,
-    tocEntries: tocReport.entryCount || tocReport.entries?.length || 0,
-    hasNav: tocReport.hasNav,
-    hasNcx: tocReport.hasNcx,
-    containerRootfile: epub.container.rootfilePath
-  };
-  const reportPath = path.join(process.cwd(), 'reports', 'epub_analysis_report.json');
-  await writeJsonReport(reportPath, report);
+  await runForSelectedEpubs(selectedEpubs, async (selected) => {
+    const { epub, htmlDocs, tocReport } = readSelectedEpub(selected.path);
+    const report = {
+      generatedAt: new Date().toISOString(),
+      sourceFile: path.relative(process.cwd(), selected.path),
+      title: epub.opf.metadata.title || null,
+      author: epub.opf.metadata.creator || null,
+      language: epub.opf.metadata.language || null,
+      identifier: epub.opf.metadata.identifier || null,
+      manifestItems: epub.manifestItems.length,
+      spineItems: epub.spineItems.length,
+      htmlDocuments: htmlDocs.length,
+      tocEntries: tocReport.entryCount || tocReport.entries?.length || 0,
+      hasNav: tocReport.hasNav,
+      hasNcx: tocReport.hasNcx,
+      containerRootfile: epub.container.rootfilePath
+    };
+    const reportPath = path.join(process.cwd(), 'reports', 'epub_analysis_report.json');
+    await writeJsonReport(reportPath, report);
 
-  printInfo(`Título: ${report.title || '(sem título)'}`);
-  printInfo(`Idioma metadata: ${report.language || '(ausente)'}`);
-  printInfo(`Manifest: ${report.manifestItems} itens`);
-  printInfo(`Spine: ${report.spineItems} itens`);
-  printInfo(`HTMLs lidos: ${report.htmlDocuments}`);
-  printInfo(`TOC: ${report.tocEntries} entradas`);
-  printInfo(`NAV: ${report.hasNav ? 'sim' : 'não'}; NCX: ${report.hasNcx ? 'sim' : 'não'}`);
-  printInfo(`Relatório: ${path.relative(process.cwd(), reportPath)}`);
-  await pause(terminal);
-}
-
-async function detectChaptersFromMenu(terminal) {
-  clearScreen();
-  const selected = await selectEpubForMenu(terminal);
-  if (!selected) return;
-
-  const { epub, htmlDocs, tocReport } = readSelectedEpub(selected.path);
-  const spineReport = detectChapters(epub, htmlDocs, tocReport, null);
-  const internalReport = detectInternalChapters(epub, htmlDocs);
-  const spinePath = path.join(process.cwd(), 'reports', 'spine_chapter_report.json');
-  const internalPath = path.join(process.cwd(), 'reports', 'internal_chapter_report.json');
-  await writeJsonReport(spinePath, spineReport);
-  await writeJsonReport(internalPath, internalReport);
-
-  printInfo(`Spine/canonical: ${spineReport.chapterCount} capítulos`);
-  printInfo(`Internal-dom: ${internalReport.chapterCount} capítulos`);
-  printInfo(`Internal-dom OK: ${internalReport.ok ? 'sim' : 'não'}`);
-  if (spineReport.issues?.length) printInfo(`Issues spine/canonical: ${spineReport.issues.length}`);
-  if (internalReport.issues?.length) printInfo(`Issues internal-dom: ${internalReport.issues.length}`);
-  printInfo(`Relatório spine: ${path.relative(process.cwd(), spinePath)}`);
-  printInfo(`Relatório internal-dom: ${path.relative(process.cwd(), internalPath)}`);
-  await pause(terminal);
-}
-
-async function detectLanguageFromMenu(terminal) {
-  clearScreen();
-  const selected = await selectEpubForMenu(terminal);
-  if (!selected) return;
-
-  const { epub, htmlDocs } = readSelectedEpub(selected.path);
-  const report = detectLanguage(epub, htmlDocs);
-  const reportPath = path.join(process.cwd(), 'reports', 'language_report.json');
-  await writeJsonReport(reportPath, report);
-
-  printInfo(`Idioma metadata: ${report.metadataLanguage || '(ausente)'}`);
-  printInfo(`Idioma detectado: ${report.detectedLanguage || '(indeterminado)'}`);
-  printInfo(`Compatível: ${report.match ? 'sim' : 'não'}`);
-  if (report.warning) printInfo('Warning: idioma metadata e idioma detectado divergem.');
-  printInfo(`Relatório: ${path.relative(process.cwd(), reportPath)}`);
-  await pause(terminal);
-}
-
-async function analyzeTocFromMenu(terminal) {
-  clearScreen();
-  const selected = await selectEpubForMenu(terminal);
-  if (!selected) return;
-
-  const { tocReport } = readSelectedEpub(selected.path);
-  const report = {
-    ...tocReport,
-    generatedAt: new Date().toISOString(),
-    sourceFile: path.relative(process.cwd(), selected.path),
-    rebuild: {
-      available: false,
-      reason: 'M9.3 expõe somente análise. Reconstrução de nav.xhtml/toc.ncx deve passar por fluxo isolado seguro, sem mini-pipeline paralelo.'
-    }
-  };
-  const reportPath = path.join(process.cwd(), 'reports', 'toc_report.json');
-  await writeJsonReport(reportPath, report);
-
-  printInfo(`NCX: ${report.hasNcx ? 'sim' : 'não'}`);
-  printInfo(`NAV: ${report.hasNav ? 'sim' : 'não'}`);
-  if (report.ncxPath) printInfo(`NCX path: ${report.ncxPath}`);
-  printInfo(`Entradas: ${report.entryCount || report.entries?.length || 0}`);
-  if (report.entries?.length) {
-    printInfo('\nPrimeiras entradas:');
-    for (const entry of report.entries.slice(0, 5)) {
-      printInfo(`- ${entry.label || '(sem label)'} -> ${entry.src}`);
-    }
-  }
-  printInfo('\nReconstrução: indisponível neste milestone.');
-  printInfo('Motivo: requer fluxo isolado seguro de NAV/NCX/OPF, sem duplicar builders.');
-  printInfo(`Relatório: ${path.relative(process.cwd(), reportPath)}`);
-  await pause(terminal);
-}
-
-async function validateEpubFromMenu(terminal) {
-  clearScreen();
-  const selected = await selectEpubForMenu(terminal);
-  if (!selected) return;
-
-  const { epub, htmlDocs, tocReport } = readSelectedEpub(selected.path);
-  const languageReport = detectLanguage(epub, htmlDocs);
-  const chapterReport = detectChapters(epub, htmlDocs, tocReport, null);
-  const structureReport = analyzeStructure(epub, htmlDocs, chapterReport, tocReport, languageReport);
-  const epub3Report = validateEpub3(structureReport, chapterReport, tocReport, languageReport);
-  const packageAudit = runPackageAuditIfAvailable(selected.path);
-  const regression = await runRegressionIfContextExists(selected.path);
-  const report = buildMenuValidationReport({
-    sourceFile: selected.path,
-    epub3Report,
-    structureReport,
-    tocReport,
-    chapterReport,
-    packageAudit,
-    regression
+    printInfo(`Título: ${report.title || '(sem título)'}`);
+    printInfo(`Idioma metadata: ${report.language || '(ausente)'}`);
+    printInfo(`Manifest: ${report.manifestItems} itens`);
+    printInfo(`Spine: ${report.spineItems} itens`);
+    printInfo(`HTMLs lidos: ${report.htmlDocuments}`);
+    printInfo(`TOC: ${report.tocEntries} entradas`);
+    printInfo(`NAV: ${report.hasNav ? 'sim' : 'não'}; NCX: ${report.hasNcx ? 'sim' : 'não'}`);
+    printInfo(`Relatório: ${path.relative(process.cwd(), reportPath)}`);
   });
-  const reportPath = path.join(process.cwd(), 'reports', 'menu_epub_validation_report.json');
-  await writeJsonReport(reportPath, report);
-
-  printValidationSummary(report);
-  printInfo(`\nRelatório: ${path.relative(process.cwd(), reportPath)}`);
   await pause(terminal);
 }
 
-async function runLegacyPipelineFromMenu(terminal, label) {
+async function detectChaptersFromMenu(terminal, option) {
   clearScreen();
-  printInfo(`${label}\n`);
+  printSectionHeader(option);
+  const selectedEpubs = await selectEpubsForMenu(terminal);
+  if (!selectedEpubs) return;
+
+  await runForSelectedEpubs(selectedEpubs, async (selected) => {
+    const { epub, htmlDocs, tocReport } = readSelectedEpub(selected.path);
+    const spineReport = detectChapters(epub, htmlDocs, tocReport, null);
+    const internalReport = detectInternalChapters(epub, htmlDocs);
+    const spinePath = path.join(process.cwd(), 'reports', 'spine_chapter_report.json');
+    const internalPath = path.join(process.cwd(), 'reports', 'internal_chapter_report.json');
+    await writeJsonReport(spinePath, spineReport);
+    await writeJsonReport(internalPath, internalReport);
+
+    printInfo(`Spine/canonical: ${spineReport.chapterCount} capítulos`);
+    printInfo(`Internal-dom: ${internalReport.chapterCount} capítulos`);
+    printInfo(`Internal-dom OK: ${internalReport.ok ? 'sim' : 'não'}`);
+    if (spineReport.issues?.length) printInfo(`Issues spine/canonical: ${spineReport.issues.length}`);
+    if (internalReport.issues?.length) printInfo(`Issues internal-dom: ${internalReport.issues.length}`);
+    printInfo(`Relatório spine: ${path.relative(process.cwd(), spinePath)}`);
+    printInfo(`Relatório internal-dom: ${path.relative(process.cwd(), internalPath)}`);
+  });
+  await pause(terminal);
+}
+
+async function detectLanguageFromMenu(terminal, option) {
+  clearScreen();
+  printSectionHeader(option);
+  const selectedEpubs = await selectEpubsForMenu(terminal);
+  if (!selectedEpubs) return;
+
+  await runForSelectedEpubs(selectedEpubs, async (selected) => {
+    const { epub, htmlDocs } = readSelectedEpub(selected.path);
+    const report = detectLanguage(epub, htmlDocs);
+    const reportPath = path.join(process.cwd(), 'reports', 'language_report.json');
+    await writeJsonReport(reportPath, report);
+
+    printInfo(`Idioma metadata: ${report.metadataLanguage || '(ausente)'}`);
+    printInfo(`Idioma detectado: ${report.detectedLanguage || '(indeterminado)'}`);
+    printInfo(`Compatível: ${report.match ? 'sim' : 'não'}`);
+    if (report.warning) printInfo('Warning: idioma metadata e idioma detectado divergem.');
+    printInfo(`Relatório: ${path.relative(process.cwd(), reportPath)}`);
+  });
+  await pause(terminal);
+}
+
+async function analyzeTocFromMenu(terminal, option) {
+  clearScreen();
+  printSectionHeader(option);
+  const selectedEpubs = await selectEpubsForMenu(terminal);
+  if (!selectedEpubs) return;
+
+  await runForSelectedEpubs(selectedEpubs, async (selected) => {
+    const { tocReport } = readSelectedEpub(selected.path);
+    const report = {
+      ...tocReport,
+      generatedAt: new Date().toISOString(),
+      sourceFile: path.relative(process.cwd(), selected.path),
+      rebuild: {
+        available: false,
+        reason: 'M9.3 expõe somente análise. Reconstrução de nav.xhtml/toc.ncx deve passar por fluxo isolado seguro, sem mini-pipeline paralelo.'
+      }
+    };
+    const reportPath = path.join(process.cwd(), 'reports', 'toc_report.json');
+    await writeJsonReport(reportPath, report);
+
+    printInfo(`NCX: ${report.hasNcx ? 'sim' : 'não'}`);
+    printInfo(`NAV: ${report.hasNav ? 'sim' : 'não'}`);
+    if (report.ncxPath) printInfo(`NCX path: ${report.ncxPath}`);
+    printInfo(`Entradas: ${report.entryCount || report.entries?.length || 0}`);
+    if (report.entries?.length) {
+      printInfo('\nPrimeiras entradas:');
+      for (const entry of report.entries.slice(0, 5)) {
+        printInfo(`- ${entry.label || '(sem label)'} -> ${entry.src}`);
+      }
+    }
+    printInfo('\nReconstrução: indisponível neste milestone.');
+    printInfo('Motivo: requer fluxo isolado seguro de NAV/NCX/OPF, sem duplicar builders.');
+    printInfo(`Relatório: ${path.relative(process.cwd(), reportPath)}`);
+  });
+  await pause(terminal);
+}
+
+async function validateEpubFromMenu(terminal, option) {
+  clearScreen();
+  printSectionHeader(option);
+  const selectedEpubs = await selectEpubsForMenu(terminal);
+  if (!selectedEpubs) return;
+
+  await runForSelectedEpubs(selectedEpubs, async (selected) => {
+    const { epub, htmlDocs, tocReport } = readSelectedEpub(selected.path);
+    const languageReport = detectLanguage(epub, htmlDocs);
+    const chapterReport = detectChapters(epub, htmlDocs, tocReport, null);
+    const structureReport = analyzeStructure(epub, htmlDocs, chapterReport, tocReport, languageReport);
+    const epub3Report = validateEpub3(structureReport, chapterReport, tocReport, languageReport);
+    const packageAudit = runPackageAuditIfAvailable(selected.path);
+    const regression = await runRegressionIfContextExists(selected.path);
+    const report = buildMenuValidationReport({
+      sourceFile: selected.path,
+      epub3Report,
+      structureReport,
+      tocReport,
+      chapterReport,
+      packageAudit,
+      regression
+    });
+    const reportPath = path.join(process.cwd(), 'reports', 'menu_epub_validation_report.json');
+    await writeJsonReport(reportPath, report);
+
+    printValidationSummary(report);
+    printInfo(`\nRelatório: ${path.relative(process.cwd(), reportPath)}`);
+  });
+  await pause(terminal);
+}
+
+async function runLegacyPipelineFromMenu(terminal, option) {
+  clearScreen();
+  printSectionHeader(option);
   printInfo('Esta opção usa o pipeline legado completo via runFullPipeline().');
   printInfo('Ela preserva o contrato atual de npm start e exige exatamente um EPUB em input/.');
   printInfo('O menu não chama canonical-resplitter ou builders diretamente neste milestone.');
@@ -289,71 +319,76 @@ async function runLegacyPipelineFromMenu(terminal, label) {
   return true;
 }
 
-async function reviewChapterTitles(terminal) {
+async function reviewChapterTitles(terminal, option) {
   clearScreen();
+  printSectionHeader(option);
   const inputDir = path.join(process.cwd(), 'input');
-  const selection = await selectSingleEpub(terminal, inputDir);
+  const selection = await selectMultipleEpubs(terminal, inputDir);
   if (selection.error) {
     printInfo(selection.error);
     await pause(terminal);
     return;
   }
-  if (selection.cancelled || !selection.selected) return;
+  if (selection.cancelled || !selection.selected.length) return;
 
-  const analysis = analyzeChapterTitles(selection.selected.path);
-  printInfo(formatChapterTitlePreview(analysis));
-  if (analysis.changed === 0) {
-    printInfo('\nNenhuma normalização necessária.');
-    await pause(terminal);
-    return;
-  }
+  await runForSelectedEpubs(selection.selected, async (selected) => {
+    const analysis = analyzeChapterTitles(selected.path);
+    printInfo(formatChapterTitlePreview(analysis));
+    if (analysis.changed === 0) {
+      printInfo('\nNenhuma normalização necessária.');
+      return;
+    }
 
-  const answer = normalizeChoice(await terminal.ask('\nGerar cópia com títulos normalizados? [S/N] ')).toLowerCase();
-  if (!['s', 'sim', 'y', 'yes'].includes(answer)) {
-    printInfo('Operação cancelada. Nenhum arquivo novo foi gerado.');
-    await pause(terminal);
-    return;
-  }
+    const answer = normalizeChoice(await terminal.ask('\nGerar cópia com títulos normalizados? [S/N] ')).toLowerCase();
+    if (!['s', 'sim', 'y', 'yes'].includes(answer)) {
+      printInfo('Operação cancelada. Nenhum arquivo novo foi gerado.');
+      return;
+    }
 
-  const report = await normalizeChapterTitlesInCopy(selection.selected.path, analysis);
-  const reportPath = writeChapterTitleNormalizationReport(process.cwd(), report);
-  printInfo(`Status: ${report.status}`);
-  if (report.outputFile) printInfo(`Cópia normalizada: ${path.relative(process.cwd(), report.outputFile)}`);
-  printInfo(`Relatório: ${path.relative(process.cwd(), reportPath)}`);
+    const report = await normalizeChapterTitlesInCopy(selected.path, analysis);
+    const reportPath = writeChapterTitleNormalizationReport(process.cwd(), report);
+    printInfo(`Status: ${report.status}`);
+    if (report.outputFile) printInfo(`Cópia normalizada: ${path.relative(process.cwd(), report.outputFile)}`);
+    printInfo(`Relatório: ${path.relative(process.cwd(), reportPath)}`);
+  });
   await pause(terminal);
 }
 
-async function auditWithReferenceSource(terminal) {
+async function auditWithReferenceSource(terminal, option) {
   clearScreen();
+  printSectionHeader(option);
   const inputDir = path.join(process.cwd(), 'input');
-  const target = await selectSingleEpub(terminal, inputDir);
+  const target = await selectMultipleEpubs(terminal, inputDir);
   if (target.error) {
     printInfo(target.error);
     await pause(terminal);
     return;
   }
-  if (target.cancelled || !target.selected) return;
+  if (target.cancelled || !target.selected.length) return;
 
   const reference = await selectReferenceSource(terminal, inputDir);
   if (reference.cancelled) return;
   const referenceDocument = reference.selected ? await loadReferenceSource(reference.selected.path) : null;
-  const report = auditChapterIntegrity(target.selected.path, referenceDocument);
-  const reportPath = writeChapterIntegrityReport(process.cwd(), report);
-  printInfo(`\nStatus: ${report.status}`);
-  printInfo(`Capítulos: ${report.chapterCount}`);
-  printInfo(`Verificados: ${report.checkedChapters}`);
-  printInfo(`Confiança: ${report.confidence}`);
-  if (report.reference?.adapterStatus === 'unsupported') printInfo(`Referência unsupported: ${report.reference.sourceType}`);
-  if (report.warnings.length) printInfo(`Warnings: ${report.warnings.map((warning) => warning.code).join(', ')}`);
-  if (report.errors.length) printInfo(`Errors: ${report.errors.map((error) => error.code).join(', ')}`);
-  printInfo(`Relatório: ${path.relative(process.cwd(), reportPath)}`);
+  await runForSelectedEpubs(target.selected, async (selected) => {
+    const report = auditChapterIntegrity(selected.path, referenceDocument);
+    const reportPath = writeChapterIntegrityReport(process.cwd(), report);
+    printInfo(`Status: ${report.status}`);
+    printInfo(`Capítulos: ${report.chapterCount}`);
+    printInfo(`Verificados: ${report.checkedChapters}`);
+    printInfo(`Confiança: ${report.confidence}`);
+    if (report.reference?.adapterStatus === 'unsupported') printInfo(`Referência unsupported: ${report.reference.sourceType}`);
+    if (report.warnings.length) printInfo(`Warnings: ${report.warnings.map((warning) => warning.code).join(', ')}`);
+    if (report.errors.length) printInfo(`Errors: ${report.errors.map((error) => error.code).join(', ')}`);
+    printInfo(`Relatório: ${path.relative(process.cwd(), reportPath)}`);
+  });
   await pause(terminal);
 }
 
-async function browseReports(terminal) {
+async function browseReports(terminal, option) {
   const reportsDir = path.join(process.cwd(), 'reports');
   while (true) {
     clearScreen();
+    printSectionHeader(option);
     const reports = await listReports(reportsDir);
     if (!reports.length) {
       printInfo('Nenhum relatório encontrado em reports/.');
@@ -377,9 +412,10 @@ async function browseReports(terminal) {
   }
 }
 
-async function showPrechapterPlaceholder(terminal) {
+async function showPrechapterPlaceholder(terminal, option) {
   while (true) {
     clearScreen();
+    printSectionHeader(option);
     printPrechapterMenu();
     printInfo('M7: correção segura, merge, auditoria e normalização em fluxo orquestrado.');
     const choice = normalizeChoice(await terminal.ask('Escolha uma opção: '));
@@ -387,32 +423,32 @@ async function showPrechapterPlaceholder(terminal) {
     if (choice === '0') return;
 
     if (choice === '1') {
-      await analyzeSinglePrechapterEpub(terminal);
+      await analyzeSinglePrechapterEpub(terminal, option);
       continue;
     }
 
     if (choice === '2') {
-      await fixSinglePrechapterEpub(terminal);
+      await fixSinglePrechapterEpub(terminal, option);
       continue;
     }
 
     if (choice === '3') {
-      await fixMultiplePrechapterEpubs(terminal);
+      await fixMultiplePrechapterEpubs(terminal, option);
       continue;
     }
 
     if (choice === '4') {
-      await analyzeMergePrecheck(terminal);
+      await analyzeMergePrecheck(terminal, option);
       continue;
     }
 
     if (choice === '5') {
-      await mergeSelectedEpubs(terminal);
+      await mergeSelectedEpubs(terminal, option);
       continue;
     }
 
     if (choice === '6') {
-      await correctAndMergeSelectedEpubs(terminal);
+      await correctAndMergeSelectedEpubs(terminal, option);
       continue;
     }
 
@@ -421,8 +457,9 @@ async function showPrechapterPlaceholder(terminal) {
   }
 }
 
-async function correctAndMergeSelectedEpubs(terminal) {
+async function correctAndMergeSelectedEpubs(terminal, option) {
   clearScreen();
+  printSectionHeader(option);
   const inputDir = path.join(process.cwd(), 'input');
   const selection = await selectMultipleEpubs(terminal, inputDir);
   if (selection.error) {
@@ -459,8 +496,9 @@ async function correctAndMergeSelectedEpubs(terminal) {
   await pause(terminal);
 }
 
-async function mergeSelectedEpubs(terminal) {
+async function mergeSelectedEpubs(terminal, option) {
   clearScreen();
+  printSectionHeader(option);
   const inputDir = path.join(process.cwd(), 'input');
   const selection = await selectMultipleEpubs(terminal, inputDir);
   if (selection.error) {
@@ -497,8 +535,9 @@ async function mergeSelectedEpubs(terminal) {
   await pause(terminal);
 }
 
-async function analyzeMergePrecheck(terminal) {
+async function analyzeMergePrecheck(terminal, option) {
   clearScreen();
+  printSectionHeader(option);
   const inputDir = path.join(process.cwd(), 'input');
   const selection = await selectMultipleEpubs(terminal, inputDir);
   if (selection.error) {
@@ -516,8 +555,9 @@ async function analyzeMergePrecheck(terminal) {
   await pause(terminal);
 }
 
-async function fixMultiplePrechapterEpubs(terminal) {
+async function fixMultiplePrechapterEpubs(terminal, option) {
   clearScreen();
+  printSectionHeader(option);
   const inputDir = path.join(process.cwd(), 'input');
   const selection = await selectMultipleEpubs(terminal, inputDir);
   if (selection.error) {
@@ -570,58 +610,62 @@ function printBatchTable(batch) {
   printInfo(`Failed: ${batch.summary.failed}`);
 }
 
-async function fixSinglePrechapterEpub(terminal) {
+async function fixSinglePrechapterEpub(terminal, option) {
   clearScreen();
+  printSectionHeader(option);
   const inputDir = path.join(process.cwd(), 'input');
-  const selection = await selectSingleEpub(terminal, inputDir);
+  const selection = await selectMultipleEpubs(terminal, inputDir);
   if (selection.error) {
     printInfo(selection.error);
     await pause(terminal);
     return;
   }
-  if (selection.cancelled || !selection.selected) return;
+  if (selection.cancelled || !selection.selected.length) return;
 
-  const analysis = analyzePrechapterContent(selection.selected.path);
-  printInfo(formatPrechapterPreview(analysis));
-  if (analysis.status !== 'candidate_found' || analysis.confidence !== 'high') {
-    printInfo('\nCorreção bloqueada: somente candidate_found com confiança HIGH pode ser aplicado automaticamente.');
-    await pause(terminal);
-    return;
-  }
+  await runForSelectedEpubs(selection.selected, async (selected) => {
+    const analysis = analyzePrechapterContent(selected.path);
+    printInfo(formatPrechapterPreview(analysis));
+    if (analysis.status !== 'candidate_found' || analysis.confidence !== 'high') {
+      printInfo('\nCorreção bloqueada: somente candidate_found com confiança HIGH pode ser aplicado automaticamente.');
+      return;
+    }
 
-  const answer = normalizeChoice(await terminal.ask('\nGerar uma cópia removendo somente esse conteúdo? [S/N] ')).toLowerCase();
-  if (!['s', 'sim', 'y', 'yes'].includes(answer)) {
-    printInfo('Operação cancelada. Nenhum arquivo novo foi gerado.');
-    await pause(terminal);
-    return;
-  }
+    const answer = normalizeChoice(await terminal.ask('\nGerar uma cópia removendo somente esse conteúdo? [S/N] ')).toLowerCase();
+    if (!['s', 'sim', 'y', 'yes'].includes(answer)) {
+      printInfo('Operação cancelada. Nenhum arquivo novo foi gerado.');
+      return;
+    }
 
-  const fixReport = await fixPrechapterContent(selection.selected.path, analysis);
-  const reportPath = await writePrechapterFixReport(process.cwd(), fixReport);
-  if (fixReport.status === 'fixed') {
-    printInfo(`Cópia corrigida: ${path.relative(process.cwd(), fixReport.outputFile)}`);
-  } else {
-    printInfo(`Correção não concluída: ${fixReport.blockReason || fixReport.status}`);
-  }
-  printInfo(`Relatório: ${path.relative(process.cwd(), reportPath)}`);
+    const fixReport = await fixPrechapterContent(selected.path, analysis);
+    const reportPath = await writePrechapterFixReport(process.cwd(), fixReport);
+    if (fixReport.status === 'fixed') {
+      printInfo(`Cópia corrigida: ${path.relative(process.cwd(), fixReport.outputFile)}`);
+    } else {
+      printInfo(`Correção não concluída: ${fixReport.blockReason || fixReport.status}`);
+    }
+    printInfo(`Relatório: ${path.relative(process.cwd(), reportPath)}`);
+  });
   await pause(terminal);
 }
 
-async function analyzeSinglePrechapterEpub(terminal) {
+async function analyzeSinglePrechapterEpub(terminal, option) {
   clearScreen();
+  printSectionHeader(option);
   const inputDir = path.join(process.cwd(), 'input');
-  const selection = await selectSingleEpub(terminal, inputDir);
+  const selection = await selectMultipleEpubs(terminal, inputDir);
   if (selection.error) {
     printInfo(selection.error);
     await pause(terminal);
     return;
   }
-  if (selection.cancelled || !selection.selected) return;
+  if (selection.cancelled || !selection.selected.length) return;
 
-  const result = analyzePrechapterContent(selection.selected.path);
-  const reportPath = await writePrechapterAnalysisReport(process.cwd(), result);
-  printInfo(formatPrechapterPreview(result));
-  printInfo(`\nRelatório: ${path.relative(process.cwd(), reportPath)}`);
+  await runForSelectedEpubs(selection.selected, async (selected) => {
+    const result = analyzePrechapterContent(selected.path);
+    const reportPath = await writePrechapterAnalysisReport(process.cwd(), result);
+    printInfo(formatPrechapterPreview(result));
+    printInfo(`\nRelatório: ${path.relative(process.cwd(), reportPath)}`);
+  });
   await pause(terminal);
 }
 
@@ -640,16 +684,31 @@ async function pause(terminal) {
   await terminal.ask('\nPressione Enter para continuar...');
 }
 
-async function selectEpubForMenu(terminal) {
+async function selectEpubsForMenu(terminal) {
   const inputDir = path.join(process.cwd(), 'input');
-  const selection = await selectSingleEpub(terminal, inputDir);
+  const selection = await selectMultipleEpubs(terminal, inputDir);
   if (selection.error) {
     printInfo(selection.error);
     await pause(terminal);
     return null;
   }
-  if (selection.cancelled || !selection.selected) return null;
+  if (selection.cancelled || !selection.selected.length) return null;
   return selection.selected;
+}
+
+function printSelectedSource(selected) {
+  printInfo(`\nArquivo: ${path.relative(process.cwd(), selected.path)}`);
+}
+
+async function runForSelectedEpubs(selectedEpubs, worker) {
+  for (const selected of selectedEpubs) {
+    printSelectedSource(selected);
+    try {
+      await worker(selected);
+    } catch (error) {
+      printInfo(`Erro em ${path.relative(process.cwd(), selected.path)}: ${error.message}`);
+    }
+  }
 }
 
 function readSelectedEpub(epubPath) {
