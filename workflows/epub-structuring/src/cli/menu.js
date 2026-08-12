@@ -1,4 +1,3 @@
-import { spawn } from 'node:child_process';
 import fs from 'fs-extra';
 import path from 'node:path';
 import { createTerminal, clearScreen, printInfo, printMainMenu, printPrechapterMenu } from './terminal-ui.js';
@@ -33,6 +32,7 @@ import { validateEpub3 } from '../validators/epub3-validator.js';
 import { auditFinalEpub } from '../validators/final-epub-auditor.js';
 import { runFinalRegressionValidation } from '../validators/final-regression-validator.js';
 import { writeJsonReport } from '../utils/report-writer.js';
+import { runFullPipeline } from '../pipeline/full-pipeline.js';
 
 process.on('SIGINT', () => {
   console.log('\nEncerrando menu.');
@@ -107,7 +107,7 @@ async function runMenu() {
 
       if (choice === '11') {
         terminal.close();
-        const exitCode = await runFullPipeline();
+        const exitCode = await runFullPipelineFromMenu();
         process.exitCode = exitCode;
         return;
       }
@@ -273,7 +273,7 @@ async function validateEpubFromMenu(terminal) {
 async function runLegacyPipelineFromMenu(terminal, label) {
   clearScreen();
   printInfo(`${label}\n`);
-  printInfo('Esta opção usa o pipeline legado completo em src/main.js.');
+  printInfo('Esta opção usa o pipeline legado completo via runFullPipeline().');
   printInfo('Ela preserva o contrato atual de npm start e exige exatamente um EPUB em input/.');
   printInfo('O menu não chama canonical-resplitter ou builders diretamente neste milestone.');
   const answer = normalizeChoice(await terminal.ask('\nExecutar pipeline completo agora? [S/N] ')).toLowerCase();
@@ -284,7 +284,7 @@ async function runLegacyPipelineFromMenu(terminal, label) {
   }
 
   terminal.close();
-  const exitCode = await runFullPipeline();
+  const exitCode = await runFullPipelineFromMenu();
   process.exitCode = exitCode;
   return true;
 }
@@ -625,19 +625,15 @@ async function analyzeSinglePrechapterEpub(terminal) {
   await pause(terminal);
 }
 
-function runFullPipeline() {
-  return new Promise((resolve) => {
-    const child = spawn(process.execPath, ['src/main.js'], {
-      cwd: process.cwd(),
-      stdio: 'inherit'
-    });
-
-    child.on('close', (code) => resolve(code ?? 1));
-    child.on('error', (error) => {
-      console.error(`Falha ao iniciar processamento completo: ${error.message}`);
-      resolve(1);
-    });
-  });
+async function runFullPipelineFromMenu() {
+  try {
+    await runFullPipeline(process.cwd(), { log: console.log });
+    return 0;
+  } catch (error) {
+    console.error('Falha ao executar workflow.');
+    console.error(error.message);
+    return 1;
+  }
 }
 
 async function pause(terminal) {

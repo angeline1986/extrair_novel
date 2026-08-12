@@ -685,11 +685,139 @@ Pendência registrada:
 - Contratos do M10.1 preservados.
 - `npm test`: 124/124 passando.
 
-## Próximo milestone recomendado
+## M10.6 — Extrair reanálise + relatórios + validações finais
 
-**M10.6 — Extrair reanálise + relatórios + validações finais.**
+**Status:** implementado.
 
-M8 foi implementado removendo o hardcode de 25 capítulos do `final-regression-validator`, M9 expôs capacidades já estabilizadas no menu, M10.0 mapeou a extração de `main.js`, M10.1 congelou o contrato do pipeline legado, M10.2 extraiu o contexto de entrada, M10.3 extraiu análise + seleção de `chapterReport`, M10.4 extraiu precheck + resplit, e M10.5 extraiu build do EPUB estruturado preservando comportamento externo.
+- Criado `src/pipeline/final-analysis.js`.
+- Extraídos para service reutilizável:
+  - atualização de hrefs do `chapterReport` para reanálise;
+  - reanálise do EPUB final;
+  - análise de TOC final;
+  - estrutura final;
+  - validação EPUB 3 final;
+  - escrita dos relatórios finais;
+  - `runFinalRegressionValidation`;
+  - `auditFinalEpub`;
+  - auditoria de conteúdo dos capítulos;
+  - erro final quando `finalEpubAudit.validation.ok` é falso.
+- Mantidos os relatórios e nomes de arquivo existentes.
+- Mantidos os logs observáveis:
+  - `Reanalisando EPUB final...`;
+  - `Gravando relatórios finais...`;
+  - `Executando validação final de regressão...`;
+  - `Auditando pacote EPUB final...`.
+- `main.js` continua imprimindo o encerramento final:
+  - versão;
+  - entrada;
+  - PDF quando aplicável;
+  - saída.
+- Nenhuma regra de validação foi alterada.
+- Contratos do M10.1 preservados.
+- `npm test`: 124/124 passando.
+
+## M10.7 — Criar `runFullPipeline()`
+
+**Status:** implementado.
+
+- Criado `src/pipeline/full-pipeline.js`.
+- Criada função `runFullPipeline(root, options)`.
+- O orquestrador chama, na ordem:
+  - `preparePipelineContext`;
+  - `analyzeAndSelectChapterReport`;
+  - análise/validação inicial;
+  - `prepareResplitPrecheck`;
+  - escrita dos relatórios preliminares;
+  - `runResplit`;
+  - `buildStructuredOutput`;
+  - `runFinalAnalysis`;
+  - logs finais de versão, entrada, PDF e saída.
+- `runFullPipeline()` retorna resultado estruturado com:
+  - contexto;
+  - análise de fontes;
+  - análise inicial;
+  - resplit;
+  - `outputFile`;
+  - análise final.
+- Nenhuma regra funcional nova foi adicionada.
+- Logs, erros e ordem observável foram preservados.
+- Contratos do M10.1 preservados.
+- `npm test`: 124/124 passando.
+
+## M10.8 — `main.js` como entrypoint fino
+
+**Status:** implementado junto com M10.7.
+
+- `src/main.js` agora apenas:
+  - importa `runFullPipeline`;
+  - define `ROOT`;
+  - chama `runFullPipeline(ROOT, { log: console.log })`;
+  - mantém o tratamento de erro legado:
+    - `Falha ao executar workflow.`;
+    - mensagem do erro;
+    - `process.exit(1)`.
+- O comportamento externo de `npm start` permanece protegido pelos testes de contrato.
+- Contratos do M10.1 preservados.
+- `npm test`: 124/124 passando.
+
+## M10.9 — Menu sem spawn de `main.js`
+
+**Status:** implementado.
+
+- `src/cli/menu.js` deixou de importar `spawn`.
+- As opções 3, 9 e 11 agora chamam `runFullPipeline()` diretamente.
+- As opções 3 e 9 continuam como wrappers controlados do pipeline completo:
+  - mantêm aviso ao usuário;
+  - mantêm confirmação antes de executar;
+  - continuam sem chamar `canonical-resplitter` ou builders diretamente.
+- A opção 11 continua executando o processamento completo sem confirmação extra.
+- O tratamento de erro do menu preserva o envelope do entrypoint:
+  - `Falha ao executar workflow.`;
+  - mensagem do erro.
+- Nenhuma regra funcional nova foi adicionada.
+- `npm start` continua usando `src/main.js` como entrypoint fino.
+- Contratos do M10.1 preservados.
+- `npm test`: 124/124 passando.
+
+## M10.10 — Regressão final
+
+**Status:** concluído.
+
+- `npm test`: 124/124 passando.
+- Contratos M10.1: 6/6 passando.
+- `git diff --check`: limpo.
+- `npm start` no workspace atual preserva o contrato legado para múltiplos EPUBs:
+  - inicia workflow;
+  - prepara diretórios;
+  - falha sem stack trace;
+  - informa `Mais de um EPUB encontrado em input/. Deixe apenas um.`
+- Contratos de caixa-preta continuam cobrindo:
+  - 0 EPUBs em `input/`;
+  - 1 EPUB sem PDF;
+  - múltiplos EPUBs;
+  - PDF explícito ausente;
+  - conflito `--no-pdf` + `--pdf`;
+  - PDF opcional inválido.
+- Execução com 1 EPUB protegida por contrato:
+  - gera EPUB final;
+  - gera `output/chapters`;
+  - gera relatórios principais;
+  - preserva `chapterCount`, TOC, spine e validação;
+  - `final_regression_report.ok = true`.
+- `npm run menu` validado:
+  - opção 11 chama o pipeline diretamente e preserva o mesmo erro limpo;
+  - opções 3 e 9 mantêm avisos, confirmação e cancelamento;
+  - menu não usa mais `spawn`.
+- Arquitetura final confirmada:
+  - `src/main.js` é entrypoint fino;
+  - `runFullPipeline()` orquestra os services extraídos;
+  - menu chama `runFullPipeline()` diretamente nas opções 3, 9 e 11.
+
+## M10 — Status final
+
+**Status:** concluído.
+
+M8 foi implementado removendo o hardcode de 25 capítulos do `final-regression-validator`, M9 expôs capacidades já estabilizadas no menu, M10.0 mapeou a extração de `main.js`, M10.1 congelou o contrato do pipeline legado, M10.2 extraiu o contexto de entrada, M10.3 extraiu análise + seleção de `chapterReport`, M10.4 extraiu precheck + resplit, M10.5 extraiu build do EPUB estruturado, M10.6 extraiu reanálise + relatórios + validações finais, M10.7 criou `runFullPipeline()`, M10.8 reduziu `main.js` a entrypoint fino, M10.9 removeu o spawn do menu preservando o comportamento externo, e M10.10 concluiu a regressão final.
 
 Fluxo alvo:
 
@@ -3028,9 +3156,14 @@ Status atual:
 - M10.3 implementado: análise + seleção de `chapterReport` extraídas para service reutilizável.
 - M10.4 implementado: precheck + resplit extraídos para service reutilizável.
 - M10.5 implementado: build do EPUB estruturado extraído para service reutilizável.
-- Próximo: M10.6, reanálise + relatórios + validações finais.
+- M10.6 implementado: reanálise + relatórios + validações finais extraídas para service reutilizável.
+- M10.7 implementado: `runFullPipeline()` criado como orquestrador dos services.
+- M10.8 implementado: `main.js` reduzido a entrypoint fino.
+- M10.9 implementado: menu chama `runFullPipeline()` diretamente, sem spawn de `main.js`.
+- M10.10 concluído: regressão final verde.
 
 O M10 começou somente depois que os serviços individuais do M9 ficaram comprovados.
+O M10 está concluído.
 
 Possível alvo:
 
