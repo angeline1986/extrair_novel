@@ -11,8 +11,8 @@ import { runFinalAnalysis } from './final-analysis.js';
 import { createReportContext, finishReportContext } from '../utils/report-context.js';
 
 export async function runFullPipeline(root, options = {}) {
-  const { log = () => {}, argv = process.argv.slice(2) } = options;
-  const context = await preparePipelineContext(root, { argv, log });
+  const { log = () => {}, argv = process.argv.slice(2), epubPath = null } = options;
+  const context = await preparePipelineContext(root, { argv, log, epubPath });
   const { cliOptions, inputFile, pdfFile } = context;
   const reportContext = options.reportContext || await createReportContext({
     root,

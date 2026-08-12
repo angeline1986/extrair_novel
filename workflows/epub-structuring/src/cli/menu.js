@@ -128,10 +128,9 @@ async function runMenu() {
       }
 
       if (choice === '11') {
-        terminal.close();
-        const exitCode = await runFullPipelineFromMenu();
-        process.exitCode = exitCode;
-        return;
+        const executed = await runFullPipelineSelectionFromMenu(terminal, MENU_OPTIONS[11]);
+        if (executed) return;
+        continue;
       }
 
       if (choice === '12') {
@@ -796,9 +795,36 @@ async function analyzeSinglePrechapterEpub(terminal, option) {
   await pause(terminal);
 }
 
-async function runFullPipelineFromMenu() {
+async function runFullPipelineSelectionFromMenu(terminal, option) {
+  clearScreen();
+  printSectionHeader(option);
+  const inputDir = getInputDirs(process.cwd()).booksDir;
+  const selection = await selectSingleEpub(terminal, inputDir);
+  if (selection.error) {
+    printInfo(selection.error);
+    await pause(terminal);
+    return false;
+  }
+  if (selection.cancelled || !selection.selected) return false;
+
+  printInfo('\nArquivo selecionado:');
+  printInfo(selection.selected.name);
+  const answer = normalizeChoice(await terminal.ask('\nIniciar processamento completo? [S/n] ')).toLowerCase();
+  if (['n', 'nao', 'não', 'no'].includes(answer)) {
+    printInfo('Operação cancelada. Nenhum processamento foi iniciado.');
+    await pause(terminal);
+    return false;
+  }
+
+  terminal.close();
+  const exitCode = await runFullPipelineFromMenu({ epubPath: selection.selected.path });
+  process.exitCode = exitCode;
+  return true;
+}
+
+async function runFullPipelineFromMenu(options = {}) {
   try {
-    const result = await runFullPipeline(process.cwd(), { log: console.log });
+    const result = await runFullPipeline(process.cwd(), { log: console.log, ...options });
     await openHtmlReportFromMenu(result.reportContext);
     return 0;
   } catch (error) {

@@ -7,6 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { writeZipFile } from '../../src/utils/zip-writer.js';
 import { readEpub } from '../../src/parsers/epub-reader.js';
+import { runFullPipeline } from '../../src/pipeline/full-pipeline.js';
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const MAIN = path.join(PROJECT_ROOT, 'src', 'main.js');
@@ -161,6 +162,40 @@ test('npm start contract ignores EPUB files in reference-files as processing boo
 
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
   assert.match(result.stdout, /EPUB encontrado: input\/books\/contract\.epub/);
+});
+
+test('full pipeline explicit EPUB path ignores other books in input/books', async () => {
+  const root = fixtureRoot();
+  const first = path.join(root, 'input', 'books', 'first.epub');
+  const selected = path.join(root, 'input', 'books', 'selected.epub');
+  createContractEpub(first, [1]);
+  createContractEpub(selected, [1, 2]);
+
+  const logs = [];
+  const result = await runFullPipeline(root, {
+    argv: ['--no-pdf'],
+    epubPath: selected,
+    log: (line) => logs.push(line)
+  });
+
+  assert.equal(result.context.inputFile, selected);
+  assert.match(logs.join('\n'), /EPUB encontrado: input\/books\/selected\.epub/);
+  assert.equal(fs.existsSync(path.join(root, 'output', 'Contract-Fixture-structured-complete.epub')), true);
+  const run = fs.readJsonSync(result.reportContext.runFile);
+  assert.deepEqual(run.inputs, ['input/books/selected.epub']);
+});
+
+test('full pipeline explicit EPUB path fails clearly when missing', async () => {
+  const root = fixtureRoot();
+  createContractEpub(path.join(root, 'input', 'books', 'other.epub'), [1]);
+
+  await assert.rejects(
+    () => runFullPipeline(root, {
+      argv: ['--no-pdf'],
+      epubPath: path.join(root, 'input', 'books', 'missing.epub')
+    }),
+    /EPUB informado não encontrado:/
+  );
 });
 
 function fixtureRoot() {

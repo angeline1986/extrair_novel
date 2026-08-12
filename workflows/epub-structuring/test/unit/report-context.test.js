@@ -64,9 +64,16 @@ test('html report renderer consumes run metadata and available data reports', as
   const html = await fs.readFile(reportPath, 'utf8');
   assert.match(html, /<!doctype html>/);
   assert.match(html, /Analisar EPUB/);
-  assert.match(html, /Resultado/);
+  assert.match(html, /<aside>/);
+  assert.match(html, /id="sidebarNav"/);
   assert.match(html, /Diagnóstico/);
-  assert.match(html, /Próximas Ações Sugeridas/);
+  assert.match(html, /Próximas ações sugeridas/);
+  assert.match(html, /data-page="overview"/);
+  assert.match(html, /data-page="structure"/);
+  assert.match(html, /data-page="navigation"/);
+  assert.match(html, /function showPage/);
+  assert.match(html, /location\.hash/);
+  assert.equal((html.match(/class="page active"/g) || []).length, 1);
   assert.match(html, /input\/books\/book\.epub/);
   assert.match(html, /chapter_report\.json/);
   assert.match(html, /Capítulos/);
