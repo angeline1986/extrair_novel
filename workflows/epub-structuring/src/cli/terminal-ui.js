@@ -69,6 +69,7 @@ export function printPrechapterMenu() {
 ║  3. Corrigir vários EPUBs                           ║
 ║  4. Analisar conjunto para merge                    ║
 ║  5. Juntar EPUBs                                    ║
+║  6. Corrigir vários + juntar                        ║
 ║                                                      ║
 ║  0. Voltar                                          ║
 ║                                                      ║

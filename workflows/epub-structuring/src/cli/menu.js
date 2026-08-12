@@ -13,6 +13,7 @@ import { writeMergePrecheckReport } from '../features/merge/merge-precheck-repor
 import { mergeEpubs } from '../features/merge/epub-merge.js';
 import { formatMergeResult } from '../features/merge/merge-report.js';
 import { suggestMergeTitle } from '../features/merge/merge-metadata.js';
+import { runCorrectAndMergeWorkflow } from '../features/orchestration/full-workflow.js';
 
 process.on('SIGINT', () => {
   console.log('\nEncerrando menu.');
@@ -63,7 +64,7 @@ async function showPrechapterPlaceholder(terminal) {
   while (true) {
     clearScreen();
     printPrechapterMenu();
-    printInfo('M6: análise, correções pré-capítulo, precheck e merge real em novo EPUB.');
+    printInfo('M7: correção segura, merge, auditoria e normalização em fluxo orquestrado.');
     const choice = normalizeChoice(await terminal.ask('Escolha uma opção: '));
 
     if (choice === '0') return;
@@ -93,9 +94,52 @@ async function showPrechapterPlaceholder(terminal) {
       continue;
     }
 
+    if (choice === '6') {
+      await correctAndMergeSelectedEpubs(terminal);
+      continue;
+    }
+
     printInfo('Opção inválida.');
     await pause(terminal);
   }
+}
+
+async function correctAndMergeSelectedEpubs(terminal) {
+  clearScreen();
+  const inputDir = path.join(process.cwd(), 'input');
+  const selection = await selectMultipleEpubs(terminal, inputDir);
+  if (selection.error) {
+    printInfo(selection.error);
+    await pause(terminal);
+    return;
+  }
+  if (selection.cancelled || !selection.selected.length) return;
+
+  printInfo('\nEste fluxo automático só aceita fontes efetivas seguras: fixed ou already_clean.');
+  const answer = normalizeChoice(await terminal.ask('Executar correção + merge + auditoria + títulos? [S/N] ')).toLowerCase();
+  if (!['s', 'sim', 'y', 'yes'].includes(answer)) {
+    printInfo('Operação cancelada. Nenhum EPUB final foi gerado.');
+    await pause(terminal);
+    return;
+  }
+
+  const typedTitle = normalizeChoice(await terminal.ask('\nTítulo final (Enter para sugerido): '));
+  const normalizeTitlesAnswer = normalizeChoice(await terminal.ask('Normalizar títulos após o merge? [S/n] ')).toLowerCase();
+  const normalizeTitles = !['n', 'nao', 'não', 'no'].includes(normalizeTitlesAnswer);
+  const report = await runCorrectAndMergeWorkflow(selection.selected, {
+    root: process.cwd(),
+    title: typedTitle || undefined,
+    normalizeTitles
+  });
+  printInfo(`\nStatus: ${report.status}`);
+  if (report.blockedAt) printInfo(`Bloqueado em: ${report.blockedAt}`);
+  if (report.finalOutputFile) printInfo(`Saída final: ${path.relative(process.cwd(), report.finalOutputFile)}`);
+  printInfo(`Relatório: ${path.relative(process.cwd(), report.reportPath)}`);
+  if (report.blockers?.length) {
+    printInfo('\nFontes bloqueadas:');
+    for (const blocker of report.blockers) printInfo(`${blocker.sourceFile}: ${blocker.status} (${blocker.reason})`);
+  }
+  await pause(terminal);
 }
 
 async function mergeSelectedEpubs(terminal) {

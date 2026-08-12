@@ -146,44 +146,109 @@ Observação:
 
 ## M6.2 — Auditoria de integridade dos capítulos com fonte de referência opcional
 
-**Status:** pendente.
+**Status:** implementado em primeira versão.
 
-- Deve validar se os capítulos produzidos por merge/resplit correspondem corretamente à estrutura da obra de referência.
-- Deve introduzir o conceito de fonte de referência agnóstica de formato.
-- Deve funcionar com e sem referência.
-- Não deve corrigir conteúdo automaticamente neste milestone.
-- Deve produzir relatório próprio de auditoria de integridade.
+- Criada base de `ReferenceDocument` / `ReferenceChapter`.
+- Criado loader de referência agnóstico de formato.
+- Criado adapter EPUB usando o reader e o detector interno existentes.
+- Criado adapter PDF reaproveitando `pdf-utils`.
+- Criado adapter DOCX estruturado como `unsupported`, sem fingir suporte enquanto não houver dependência instalada.
+- Criado auditor de integridade de capítulos.
+- Auditor funciona com referência e sem referência.
+- Auditor detecta ausência de capítulos, duplicatas, conteúdo ausente, duplicação de sinais e vazamento de início/fim entre capítulos.
+- Auditor não corrige conteúdo automaticamente.
+- Criado relatório em `reports/reference/chapter_integrity_report.json`.
+- Auditoria estrutural-only rodada no EPUB unido 1–120 existente:
+  - `status = OK_WITH_WARNINGS`;
+  - `chapterCount = 120`;
+  - aviso esperado: `NO_REFERENCE_SOURCE`.
+- `npm test`: 110/110 passando.
+
+Pendência registrada:
+
+- DOCX ainda está `unsupported`.
+- A abstração agnóstica já existe, e EPUB/PDF têm adapters funcionais, mas a cobertura real de DOCX ainda depende de implementação futura de leitura/extração própria.
+- Essa pendência não bloqueia M6.3, porque normalização de títulos não depende de fonte de referência.
 
 ## M6.3 — Normalização e revisão de títulos dos capítulos
 
-**Status:** pendente.
+**Status:** implementado.
 
-- Deve detectar inconsistências de headings como `Capítulo 1 Título` versus `Capítulo 1: Título`.
-- Deve normalizar para o padrão inicial `Capítulo N: Título`.
-- Deve preservar pontuação interna do título.
-- Deve manter XHTML, NAV, NCX e relatórios consistentes.
-- Não deve depender de fonte de referência.
+- Criado parser/normalizador para títulos de capítulo.
+- Criado analyzer com preview de inconsistências.
+- Criado fixer não destrutivo que gera cópia em `output/titles/`.
+- Padrão aplicado: `Capítulo N: Título`.
+- Pontuação interna do título é preservada.
+- XHTML, `nav.xhtml` e `toc.ncx` são sincronizados.
+- Corpo narrativo é validado como preservado.
+- Normalização é idempotente.
+- Criado relatório em `reports/titles/chapter_title_normalization_report.json`.
+- Validação real no EPUB unido 1–120:
+  - `chapterCount = 120`;
+  - `changed = 69`;
+  - `unchanged = 51`;
+  - `remainingInconsistent = 0`;
+  - `bodyTextPreserved = true`;
+  - `navSynced = true`;
+  - `ncxSynced = true`.
+- `npm test`: 113/113 passando.
+
+## M7 — Correção + merge em uma única operação
+
+**Status:** implementado e validado com 2 EPUBs reais.
+
+- Criado orquestrador em `src/features/orchestration/`.
+- Adicionada opção `8 → 6. Corrigir vários + juntar`.
+- M7 não cria nova engine; ele chama features já existentes.
+- Regra definitiva de fonte efetiva:
+  - `fixed` → usar cópia corrigida;
+  - `already_clean` → usar original;
+  - `no_boundary`, `ambiguous`, `unsupported`, `failed` → bloquear antes do merge.
+- Fluxo implementado:
+  - seleção múltipla;
+  - análise prechapter;
+  - correção somente de `candidate_found + high`;
+  - resolução de fontes efetivas;
+  - merge-precheck;
+  - merge;
+  - auditoria de integridade;
+  - normalização de títulos pós-merge;
+  - relatório consolidado.
+- Validação real com `1–60` + `61–120`:
+  - `status = success`;
+  - `blockers = 0`;
+  - as duas partes viraram cópias `fixed`;
+  - EPUB final com 120 capítulos;
+  - nenhum capítulo ausente;
+  - nenhum capítulo duplicado;
+  - títulos finais normalizados;
+  - originais preservados por hash.
+- Relatório: `reports/orchestration/m7_orchestration_report.json`.
+- Saída final: `output/titles/Novel-capitulos-1-a-120-capitulos-1-a-120-3-titles-normalized.epub`.
+- `npm test`: 115/115 passando.
 
 ## Próximo milestone recomendado
 
-**M6.2 — Auditoria de integridade dos capítulos com fonte de referência opcional.**
+**M8 — Corrigir dívida da validação de regressão.**
 
-M7 só deve iniciar depois da avaliação de M6.2 e M6.3.
+M7 foi implementado como orquestração pura. O próximo passo volta para a dívida conhecida do `final-regression-validator`.
 
 Fluxo alvo:
 
 ```text
-M6.2
+selecionar partes
   ↓
-auditar integridade real dos capítulos
+corrigir somente HIGH
   ↓
-M6.3
+precheck de merge
   ↓
-normalizar títulos
+merge
   ↓
-M7
+auditar integridade
   ↓
-corrigir vários + merge em uma única operação
+normalizar títulos quando confirmado
+  ↓
+validar
 ```
 
 ---
@@ -2241,13 +2306,15 @@ M6.2 não deve depender de M6.3.
 
 ## M7 — Integrar merge ao fluxo da feature 8
 
+**Status:** implementado e validado com 2 EPUBs reais.
+
 ### Objetivo
 
 Habilitar:
 
 ```text
 8
-→ 3. Corrigir vários EPUBs e juntar em um só
+→ 6. Corrigir vários EPUBs e juntar em um só
 ```
 
 Fluxo:
@@ -2255,24 +2322,94 @@ Fluxo:
 ```text
 selecionar partes
     ↓
-preview de prechapter por parte
-    ↓
-confirmar
+analisar prechapter por parte
     ↓
 corrigir cópias temporárias/lógicas
     ↓
-precheck de merge
+resolver effectiveSource
     ↓
-confirmar ordem
+precheck de merge
     ↓
 merge
     ↓
-validar
+auditoria de integridade
     ↓
-relatório
+normalização de títulos após o merge
+    ↓
+validação final
+    ↓
+relatório consolidado
 ```
 
-Nenhum merge se o precheck estiver inseguro.
+### Regra definitiva de fonte efetiva
+
+O merge automático só recebe EPUBs explicitamente classificados como seguros.
+
+```text
+candidate_found + high
+    ↓
+corrigir
+    ↓
+fixed
+    ↓
+effectiveSource = cópia corrigida
+
+already_clean
+    ↓
+effectiveSource = original
+```
+
+Qualquer outro resultado bloqueia toda a orquestração antes do merge:
+
+```text
+no_boundary
+ambiguous
+unsupported
+failed
+```
+
+Não existe fallback automático para o original nesses casos.
+
+### Resultado real validado
+
+Arquivos usados:
+
+```text
+input/novel capitulos 1 a 60 - ch.epub
+input/novel capitulos 61 a 120 - ch.epub
+```
+
+Resultado:
+
+- `status = success`;
+- `selectedCount = 2`;
+- `blockers = 0`;
+- as duas fontes foram corrigidas primeiro;
+- `effectiveSource` das duas partes = cópia `fixed`;
+- merge `ready_for_merge`;
+- merge final com `chapterCount = 120`;
+- `navEntries = 120`;
+- `ncxEntries = 120`;
+- `spineEntries = 120`;
+- auditoria estrutural `OK_WITH_WARNINGS` por ausência opcional de referência;
+- normalização de títulos `success`;
+- capítulo 1 final: `Capítulo 1: O Tirano Injustiçado Lê Meu Coração`;
+- capítulo 61 final: `Capítulo 61: Ativando uma missão secundária oculta – O tirano está morto?`;
+- nenhum capítulo ausente;
+- nenhum capítulo duplicado;
+- originais preservados por hash.
+
+Relatório:
+
+```text
+reports/orchestration/m7_orchestration_report.json
+```
+
+Saída final:
+
+```text
+output/titles/Novel-capitulos-1-a-120-capitulos-1-a-120-3-titles-normalized.epub
+```
 
 ---
 
