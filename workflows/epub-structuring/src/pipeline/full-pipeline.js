@@ -8,11 +8,19 @@ import { analyzeAndSelectChapterReport } from './source-analysis.js';
 import { prepareResplitPrecheck, runResplit } from './resplit.js';
 import { buildStructuredOutput } from './build-output.js';
 import { runFinalAnalysis } from './final-analysis.js';
+import { createReportContext, finishReportContext } from '../utils/report-context.js';
 
 export async function runFullPipeline(root, options = {}) {
   const { log = () => {}, argv = process.argv.slice(2) } = options;
   const context = await preparePipelineContext(root, { argv, log });
   const { cliOptions, inputFile, pdfFile } = context;
+  const reportContext = options.reportContext || await createReportContext({
+    root,
+    operation: 'full_pipeline',
+    operationLabel: 'Processamento completo',
+    inputs: [inputFile]
+  });
+  const reportsDir = reportContext.dataDir;
   const sourceAnalysis = await analyzeAndSelectChapterReport(context, { log });
   const {
     epub,
@@ -35,20 +43,20 @@ export async function runFullPipeline(root, options = {}) {
   const sourceIdentityReport = buildSourceIdentityReport({ inputFile, pdfFile, pdfTocReport, cliOptions });
   const sourceQualityReport = buildSourceQualityReport(chapterSourceDecision.candidates || []);
 
-  await writeJsonReport(path.join(root, 'reports', 'internal_chapter_report.json'), internalChapterReport);
-  await writeJsonReport(path.join(root, 'reports', 'book_structure_override_report.json'), overrideResult.report);
-  await writeJsonReport(path.join(root, 'reports', 'final_chapter_sequence_report.json'), buildFinalChapterSequenceReport(internalChapterReport));
-  await writeJsonReport(path.join(root, 'reports', 'teaser_extraction_report.json'), buildTeaserExtractionReport(overrideResult.teaserRange));
-  await writeJsonReport(path.join(root, 'reports', 'irregular_chapter_report.json'), buildIrregularChapterReport(overrideResult.report));
-  await writeJsonReport(path.join(root, 'reports', 'pdf_toc_report.json'), pdfTocReport);
-  await writeJsonReport(path.join(root, 'reports', 'chapter_source_report.json'), chapterSourceDecision);
-  await writeJsonReport(path.join(root, 'reports', 'chapter_source_candidates.json'), chapterSourceDecision.candidates || []);
-  await writeJsonReport(path.join(root, 'reports', 'chapter_source_identity.json'), sourceIdentityReport);
-  await writeJsonReport(path.join(root, 'reports', 'chapter_source_quality.json'), sourceQualityReport);
-  await writeJsonReport(path.join(root, 'reports', 'chapter_source_decision.json'), chapterSourceDecision);
-  await writeJsonReport(path.join(root, 'reports', 'boundary_report.json'), boundaryReport);
-  await writeJsonReport(path.join(root, 'reports', 'chapter_boundary_report.json'), boundaryReport);
-  await writeJsonReport(path.join(root, 'reports', 'resplit_precheck_report.json'), resplitPrecheckReport);
+  await writeJsonReport(path.join(reportsDir, 'internal_chapter_report.json'), internalChapterReport);
+  await writeJsonReport(path.join(reportsDir, 'book_structure_override_report.json'), overrideResult.report);
+  await writeJsonReport(path.join(reportsDir, 'final_chapter_sequence_report.json'), buildFinalChapterSequenceReport(internalChapterReport));
+  await writeJsonReport(path.join(reportsDir, 'teaser_extraction_report.json'), buildTeaserExtractionReport(overrideResult.teaserRange));
+  await writeJsonReport(path.join(reportsDir, 'irregular_chapter_report.json'), buildIrregularChapterReport(overrideResult.report));
+  await writeJsonReport(path.join(reportsDir, 'pdf_toc_report.json'), pdfTocReport);
+  await writeJsonReport(path.join(reportsDir, 'chapter_source_report.json'), chapterSourceDecision);
+  await writeJsonReport(path.join(reportsDir, 'chapter_source_candidates.json'), chapterSourceDecision.candidates || []);
+  await writeJsonReport(path.join(reportsDir, 'chapter_source_identity.json'), sourceIdentityReport);
+  await writeJsonReport(path.join(reportsDir, 'chapter_source_quality.json'), sourceQualityReport);
+  await writeJsonReport(path.join(reportsDir, 'chapter_source_decision.json'), chapterSourceDecision);
+  await writeJsonReport(path.join(reportsDir, 'boundary_report.json'), boundaryReport);
+  await writeJsonReport(path.join(reportsDir, 'chapter_boundary_report.json'), boundaryReport);
+  await writeJsonReport(path.join(reportsDir, 'resplit_precheck_report.json'), resplitPrecheckReport);
 
   const { rangeReport, chaptersDir, resplitReport } = runResplit({
     root,
@@ -70,6 +78,7 @@ export async function runFullPipeline(root, options = {}) {
 
   const finalAnalysis = await runFinalAnalysis({
     root,
+    inputFile,
     outputFile,
     epub,
     languageReport,
@@ -84,16 +93,19 @@ export async function runFullPipeline(root, options = {}) {
     boundaryReport,
     rangeReport,
     resplitReport,
-    chaptersDir
+    chaptersDir,
+    reportContext
   }, { log });
 
   log('EPUB processado pela v7.2 PDF canonical.');
   log(`Entrada: ${path.relative(root, inputFile)}`);
   if (pdfFile) log(`PDF: ${path.relative(root, pdfFile)}`);
   log(`Saída: ${path.relative(root, outputFile)}`);
+  await finishReportContext(reportContext, { status: 'success', output: outputFile });
 
   return {
     context,
+    reportContext,
     sourceAnalysis,
     initialAnalysis: {
       structureReport,

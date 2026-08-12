@@ -2,6 +2,7 @@ import fs from 'fs-extra';
 import path from 'node:path';
 
 export async function listEpubs(inputDir) {
+  await fs.ensureDir(inputDir);
   const entries = await fs.readdir(inputDir);
   return entries
     .filter((entry) => entry.toLowerCase().endsWith('.epub'))
@@ -16,7 +17,7 @@ export async function listEpubs(inputDir) {
 export async function selectSingleEpub(terminal, inputDir) {
   const epubs = await listEpubs(inputDir);
   if (epubs.length === 0) {
-    return { selected: null, epubs, error: 'Nenhum arquivo .epub encontrado em input/.' };
+    return { selected: null, epubs, error: 'Nenhum arquivo .epub encontrado em input/books/.' };
   }
 
   printEpubList(epubs, { allowAll: false });
@@ -35,7 +36,7 @@ export async function selectSingleEpub(terminal, inputDir) {
 export async function selectMultipleEpubs(terminal, inputDir) {
   const epubs = await listEpubs(inputDir);
   if (epubs.length === 0) {
-    return { selected: [], epubs, error: 'Nenhum arquivo .epub encontrado em input/.' };
+    return { selected: [], epubs, error: 'Nenhum arquivo .epub encontrado em input/books/.' };
   }
 
   const allowAll = epubs.length > 1;

@@ -14,42 +14,44 @@ import { writeChapterTitleNormalizationReport } from '../titles/chapter-title-re
 
 export async function runCorrectAndMergeWorkflow(epubs, options = {}) {
   const root = options.root || process.cwd();
+  const reportContext = options.reportContext || null;
+  const reportsDir = reportContext?.dataDir || null;
   const report = startReport(epubs);
 
   const analysisBatch = await analyzePrechapterBatch(epubs, root);
   report.steps.prechapterAnalysis = summarizeBatchStep(analysisBatch);
-  await writePrechapterBatchReport(root, analysisBatch);
+  await writePrechapterBatchReport(root, analysisBatch, { reportContext });
 
   const appliedBatch = await applyPrechapterBatch(analysisBatch, root);
   report.steps.prechapterApply = summarizeBatchStep(appliedBatch);
-  await writePrechapterBatchReport(root, appliedBatch);
+  await writePrechapterBatchReport(root, appliedBatch, { reportContext });
 
   const effective = resolveEffectiveSources(appliedBatch.items);
   report.effectiveSources = effective.sources;
   report.blockers = effective.blockers;
   if (effective.blockers.length) {
-    return writeAndReturn(root, { ...report, status: 'blocked', blockedAt: 'effective-source-resolution' }, options.reportFile);
+    return writeAndReturn(root, { ...report, status: 'blocked', blockedAt: 'effective-source-resolution' }, options.reportFile, reportContext);
   }
 
   const precheck = buildMergePrecheck(effective.sources.map((source) => ({ path: source.effectivePath })));
-  const precheckPath = await writeMergePrecheckReport(root, precheck);
+  const precheckPath = await writeMergePrecheckReport(root, precheck, { reportContext });
   report.steps.mergePrecheck = { status: precheck.status, reportPath: path.relative(root, precheckPath), sourceCount: precheck.sourceCount, gaps: precheck.gaps.length, overlaps: precheck.overlaps.length, duplicates: precheck.duplicates.length };
   if (precheck.status !== 'ready_for_merge') {
-    return writeAndReturn(root, { ...report, status: 'blocked', blockedAt: 'merge-precheck', precheckErrors: precheck.errors }, options.reportFile);
+    return writeAndReturn(root, { ...report, status: 'blocked', blockedAt: 'merge-precheck', precheckErrors: precheck.errors }, options.reportFile, reportContext);
   }
 
-  const mergeReport = mergeEpubs(precheck, { title: options.title, reportFile: path.join(root, 'reports', 'merge', 'merge_report.json') });
+  const mergeReport = mergeEpubs(precheck, { title: options.title, reportFile: path.join(reportsDir || path.join(root, 'reports', 'merge'), 'merge_report.json') });
   report.steps.merge = { status: mergeReport.status, outputFile: mergeReport.outputFile, chapterCount: mergeReport.chapterCount, navigation: mergeReport.navigation, validationOk: mergeReport.validation.ok };
   if (mergeReport.status !== 'success' || !mergeReport.validation.ok) {
-    return writeAndReturn(root, { ...report, status: 'failed', blockedAt: 'merge' }, options.reportFile);
+    return writeAndReturn(root, { ...report, status: 'failed', blockedAt: 'merge' }, options.reportFile, reportContext);
   }
 
   const reference = options.referencePath ? await loadReferenceSource(options.referencePath) : null;
   const integrityReport = auditChapterIntegrity(mergeReport.outputFile, reference);
-  const integrityPath = writeChapterIntegrityReport(root, integrityReport);
+  const integrityPath = writeChapterIntegrityReport(root, integrityReport, { reportContext });
   report.steps.integrityAudit = { status: integrityReport.status, reportPath: path.relative(root, integrityPath), chapterCount: integrityReport.chapterCount, checkedChapters: integrityReport.checkedChapters, confidence: integrityReport.confidence, warnings: integrityReport.warnings.map((warning) => warning.code), errors: integrityReport.errors.length };
   if (integrityReport.status === 'FAILED' || integrityReport.status === 'REVIEW_REQUIRED') {
-    return writeAndReturn(root, { ...report, status: 'blocked', blockedAt: 'integrity-audit', finalOutputFile: mergeReport.outputFile }, options.reportFile);
+    return writeAndReturn(root, { ...report, status: 'blocked', blockedAt: 'integrity-audit', finalOutputFile: mergeReport.outputFile }, options.reportFile, reportContext);
   }
 
   const titleAnalysis = analyzeChapterTitles(mergeReport.outputFile);
@@ -57,17 +59,17 @@ export async function runCorrectAndMergeWorkflow(epubs, options = {}) {
   let finalOutputFile = mergeReport.outputFile;
   if (options.normalizeTitles !== false && titleAnalysis.changed > 0) {
     const titleReport = await normalizeChapterTitlesInCopy(mergeReport.outputFile, titleAnalysis);
-    const titlePath = writeChapterTitleNormalizationReport(root, titleReport);
+    const titlePath = writeChapterTitleNormalizationReport(root, titleReport, { reportContext });
     report.steps.titleNormalization = { status: titleReport.status, reportPath: path.relative(root, titlePath), outputFile: titleReport.outputFile, changed: titleReport.changed, validationOk: titleReport.validation?.ok || false };
     if (titleReport.status !== 'success' || !titleReport.validation?.ok) {
-      return writeAndReturn(root, { ...report, status: 'failed', blockedAt: 'title-normalization', finalOutputFile }, options.reportFile);
+      return writeAndReturn(root, { ...report, status: 'failed', blockedAt: 'title-normalization', finalOutputFile }, options.reportFile, reportContext);
     }
     finalOutputFile = titleReport.outputFile;
   } else {
     report.steps.titleNormalization = { status: titleAnalysis.changed > 0 ? 'skipped' : 'already_normalized', outputFile: null, changed: titleAnalysis.changed };
   }
 
-  return writeAndReturn(root, { ...report, status: 'success', finalOutputFile }, options.reportFile);
+  return writeAndReturn(root, { ...report, status: 'success', finalOutputFile }, options.reportFile, reportContext);
 }
 
 export function resolveEffectiveSources(items) {
@@ -95,9 +97,10 @@ export function writeOrchestrationReport(root, report, reportFile = path.join(ro
   return reportFile;
 }
 
-function writeAndReturn(root, report, reportFile) {
+function writeAndReturn(root, report, reportFile, reportContext = null) {
   const finalReport = { ...report, completedAt: new Date().toISOString() };
-  const pathWritten = writeOrchestrationReport(root, finalReport, reportFile);
+  const defaultReportFile = reportContext ? path.join(reportContext.dataDir, 'm7_orchestration_report.json') : undefined;
+  const pathWritten = writeOrchestrationReport(root, finalReport, reportFile || defaultReportFile);
   return { ...finalReport, reportPath: pathWritten };
 }
 

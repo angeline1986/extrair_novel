@@ -1,8 +1,22 @@
 import path from 'path';
 import fs from 'fs-extra';
 
+export function getInputDirs(root) {
+  const inputDir = path.join(root, 'input');
+  return {
+    inputDir,
+    booksDir: path.join(inputDir, 'books'),
+    referenceFilesDir: path.join(inputDir, 'reference-files'),
+    validationBaselineDir: path.join(inputDir, 'validation-baseline')
+  };
+}
+
 export async function ensureWorkflowDirs(root) {
-  await fs.ensureDir(path.join(root, 'input'));
+  const { inputDir, booksDir, referenceFilesDir, validationBaselineDir } = getInputDirs(root);
+  await fs.ensureDir(inputDir);
+  await fs.ensureDir(booksDir);
+  await fs.ensureDir(referenceFilesDir);
+  await fs.ensureDir(validationBaselineDir);
   await fs.ensureDir(path.join(root, 'output'));
   await fs.ensureDir(path.join(root, 'reports'));
 }
@@ -10,8 +24,8 @@ export async function ensureWorkflowDirs(root) {
 export async function findSingleEpub(inputDir) {
   const entries = await fs.readdir(inputDir);
   const epubs = entries.filter((entry) => entry.toLowerCase().endsWith('.epub'));
-  if (epubs.length === 0) throw new Error('Nenhum arquivo .epub encontrado em input/.');
-  if (epubs.length > 1) throw new Error('Mais de um EPUB encontrado em input/. Deixe apenas um.');
+  if (epubs.length === 0) throw new Error('Nenhum arquivo .epub encontrado em input/books/.');
+  if (epubs.length > 1) throw new Error('Mais de um EPUB encontrado em input/books/. Deixe apenas um.');
   return path.join(inputDir, epubs[0]);
 }
 
@@ -19,7 +33,7 @@ export async function findOptionalPdf(inputDir) {
   const entries = await fs.readdir(inputDir);
   const pdfs = entries.filter((entry) => entry.toLowerCase().endsWith('.pdf'));
   if (pdfs.length === 0) return null;
-  if (pdfs.length > 1) throw new Error('Mais de um PDF encontrado em input/. Deixe apenas um.');
+  if (pdfs.length > 1) throw new Error('Mais de um PDF encontrado em input/reference-files/. Deixe apenas um.');
   return path.join(inputDir, pdfs[0]);
 }
 
