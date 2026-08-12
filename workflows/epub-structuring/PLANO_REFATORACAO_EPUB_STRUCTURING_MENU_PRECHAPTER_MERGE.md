@@ -16,7 +16,7 @@
 
 # 0. Status de Execução dos Milestones
 
-Atualizado em: 2026-08-11.
+Atualizado em: 2026-08-12.
 
 Este bloco registra o que já foi executado localmente. O restante do documento continua sendo o plano técnico original.
 
@@ -571,11 +571,125 @@ Pendência registrada:
 - `main.js` não foi alterado.
 - `npm test`: 124/124 passando.
 
+## M10.2 — Extrair preparação de entrada/contexto
+
+**Status:** implementado.
+
+- Criado `src/pipeline/context.js`.
+- Extraída a preparação inicial do pipeline para `preparePipelineContext()`.
+- A extração cobre:
+  - parse de argumentos;
+  - `--no-pdf`;
+  - `--pdf`;
+  - criação dos diretórios do workflow;
+  - resolução de `input/`;
+  - seleção do EPUB único via `findSingleEpub`;
+  - resolução de PDF opcional via `resolveOptionalPdf`;
+  - logs iniciais do contrato legado.
+- `main.js` agora chama `preparePipelineContext(ROOT, { log: console.log })`.
+- O restante do pipeline permanece intacto:
+  - detecção de capítulos;
+  - análise de fontes;
+  - boundaries;
+  - resplit;
+  - builders;
+  - validações finais;
+  - relatórios finais.
+- Contratos do M10.1 preservados.
+- `npm test`: 124/124 passando.
+
+## M10.3 — Extrair análise + seleção de `chapterReport`
+
+**Status:** implementado.
+
+- Criado `src/pipeline/source-analysis.js`.
+- Extraída a etapa de análise e seleção de fonte de capítulos para `analyzeAndSelectChapterReport()`.
+- A extração cobre:
+  - leitura do EPUB;
+  - leitura dos documentos HTML;
+  - análise de TOC;
+  - detecção de idioma;
+  - extração PDF opcional;
+  - detecção spine/canonical;
+  - detecção `internal-dom`;
+  - aplicação de overrides de estrutura;
+  - análise de boundaries para spine/canonical e internal-dom;
+  - `chooseChapterReport`;
+  - seleção final de `chapterReport`.
+- Logs preservados na mesma ordem observável do pipeline legado.
+- Regras atuais de prioridade, cobertura, PDF opcional, overrides e escolha de fonte foram mantidas.
+- `main.js` continua responsável por:
+  - validação inicial;
+  - relatórios preliminares;
+  - gate de resplit;
+  - ranges;
+  - resplit;
+  - build;
+  - reanálise;
+  - validações finais.
+- Contratos do M10.1 preservados.
+- `npm test`: 124/124 passando.
+
+## M10.4 — Extrair precheck + resplit
+
+**Status:** implementado.
+
+- Criado `src/pipeline/resplit.js`.
+- Extraídos para service reutilizável:
+  - resolução de `boundaryReport`;
+  - criação de `resplitPrecheckReport`;
+  - gate `assertSafeForResplit`;
+  - construção de ranges;
+  - preservação de teaser quando aplicável;
+  - execução de `performCanonicalResplit`;
+  - resolução de `chaptersDir`.
+- Mantidas as mensagens de erro atuais:
+  - sem capítulos selecionados;
+  - conflitos fortes em `internal-dom`;
+  - confiança média abaixo da política;
+  - boundary coverage abaixo de 100%;
+  - resplit inseguro.
+- Mantidos os logs observáveis:
+  - `Construindo ranges de capítulos...`;
+  - `Ranges construídos: ...`;
+  - `Executando resplit dos capítulos...`;
+  - `Resplit concluído: ...`.
+- `main.js` continua responsável por:
+  - escrita de relatórios preliminares;
+  - build do EPUB estruturado;
+  - reanálise;
+  - relatórios finais;
+  - validações finais.
+- Contratos do M10.1 preservados.
+- `npm test`: 124/124 passando.
+
+## M10.5 — Extrair build do EPUB estruturado
+
+**Status:** implementado.
+
+- Criado `src/pipeline/build-output.js`.
+- Extraídos para service reutilizável:
+  - montagem do nome seguro do livro;
+  - montagem do caminho de saída `output/*-structured-complete.epub`;
+  - log `Empacotando EPUB estruturado...`;
+  - chamada de `buildStructuredEpub`.
+- O service retorna `outputFile`.
+- `main.js` continua responsável por:
+  - atualização de hrefs para reanálise;
+  - reanálise do EPUB final;
+  - relatórios finais;
+  - validação de regressão;
+  - auditoria final.
+- Nenhum builder foi alterado.
+- Nenhuma regra de empacotamento foi duplicada.
+- Contratos do M10.1 preservados.
+- `npm test`: 124/124 passando.
+
 ## Próximo milestone recomendado
 
-**M10.2 — Extrair preparação de entrada/contexto.**
+**M10.6 — Extrair reanálise + relatórios + validações finais.**
 
-M8 foi implementado removendo o hardcode de 25 capítulos do `final-regression-validator`, M9 expôs capacidades já estabilizadas no menu, M10.0 mapeou a extração de `main.js`, e M10.1 congelou o contrato do pipeline legado antes da refatoração.
+M8 foi implementado removendo o hardcode de 25 capítulos do `final-regression-validator`, M9 expôs capacidades já estabilizadas no menu, M10.0 mapeou a extração de `main.js`, M10.1 congelou o contrato do pipeline legado, M10.2 extraiu o contexto de entrada, M10.3 extraiu análise + seleção de `chapterReport`, M10.4 extraiu precheck + resplit, e M10.5 extraiu build do EPUB estruturado preservando comportamento externo.
 
 Fluxo alvo:
 
@@ -2906,7 +3020,17 @@ Não implementar isso durante a atualização do plano.
 
 ## M10 — Refatoração final do pipeline legado
 
-Somente depois que os serviços individuais estiverem comprovados.
+Status atual:
+
+- M10.0 concluído: diagnóstico e mapa de extração do `main.js`.
+- M10.1 concluído: testes de contrato do pipeline legado.
+- M10.2 implementado: preparação de entrada/contexto extraída para service reutilizável.
+- M10.3 implementado: análise + seleção de `chapterReport` extraídas para service reutilizável.
+- M10.4 implementado: precheck + resplit extraídos para service reutilizável.
+- M10.5 implementado: build do EPUB estruturado extraído para service reutilizável.
+- Próximo: M10.6, reanálise + relatórios + validações finais.
+
+O M10 começou somente depois que os serviços individuais do M9 ficaram comprovados.
 
 Possível alvo:
 

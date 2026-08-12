@@ -1,15 +1,10 @@
 import path from 'path';
 import fs from 'fs';
-import { findSingleEpub, resolveOptionalPdf, ensureWorkflowDirs, parseCliOptions } from './utils/file-utils.js';
-import { safeFileName } from './utils/text-utils.js';
 import { writeJsonReport } from './utils/report-writer.js';
 import { readEpub } from './parsers/epub-reader.js';
 import { readHtmlDocuments } from './parsers/html-reader.js';
 import { analyzeToc } from './analyzers/toc-analyzer.js';
-import { detectLanguage } from './analyzers/language-detector.js';
-import { detectChapters } from './analyzers/chapter-detector.js';
 import { analyzeStructure } from './analyzers/structure-analyzer.js';
-import { extractPdfCanonicalChapters } from './analyzers/pdf-toc-extractor.js';
 import { validateEpub3 } from './validators/epub3-validator.js';
 import { runFinalRegressionValidation } from './validators/final-regression-validator.js';
 import { auditFinalEpub } from './validators/final-epub-auditor.js';
@@ -22,77 +17,35 @@ import {
   wordCountFromXhtml
 } from './utils/dom-range-extractor.js';
 import * as cheerio from 'cheerio';
-import { buildStructuredEpub } from './builders/epub-builder.js';
-import { analyzeChapterBoundaries } from './analyzers/chapter-boundary-analyzer.js';
-import { buildChapterRanges } from './analyzers/chapter-range-builder.js';
-import { performCanonicalResplit } from './segmenters/canonical-resplitter.js';
-import { detectInternalChapters } from './analyzers/internal-chapter-discovery.js';
-import { chooseChapterReport } from './utils/chapter-source.js';
-import { applyBookStructureOverrides } from './utils/book-structure-overrides.js';
 import { validateChapterSequence } from './analyzers/chapter-sequence-validator.js';
+import { preparePipelineContext } from './pipeline/context.js';
+import { analyzeAndSelectChapterReport } from './pipeline/source-analysis.js';
+import { prepareResplitPrecheck, runResplit } from './pipeline/resplit.js';
+import { buildStructuredOutput } from './pipeline/build-output.js';
 
 const ROOT = process.cwd();
 
 async function main() {
-  const cliOptions = parseCliOptions();
-  console.log('Iniciando EPUB structuring workflow...');
-
-  console.log('Preparando diretórios...');
-  await ensureWorkflowDirs(ROOT);
-  const inputDir = path.join(ROOT, 'input');
-  const inputFile = await findSingleEpub(inputDir);
-  const pdfFile = await resolveOptionalPdf(inputDir, cliOptions);
-  console.log(`EPUB encontrado: ${path.relative(ROOT, inputFile)}`);
-  if (cliOptions.noPdf) console.log('PDF desativado por --no-pdf.');
-  if (pdfFile) console.log(`PDF selecionado: ${path.relative(ROOT, pdfFile)}`);
-
-  console.log('Lendo EPUB e documentos HTML...');
-  const epub = readEpub(inputFile);
-  const htmlDocs = readHtmlDocuments(epub);
-  console.log(`HTMLs no spine/manifest: ${htmlDocs.length}`);
-
-  console.log('Analisando TOC, idioma e PDF opcional...');
-  const tocReport = analyzeToc(epub);
-  const languageReport = detectLanguage(epub, htmlDocs);
-  const pdfTocReport = await extractPdfCanonicalChapters(pdfFile, epub);
-  console.log(`TOC: ${tocReport.entryCount || tocReport.entries?.length || 0} entradas; PDF capítulos: ${pdfTocReport.chapterCount}`);
-
-  console.log('Detectando capítulos por spine e por DOM interno...');
-  const spineChapterReport = detectChapters(epub, htmlDocs, tocReport, pdfTocReport);
-  const rawInternalChapterReport = detectInternalChapters(epub, htmlDocs);
-  const overrideResult = applyBookStructureOverrides(epub, rawInternalChapterReport);
-  const internalChapterReport = overrideResult.chapterReport;
-  console.log(`Spine/canonical: ${spineChapterReport.chapterCount} capítulos; internal-dom: ${rawInternalChapterReport.chapterCount} capítulos; após override: ${internalChapterReport.chapterCount}.`);
-
-  console.log('Medindo cobertura de boundaries antes de escolher a fonte...');
-  const spineBoundaryReport = analyzeChapterBoundaries(epub, spineChapterReport);
-  const internalBoundaryReport = analyzeChapterBoundaries(epub, internalChapterReport);
-  console.log(`Cobertura spine/canonical: ${spineBoundaryReport.foundCount}/${spineBoundaryReport.expectedCount}; internal-dom: ${internalBoundaryReport.foundCount}/${internalBoundaryReport.expectedCount}.`);
-
-  console.log('Escolhendo fonte de capítulos...');
-  const chapterSourceDecision = chooseChapterReport({
-    pdfCanonicalReport: pdfTocReport,
-    internalChapterReport,
-    spineChapterReport,
+  const context = await preparePipelineContext(ROOT, { log: console.log });
+  const { cliOptions, inputFile, pdfFile } = context;
+  const sourceAnalysis = await analyzeAndSelectChapterReport(context, { log: console.log });
+  const {
+    epub,
+    htmlDocs,
     tocReport,
-    htmlCount: htmlDocs.length,
-    boundaryReports: {
-      spine: spineBoundaryReport,
-      canonical: spineBoundaryReport,
-      internal: internalBoundaryReport
-    },
-    pdfOptions: cliOptions
-  });
-  console.log(`Fonte escolhida: ${chapterSourceDecision.source} (${chapterSourceDecision.reason}).`);
-
-  const chapterReport = chapterSourceDecision.chapterReport;
+    languageReport,
+    pdfTocReport,
+    spineChapterReport,
+    overrideResult,
+    internalChapterReport,
+    chapterSourceDecision,
+    chapterReport
+  } = sourceAnalysis;
   console.log('Analisando estrutura e validação inicial...');
   const structureReport = analyzeStructure(epub, htmlDocs, chapterReport, tocReport, languageReport);
   const validationReport = validateEpub3(structureReport, chapterReport, tocReport, languageReport);
   
-  // Analisar limites reais dos capítulos no DOM (diagnóstico)
-  const boundaryReport = chapterSourceDecision.boundaryReport || analyzeChapterBoundaries(epub, chapterReport);
-  const resplitPrecheckReport = buildResplitPrecheckReport({ chapterReport, boundaryReport, chapterSourceDecision });
+  const { boundaryReport, resplitPrecheckReport } = prepareResplitPrecheck({ epub, chapterReport, chapterSourceDecision });
   const sourceIdentityReport = buildSourceIdentityReport({ inputFile, pdfFile, pdfTocReport, cliOptions });
   const sourceQualityReport = buildSourceQualityReport(chapterSourceDecision.candidates || []);
   await writeJsonReport(path.join(ROOT, 'reports', 'internal_chapter_report.json'), internalChapterReport);
@@ -109,30 +62,23 @@ async function main() {
   await writeJsonReport(path.join(ROOT, 'reports', 'boundary_report.json'), boundaryReport);
   await writeJsonReport(path.join(ROOT, 'reports', 'chapter_boundary_report.json'), boundaryReport);
   await writeJsonReport(path.join(ROOT, 'reports', 'resplit_precheck_report.json'), resplitPrecheckReport);
-  assertSafeForResplit({ chapterReport, boundaryReport, chapterSourceDecision });
+  const { rangeReport, chaptersDir, resplitReport } = runResplit({
+    root: ROOT,
+    epub,
+    chapterReport,
+    boundaryReport,
+    chapterSourceDecision,
+    teaserRange: overrideResult.teaserRange
+  }, { log: console.log });
   
-  // Construir ranges reais dos capítulos a partir dos boundaries
-  console.log('Construindo ranges de capítulos...');
-  const rangeReport = buildChapterRanges(boundaryReport, epub);
-  if (overrideResult.teaserRange && chapterSourceDecision.source === 'internal-dom') {
-    rangeReport.supplementalRanges = [overrideResult.teaserRange];
-  }
-  console.log(`Ranges construídos: ${rangeReport.rangeCount}`);
-  
-  // Realizar resplit canônico dos capítulos
-  console.log('Executando resplit dos capítulos...');
-  const chaptersDir = path.join(ROOT, 'output', 'chapters');
-  const resplitReport = performCanonicalResplit(rangeReport, boundaryReport, epub, chaptersDir);
-  if (resplitReport.ok !== true) {
-    throw new Error(`Resplit inseguro: ${resplitReport.chapterCount}/${rangeReport.rangeCount} capítulos gerados corretamente.`);
-  }
-  console.log(`Resplit concluído: ${resplitReport.chapterCount} capítulos gerados.`);
-  
-  const bookName = safeFileName(epub.opf.metadata.title || path.basename(inputFile, '.epub'));
-  const outputFile = path.join(ROOT, 'output', `${bookName}-structured-complete.epub`);
-
-  console.log('Empacotando EPUB estruturado...');
-  buildStructuredEpub(epub, chapterReport, resplitReport, chaptersDir, outputFile);
+  const { outputFile } = buildStructuredOutput({
+    root: ROOT,
+    inputFile,
+    epub,
+    chapterReport,
+    resplitReport,
+    chaptersDir
+  }, { log: console.log });
 
   // Atualizar chapterReport com novos hrefs para reanálise
   const hrefMap = new Map();
@@ -206,51 +152,6 @@ async function main() {
   console.log(`Entrada: ${path.relative(ROOT, inputFile)}`);
   if (pdfFile) console.log(`PDF: ${path.relative(ROOT, pdfFile)}`);
   console.log(`Saída: ${path.relative(ROOT, outputFile)}`);
-}
-
-function assertSafeForResplit({ chapterReport, boundaryReport, chapterSourceDecision }) {
-  const reportHint = 'Consulte reports/internal_chapter_report.json, reports/chapter_source_report.json, reports/boundary_report.json e reports/resplit_precheck_report.json.';
-  if (!chapterReport?.chapters?.length) {
-    throw new Error(`Resplit bloqueado: nenhum capítulo foi selecionado. ${reportHint}`);
-  }
-  if (chapterSourceDecision.source === 'internal-dom') {
-    const conflicts = chapterReport.diagnostics?.conflicts?.length || 0;
-    const averageConfidence = chapterReport.diagnostics?.confidenceSummary?.averageConfidence || 0;
-    if (conflicts > 0) throw new Error(`Resplit bloqueado: ${conflicts} conflitos fortes na descoberta interna. ${reportHint}`);
-    if (averageConfidence < 0.65) throw new Error(`Resplit bloqueado: confiança média interna ${averageConfidence} abaixo da política. ${reportHint}`);
-  }
-
-  const expected = boundaryReport.expectedCount || chapterReport.chapters.length;
-  const found = boundaryReport.foundCount || 0;
-  const coverage = expected ? found / expected : 0;
-  if (coverage < 1) {
-    throw new Error(`Resplit bloqueado: cobertura de boundaries ${(coverage * 100).toFixed(2)}% (${found}/${expected}). ${reportHint}`);
-  }
-}
-
-function buildResplitPrecheckReport({ chapterReport, boundaryReport, chapterSourceDecision }) {
-  const expected = boundaryReport.expectedCount || chapterReport.chapters?.length || 0;
-  const found = boundaryReport.foundCount || 0;
-  const boundaryCoverage = expected ? found / expected : 0;
-  return {
-    generatedAt: new Date().toISOString(),
-    ok: Boolean(chapterReport.chapters?.length) && boundaryCoverage >= 1,
-    selectedSource: chapterSourceDecision.source,
-    selectedReason: chapterSourceDecision.reason,
-    expectedChapterCount: expected,
-    locatedBoundaryCount: found,
-    boundaryCoverage,
-    blockingIssues: [
-      ...(!chapterReport.chapters?.length ? [{ code: 'NO_SELECTED_CHAPTERS' }] : []),
-      ...(boundaryCoverage < 1 ? [{ code: 'BOUNDARY_COVERAGE_BELOW_POLICY', expectedChapterCount: expected, locatedBoundaryCount: found, boundaryCoverage }] : [])
-    ],
-    reportFiles: [
-      'reports/internal_chapter_report.json',
-      'reports/chapter_source_report.json',
-      'reports/boundary_report.json',
-      'reports/resplit_precheck_report.json'
-    ]
-  };
 }
 
 function buildSourceIdentityReport({ inputFile, pdfFile, pdfTocReport, cliOptions }) {
