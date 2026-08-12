@@ -6,7 +6,8 @@ export function validateEpub(outputFile, epubStructure) {
 
   try {
     const zip = new AdmZip(outputFile);
-    const entries = zip.getEntries().map((entry) => entry.entryName);
+    const zipEntries = zip.getEntries();
+    const entries = zipEntries.map((entry) => entry.entryName);
 
     const required = [
       'mimetype',
@@ -23,6 +24,8 @@ export function validateEpub(outputFile, epubStructure) {
         errors.push(`Arquivo ausente no EPUB: ${entry}`);
       }
     }
+
+    validateMimetype(zipEntries, zip, errors);
 
     const opfContent = entries.includes(epubStructure.opfPath)
       ? zip.readAsText(epubStructure.opfPath)
@@ -50,22 +53,28 @@ export function validateEpub(outputFile, epubStructure) {
       : '';
 
     if (!navContent.includes('epub:type="toc"')) {
-      warnings.push('nav.xhtml não contém marcação EPUB TOC explícita.');
+      errors.push('nav.xhtml não contém marcação EPUB TOC explícita.');
+    }
+
+    if (!/xmlns:epub=["']http:\/\/www\.idpf\.org\/2007\/ops["']/.test(navContent)) {
+      errors.push('nav.xhtml usa prefixo epub sem declarar xmlns:epub.');
     }
 
     if (!opfContent.includes('properties="nav"')) {
-      errors.push('Manifest não referencia nav.xhtml com propriedades="nav".');
+      errors.push('Manifest não referencia nav.xhtml com properties="nav".');
     }
 
-    if (!entries.includes(epubStructure.ncxPath)) {
-      errors.push('toc.ncx ausente.');
+    for (const chapterFile of epubStructure.chapterFiles) {
+      if (!entries.includes(chapterFile)) continue;
+
+      const content = zip.readAsText(chapterFile);
+
+      if (!/<html\b/.test(content) || !/<body\b/.test(content)) {
+        errors.push(`XHTML inválido ou incompleto: ${chapterFile}`);
+      }
     }
 
-    if (entries.includes('mimetype') && zip.readAsText('mimetype').trim() !== 'application/epub+zip') {
-      errors.push('mimetype inválido.');
-    }
-
-    if (warnings.length === 0 && errors.length === 0) {
+    if (errors.length === 0) {
       warnings.push('Estrutura EPUB validada com sucesso.');
     }
   } catch (error) {
@@ -77,4 +86,27 @@ export function validateEpub(outputFile, epubStructure) {
     errors,
     warnings,
   };
+}
+
+function validateMimetype(zipEntries, zip, errors) {
+  const mimetypeIndex = zipEntries.findIndex((entry) => entry.entryName === 'mimetype');
+
+  if (mimetypeIndex < 0) {
+    errors.push('mimetype ausente.');
+    return;
+  }
+
+  if (mimetypeIndex !== 0) {
+    errors.push('mimetype deve ser a primeira entrada do arquivo EPUB.');
+  }
+
+  const mimetypeEntry = zipEntries[mimetypeIndex];
+
+  if (mimetypeEntry?.header?.method !== 0) {
+    errors.push('mimetype deve ser armazenado sem compressão.');
+  }
+
+  if (zip.readAsText('mimetype').trim() !== 'application/epub+zip') {
+    errors.push('mimetype inválido.');
+  }
 }
