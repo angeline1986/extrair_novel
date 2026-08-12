@@ -227,11 +227,95 @@ Pendência registrada:
 - Saída final: `output/titles/Novel-capitulos-1-a-120-capitulos-1-a-120-3-titles-normalized.epub`.
 - `npm test`: 115/115 passando.
 
+## M8 — Corrigir dívida da validação de regressão
+
+**Status:** implementado.
+
+- Removido o hardcode histórico de `25` capítulos do `final-regression-validator.js`.
+- O validator agora deriva a expectativa aprovada da execução a partir de:
+  - `chapter_report.json`;
+  - `chapter_resplit_report.json`.
+- A expectativa exige consistência entre:
+  - capítulos selecionados;
+  - `chapterCount`;
+  - `resplitReport.chapterCount`;
+  - `outputFile` gerados pelo resplit.
+- `toc_report.json` e `structure_report.json` são comparados contra os hrefs aprovados pelo resplit.
+- O EPUB final continua sendo validado quanto à existência e presença de `nav.xhtml` e `toc.ncx`, mas não é a fonte única da expectativa.
+- Criados testes para:
+  - expectativa dinâmica com 3 capítulos;
+  - expectativa dinâmica com 490 capítulos;
+  - bloqueio de expectativa inconsistente/circular.
+- `npm test`: 118/118 passando.
+
+## M9.1 — Exposição inicial no menu
+
+**Status:** implementado.
+
+- Opção `4. 📝 Revisar títulos dos capítulos` exposta no menu principal.
+- A opção 4 reutiliza a feature do M6.3:
+  - análise;
+  - preview;
+  - confirmação;
+  - cópia normalizada;
+  - relatório.
+- Opção `7. 📚 Usar fonte de referência` exposta como auditoria.
+- A opção 7 reutiliza a infraestrutura do M6.2:
+  - seleção de EPUB alvo;
+  - referência opcional EPUB/PDF/DOCX;
+  - DOCX continua explicitamente `unsupported`;
+  - auditoria;
+  - relatório;
+  - nenhuma correção automática.
+- Opção `12. 📊 Ver relatórios` exposta como fluxo somente leitura.
+- A opção 12 descobre relatórios existentes em `reports/` recursivamente, sem lista hardcoded de nomes.
+- Nenhuma engine nova foi criada para títulos, referência ou relatórios.
+- `npm test`: 118/118 passando.
+
+## M9.2 — Exposição de análise, capítulos e idioma no menu
+
+**Status:** implementado.
+
+- Opção `1. 📖 Analisar EPUB` exposta no menu principal.
+- A opção 1 reutiliza:
+  - `readEpub`;
+  - `readHtmlDocuments`;
+  - `analyzeToc`.
+- A opção 1 grava `reports/epub_analysis_report.json`.
+- Opção `2. 🧩 Detectar capítulos` exposta no menu principal.
+- A opção 2 reutiliza:
+  - `detectChapters`;
+  - `detectInternalChapters`;
+  - `analyzeToc`;
+  - leitura EPUB/HTML já existente.
+- A opção 2 grava:
+  - `reports/spine_chapter_report.json`;
+  - `reports/internal_chapter_report.json`.
+- Opção `6. 🌐 Verificar idioma` exposta no menu principal.
+- A opção 6 reutiliza `detectLanguage`.
+- A opção 6 grava `reports/language_report.json`.
+- Nenhum analyzer paralelo foi criado.
+- `npm test`: 118/118 passando.
+
+## M9.3 — Exposição de análise de sumário no menu
+
+**Status:** implementado para análise.
+
+- Opção `5. 📑 Analisar / reconstruir sumário` exposta no menu principal.
+- A opção 5 reutiliza:
+  - `readEpub`;
+  - `readHtmlDocuments`;
+  - `analyzeToc`.
+- A opção 5 grava `reports/toc_report.json`.
+- A reconstrução de `nav.xhtml`/`toc.ncx` não foi habilitada neste milestone.
+- Motivo: `buildNavXhtml` e `buildNcx` existem, mas reconstrução segura exige contexto aprovado de capítulos, OPF e empacotamento; expor isso diretamente no menu criaria risco de mini-pipeline paralelo.
+- Nenhum builder foi duplicado.
+
 ## Próximo milestone recomendado
 
-**M8 — Corrigir dívida da validação de regressão.**
+**M9.4 — Expor validação de EPUB.**
 
-M7 foi implementado como orquestração pura. O próximo passo volta para a dívida conhecida do `final-regression-validator`.
+M8 foi implementado removendo o hardcode de 25 capítulos do `final-regression-validator`, e M9.1/M9.2/M9.3 expuseram capacidades já estabilizadas no menu.
 
 Fluxo alvo:
 
@@ -2415,6 +2499,8 @@ output/titles/Novel-capitulos-1-a-120-capitulos-1-a-120-3-titles-normalized.epub
 
 ## M8 — Corrigir dívida da validação de regressão
 
+**Status:** implementado.
+
 ### Objetivo
 
 Remover pressupostos históricos específicos do validador genérico.
@@ -2439,6 +2525,32 @@ Não usar o próprio resultado final como sua única fonte de expectativa, evita
 
 Expectativas específicas de livros/fixtures devem ficar em testes de regressão próprios.
 
+### Implementado
+
+O `final-regression-validator.js` agora deriva a expectativa aprovada da execução sem depender do EPUB final como fonte única.
+
+Fonte da expectativa:
+
+```text
+chapter_report.json
+chapter_resplit_report.json
+```
+
+Validações principais:
+
+- `chapter_report.json` precisa ter `chapterCount` coerente com os capítulos selecionados;
+- `chapter_resplit_report.json` precisa ter `chapterCount` coerente;
+- cada capítulo aprovado precisa ter `outputFile`;
+- `toc_report.json` precisa apontar para os hrefs aprovados pelo resplit;
+- `structure_report.json` precisa apontar para os hrefs aprovados pelo resplit;
+- contagens finais precisam concordar com a expectativa aprovada.
+
+Testes adicionados:
+
+- 3 capítulos;
+- 490 capítulos;
+- expectativa inconsistente bloqueada.
+
 ---
 
 ## M9 — Expor gradualmente as demais funcionalidades no menu
@@ -2446,21 +2558,47 @@ Expectativas específicas de livros/fixtures devem ficar em testes de regressão
 Depois de estabilizar menu + feature 8:
 
 ```text
-1. Analisar EPUB
-2. Detectar capítulos
-3. Reestruturar capítulos
-4. Revisar títulos
-5. Sumário
-6. Idioma
-7. Fonte de referência
-9. EPUB 3
-10. Validar
-12. Relatórios
+1. 📖 Analisar EPUB
+2. 🧩 Detectar capítulos
+3. ✂️ Reestruturar capítulos
+4. 📝 Revisar títulos dos capítulos
+5. 📑 Analisar / reconstruir sumário
+6. 🌐 Verificar idioma
+7. 📚 Usar fonte de referência
+8. 🧹 Corrigir conteúdo pré-capítulo
+9. 🔧 Converter / reconstruir como EPUB 3
+10. ✅ Validar EPUB
+11. 🚀 Processamento completo
+12. 📊 Ver relatórios
 ```
 
 Cada opção deve chamar services/analyzers reutilizáveis.
 
 Não migrar tudo de uma vez.
+
+### Submilestones do M9
+
+M9.1 concluído:
+- opção 4: Revisar títulos;
+- opção 7: Fonte de referência;
+- opção 12: Relatórios.
+
+M9.2 concluído:
+- opção 1: Analisar EPUB;
+- opção 2: Detectar capítulos;
+- opção 6: Verificar idioma.
+
+M9.3 concluído para análise:
+- opção 5: Sumário;
+- primeiro análise;
+- reconstrução somente se houver fluxo isolado seguro.
+
+M9.4 próximo:
+- opção 10: Validar EPUB.
+
+M9.5:
+- opção 3: Reestruturar capítulos;
+- opção 9: Reconstruir EPUB 3.
 
 ### Importante sobre a opção 4
 

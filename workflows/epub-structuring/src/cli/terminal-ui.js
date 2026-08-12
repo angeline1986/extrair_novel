@@ -44,7 +44,7 @@ export function printMainMenu() {
 ║  4. Revisar títulos dos capítulos                   ║
 ║  5. Analisar / reconstruir sumário                  ║
 ║  6. Verificar idioma                                ║
-║  7. Usar PDF como referência                        ║
+║  7. Usar fonte de referência                        ║
 ║  8. Corrigir conteúdo pré-capítulo                  ║
 ║  9. Converter / reconstruir como EPUB 3             ║
 ║ 10. Validar EPUB                                    ║

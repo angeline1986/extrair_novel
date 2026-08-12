@@ -16,24 +16,29 @@ export function runFinalRegressionValidation(reportsDir, epubPath) {
     resplitReport: loadReport(reportsDir, 'chapter_resplit_report.json', checks, errors)
   };
 
-  // 2. chapterCount = 25
-  if (reports.chapterReport) {
-    const ok = reports.chapterReport.chapterCount === 25;
-    checks.push({ code: 'CHAPTER_COUNT', ok, message: ok ? `chapter_report.json chapterCount = 25.` : `chapter_report.json chapterCount = ${reports.chapterReport.chapterCount}, esperado 25.` });
-    if (!ok) errors.push({ code: 'CHAPTER_COUNT', message: `chapter_report.json chapterCount = ${reports.chapterReport.chapterCount}, esperado 25.` });
+  const expectation = buildApprovedExpectation(reports, checks, errors);
+
+  // 2. Contagens esperadas pela estrutura aprovada da execução
+  if (reports.chapterReport && expectation) {
+    const actual = reports.chapterReport.chapterCount;
+    const ok = actual === expectation.chapterCount;
+    checks.push({ code: 'CHAPTER_COUNT', ok, message: ok ? `chapter_report.json chapterCount = ${expectation.chapterCount}.` : `chapter_report.json chapterCount = ${actual}, esperado ${expectation.chapterCount}.` });
+    if (!ok) errors.push({ code: 'CHAPTER_COUNT', message: `chapter_report.json chapterCount = ${actual}, esperado ${expectation.chapterCount}.` });
   }
 
   if (reports.structureReport) {
-    const ok = reports.structureReport.summary.chapterCount === 25;
-    checks.push({ code: 'STRUCTURE_CHAPTER_COUNT', ok, message: ok ? `structure_report.json chapterCount = 25.` : `structure_report.json chapterCount = ${reports.structureReport.summary.chapterCount}, esperado 25.` });
-    if (!ok) errors.push({ code: 'STRUCTURE_CHAPTER_COUNT', message: `structure_report.json chapterCount = ${reports.structureReport.summary.chapterCount}, esperado 25.` });
+    const actual = reports.structureReport.summary?.chapterCount;
+    const ok = expectation ? actual === expectation.chapterCount : false;
+    checks.push({ code: 'STRUCTURE_CHAPTER_COUNT', ok, message: ok ? `structure_report.json chapterCount = ${expectation.chapterCount}.` : `structure_report.json chapterCount = ${actual}, esperado ${expectation?.chapterCount ?? 'indisponível'}.` });
+    if (!ok) errors.push({ code: 'STRUCTURE_CHAPTER_COUNT', message: `structure_report.json chapterCount = ${actual}, esperado ${expectation?.chapterCount ?? 'indisponível'}.` });
   }
 
-  // 3. toc entryCount = 25
+  // 3. TOC entryCount esperado pela estrutura aprovada da execução
   if (reports.tocReport) {
-    const ok = reports.tocReport.entryCount === 25;
-    checks.push({ code: 'TOC_ENTRY_COUNT', ok, message: ok ? `toc_report.json entryCount = 25.` : `toc_report.json entryCount = ${reports.tocReport.entryCount}, esperado 25.` });
-    if (!ok) errors.push({ code: 'TOC_ENTRY_COUNT', message: `toc_report.json entryCount = ${reports.tocReport.entryCount}, esperado 25.` });
+    const actual = reports.tocReport.entryCount;
+    const ok = expectation ? actual === expectation.chapterCount : false;
+    checks.push({ code: 'TOC_ENTRY_COUNT', ok, message: ok ? `toc_report.json entryCount = ${expectation.chapterCount}.` : `toc_report.json entryCount = ${actual}, esperado ${expectation?.chapterCount ?? 'indisponível'}.` });
+    if (!ok) errors.push({ code: 'TOC_ENTRY_COUNT', message: `toc_report.json entryCount = ${actual}, esperado ${expectation?.chapterCount ?? 'indisponível'}.` });
   }
 
   // 4. validation ok = true
@@ -58,29 +63,29 @@ export function runFinalRegressionValidation(reportsDir, epubPath) {
   if (reports.tocReport) counts.push({ name: 'tocReport', count: reports.tocReport.entryCount });
   if (reports.resplitReport) counts.push({ name: 'resplitReport', count: reports.resplitReport.chapterCount });
   
-  const allCountsEqual = counts.every(c => c.count === 25);
-  checks.push({ code: 'COUNT_CONSISTENCY', ok: allCountsEqual, message: allCountsEqual ? 'Todos os relatórios concordam sobre 25 capítulos.' : 'Relatórios não concordam sobre contagem de capítulos.' });
+  const allCountsEqual = Boolean(expectation) && counts.length > 0 && counts.every(c => c.count === expectation.chapterCount);
+  checks.push({ code: 'COUNT_CONSISTENCY', ok: allCountsEqual, message: allCountsEqual ? `Todos os relatórios concordam sobre ${expectation.chapterCount} capítulos.` : 'Relatórios não concordam sobre contagem de capítulos.' });
   if (!allCountsEqual) errors.push({ code: 'COUNT_CONSISTENCY', message: `Contagens inconsistentes: ${JSON.stringify(counts)}.` });
 
-  // 6. TOC aponta para chapter_XXX.xhtml
-  if (reports.tocReport && reports.tocReport.entries) {
-    const expectedHrefs = Array.from({ length: 25 }, (_, i) => `chapter_${String(i + 1).padStart(3, '0')}.xhtml`);
+  // 6. TOC aponta para os XHTMLs gerados no resplit aprovado
+  if (reports.tocReport && reports.tocReport.entries && expectation) {
+    const expectedHrefs = expectation.hrefs;
     const actualHrefs = reports.tocReport.entries.map(e => path.basename(e.src));
     const missing = expectedHrefs.filter(h => !actualHrefs.includes(h));
     const unexpected = actualHrefs.filter(h => !expectedHrefs.includes(h));
     const ok = missing.length === 0 && unexpected.length === 0;
-    checks.push({ code: 'TOC_HREFS', ok, message: ok ? 'TOC aponta para chapter_001.xhtml até chapter_025.xhtml.' : `TOC hrefs incorretos. Faltam: ${missing.join(', ')}. Extras: ${unexpected.join(', ')}.` });
+    checks.push({ code: 'TOC_HREFS', ok, message: ok ? 'TOC aponta para os XHTMLs gerados no resplit aprovado.' : `TOC hrefs incorretos. Faltam: ${missing.join(', ')}. Extras: ${unexpected.join(', ')}.` });
     if (!ok) errors.push({ code: 'TOC_HREFS', message: `TOC hrefs incorretos. Faltam: ${missing.join(', ')}. Extras: ${unexpected.join(', ')}.` });
   }
 
-  // 7. Structure aponta para chapter_XXX.xhtml
-  if (reports.structureReport && reports.structureReport.chapters) {
-    const expectedHrefs = Array.from({ length: 25 }, (_, i) => `chapter_${String(i + 1).padStart(3, '0')}.xhtml`);
+  // 7. Structure aponta para os XHTMLs gerados no resplit aprovado
+  if (reports.structureReport && reports.structureReport.chapters && expectation) {
+    const expectedHrefs = expectation.hrefs;
     const actualHrefs = reports.structureReport.chapters.map(c => path.basename(c.href));
     const missing = expectedHrefs.filter(h => !actualHrefs.includes(h));
     const unexpected = actualHrefs.filter(h => !expectedHrefs.includes(h));
     const ok = missing.length === 0 && unexpected.length === 0;
-    checks.push({ code: 'STRUCTURE_HREFS', ok, message: ok ? 'Structure aponta para chapter_001.xhtml até chapter_025.xhtml.' : `Structure hrefs incorretos. Faltam: ${missing.join(', ')}. Extras: ${unexpected.join(', ')}.` });
+    checks.push({ code: 'STRUCTURE_HREFS', ok, message: ok ? 'Structure aponta para os XHTMLs gerados no resplit aprovado.' : `Structure hrefs incorretos. Faltam: ${missing.join(', ')}. Extras: ${unexpected.join(', ')}.` });
     if (!ok) errors.push({ code: 'STRUCTURE_HREFS', message: `Structure hrefs incorretos. Faltam: ${missing.join(', ')}. Extras: ${unexpected.join(', ')}.` });
   }
 
@@ -143,6 +148,41 @@ function loadReport(reportsDir, fileName, checks, errors) {
     errors.push({ code: `REPORT_${fileName}`, message: `Erro ao ler ${fileName}: ${e.message}.` });
     return null;
   }
+}
+
+function buildApprovedExpectation(reports, checks, errors) {
+  const chapterCount = reports.chapterReport?.chapterCount;
+  const selectedChapters = reports.chapterReport?.chapters || [];
+  const resplitChapters = reports.resplitReport?.chapters || [];
+  const resplitCount = reports.resplitReport?.chapterCount;
+  const hrefs = resplitChapters
+    .filter((chapter) => chapter?.outputFile)
+    .sort((a, b) => (a.chapterNumber || 0) - (b.chapterNumber || 0))
+    .map((chapter) => path.basename(chapter.outputFile));
+
+  const ok = Number.isInteger(chapterCount) &&
+    chapterCount > 0 &&
+    selectedChapters.length === chapterCount &&
+    resplitCount === chapterCount &&
+    hrefs.length === chapterCount;
+
+  checks.push({
+    code: 'APPROVED_EXPECTATION',
+    ok,
+    message: ok
+      ? `Expectativa aprovada da execução: ${chapterCount} capítulos.`
+      : `Expectativa aprovada indisponível ou inconsistente: chapterCount=${chapterCount}, selected=${selectedChapters.length}, resplitCount=${resplitCount}, hrefs=${hrefs.length}.`
+  });
+
+  if (!ok) {
+    errors.push({
+      code: 'APPROVED_EXPECTATION',
+      message: `Não foi possível derivar expectativa aprovada sem circularidade. chapterCount=${chapterCount}, selected=${selectedChapters.length}, resplitCount=${resplitCount}, hrefs=${hrefs.length}.`
+    });
+    return null;
+  }
+
+  return { chapterCount, hrefs };
 }
 
 function buildSummary(reports) {
