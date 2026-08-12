@@ -42,6 +42,7 @@ export async function runFinalAnalysis(pipeline, options = {}) {
     chaptersDir,
     reportContext
   } = pipeline;
+  // LEGACY FALLBACK: direct calls outside ReportContext still write to reports/.
   const reportsDir = reportContext?.dataDir || path.join(root, 'reports');
 
   const updatedChapterReport = updateChapterReportHrefs(chapterReport, resplitReport);
@@ -96,9 +97,10 @@ export async function runFinalAnalysis(pipeline, options = {}) {
   await writeJsonReport(path.join(reportsDir, 'heading_consistency_report.json'), finalEpubAudit.headings);
   await writeJsonReport(path.join(reportsDir, 'residual_marker_report.json'), finalEpubAudit.residualMarkers);
   await writeJsonReport(path.join(reportsDir, 'orphan_files_report.json'), finalEpubAudit.orphans);
-  await writeJsonReport(path.join(reportsDir, 'final_epub_validation.json'), finalEpubAudit.validation);
+  const finalEpubValidationPath = path.join(reportsDir, 'final_epub_validation.json');
+  await writeJsonReport(finalEpubValidationPath, finalEpubAudit.validation);
   if (!finalEpubAudit.validation.ok) {
-    throw new Error('Auditoria final do EPUB falhou. Consulte reports/final_epub_validation.json.');
+    throw new Error(formatFinalEpubAuditError(root, finalEpubValidationPath));
   }
 
   return {
@@ -112,6 +114,10 @@ export async function runFinalAnalysis(pipeline, options = {}) {
     finalEpubAudit,
     chapterContentAudit
   };
+}
+
+export function formatFinalEpubAuditError(root, finalEpubValidationPath) {
+  return `Auditoria final do EPUB falhou. Consulte ${path.relative(root, finalEpubValidationPath)}.`;
 }
 
 function updateChapterReportHrefs(chapterReport, resplitReport) {

@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createReportContext, finishReportContext } from '../../src/utils/report-context.js';
 import { renderHtmlReport } from '../../src/utils/html-report-renderer.js';
+import { resolveReportOutputDir } from '../../src/utils/report-output-dir.js';
 
 test('report context creates one run directory with stable operation and UI label', async () => {
   const root = fixtureRoot();
@@ -79,6 +80,20 @@ test('html report renderer consumes run metadata and available data reports', as
   assert.match(html, /Capítulos/);
   assert.match(html, />12</);
   assert.doesNotMatch(html, /https?:\/\//);
+});
+
+test('report output directory prefers ReportContext and keeps legacy fallback explicit', async () => {
+  const root = fixtureRoot();
+  const context = await createReportContext({
+    root,
+    operation: 'menu_option_8',
+    operationLabel: 'Corrigir conteúdo pré-capítulo'
+  });
+  const explicitLegacy = path.join(root, 'custom-legacy-reports');
+
+  assert.equal(resolveReportOutputDir(root, { reportContext: context }, 'prechapter'), context.dataDir);
+  assert.equal(resolveReportOutputDir(root, { legacyOutputDir: explicitLegacy }, 'prechapter'), explicitLegacy);
+  assert.equal(resolveReportOutputDir(root, {}, 'prechapter'), path.join(root, 'reports', 'prechapter'));
 });
 
 function fixtureRoot() {

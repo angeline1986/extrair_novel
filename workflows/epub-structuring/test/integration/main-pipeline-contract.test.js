@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { writeZipFile } from '../../src/utils/zip-writer.js';
 import { readEpub } from '../../src/parsers/epub-reader.js';
 import { runFullPipeline } from '../../src/pipeline/full-pipeline.js';
+import { formatFinalEpubAuditError } from '../../src/pipeline/final-analysis.js';
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const MAIN = path.join(PROJECT_ROOT, 'src', 'main.js');
@@ -195,6 +196,16 @@ test('full pipeline explicit EPUB path fails clearly when missing', async () => 
       epubPath: path.join(root, 'input', 'books', 'missing.epub')
     }),
     /EPUB informado não encontrado:/
+  );
+});
+
+test('final EPUB audit error points to the current run data file', () => {
+  const root = fixtureRoot();
+  const reportPath = path.join(root, 'reports', '12082026_100000', 'data', 'final_epub_validation.json');
+
+  assert.equal(
+    formatFinalEpubAuditError(root, reportPath),
+    'Auditoria final do EPUB falhou. Consulte reports/12082026_100000/data/final_epub_validation.json.'
   );
 });
 

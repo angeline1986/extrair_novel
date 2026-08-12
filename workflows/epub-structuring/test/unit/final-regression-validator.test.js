@@ -46,6 +46,23 @@ test('final regression validator does not require reports as expectation source'
   assert.ok(report.checks.some((check) => check.code === 'EPUB_CHAPTER_HREFS' && check.ok));
 });
 
+test('final regression validator ignores stale reports outside current run directory', () => {
+  const root = fixtureDir();
+  const staleRootReports = path.join(root, 'reports');
+  const runReports = path.join(staleRootReports, '12082026_100000', 'data');
+  fs.ensureDirSync(runReports);
+  writeReports(staleRootReports, 490);
+  writeReports(runReports, 3);
+  const baselinePath = writeBaseline(root, 3);
+  const epub = path.join(root, 'final.epub');
+  writeMinimalFinalEpub(epub, 3);
+
+  const report = runFinalRegressionValidation(runReports, epub, { baselinePath });
+  assert.equal(report.ok, true);
+  assert.equal(report.summary.chapterCount, 3);
+  assert.ok(report.checks.some((check) => check.code === 'COUNT_CONSISTENCY' && check.message.includes('3 capítulos')));
+});
+
 test('final regression validator blocks inconsistent persistent baseline', () => {
   const dir = fixtureDir();
   const baselinePath = writeBaseline(dir, 3, { resplitCount: 2 });

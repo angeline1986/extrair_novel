@@ -1,9 +1,10 @@
 import path from 'node:path';
 import fs from 'fs-extra';
 import { writeJsonReport } from '../../utils/report-writer.js';
+import { resolveReportOutputDir } from '../../utils/report-output-dir.js';
 
 export async function writePrechapterAnalysisReport(root, result, options = {}) {
-  const reportsDir = options.reportContext?.dataDir || path.join(root, 'reports', 'prechapter');
+  const reportsDir = resolveReportOutputDir(root, options, 'prechapter');
   await fs.ensureDir(reportsDir);
   const fileName = `${safeReportName(result.sourceFile)}-prechapter-analysis.json`;
   const reportPath = path.join(reportsDir, fileName);
@@ -12,7 +13,7 @@ export async function writePrechapterAnalysisReport(root, result, options = {}) 
 }
 
 export async function writePrechapterFixReport(root, result, options = {}) {
-  const reportsDir = options.reportContext?.dataDir || path.join(root, 'reports', 'prechapter');
+  const reportsDir = resolveReportOutputDir(root, options, 'prechapter');
   await fs.ensureDir(reportsDir);
   const fileName = `${safeReportName(result.sourceFile)}-prechapter-fix.json`;
   const reportPath = path.join(reportsDir, fileName);
@@ -21,7 +22,7 @@ export async function writePrechapterFixReport(root, result, options = {}) {
 }
 
 export async function writePrechapterBatchReport(root, result, options = {}) {
-  const reportsDir = options.reportContext?.dataDir || path.join(root, 'reports', 'prechapter');
+  const reportsDir = resolveReportOutputDir(root, options, 'prechapter');
   await fs.ensureDir(reportsDir);
   const reportPath = path.join(reportsDir, 'batch_report.json');
   await writeJsonReport(reportPath, result);
