@@ -28,6 +28,10 @@ import { analyzeToc } from '../analyzers/toc-analyzer.js';
 import { detectChapters } from '../analyzers/chapter-detector.js';
 import { detectInternalChapters } from '../analyzers/internal-chapter-discovery.js';
 import { detectLanguage } from '../analyzers/language-detector.js';
+import { analyzeStructure } from '../analyzers/structure-analyzer.js';
+import { validateEpub3 } from '../validators/epub3-validator.js';
+import { auditFinalEpub } from '../validators/final-epub-auditor.js';
+import { runFinalRegressionValidation } from '../validators/final-regression-validator.js';
 import { writeJsonReport } from '../utils/report-writer.js';
 
 process.on('SIGINT', () => {
@@ -59,6 +63,12 @@ async function runMenu() {
         continue;
       }
 
+      if (choice === '3') {
+        const executed = await runLegacyPipelineFromMenu(terminal, 'Reestruturar capítulos');
+        if (executed) return;
+        continue;
+      }
+
       if (choice === '4') {
         await reviewChapterTitles(terminal);
         continue;
@@ -81,6 +91,17 @@ async function runMenu() {
 
       if (choice === '8') {
         await showPrechapterPlaceholder(terminal);
+        continue;
+      }
+
+      if (choice === '9') {
+        const executed = await runLegacyPipelineFromMenu(terminal, 'Converter / reconstruir como EPUB 3');
+        if (executed) return;
+        continue;
+      }
+
+      if (choice === '10') {
+        await validateEpubFromMenu(terminal);
         continue;
       }
 
@@ -218,6 +239,54 @@ async function analyzeTocFromMenu(terminal) {
   printInfo('Motivo: requer fluxo isolado seguro de NAV/NCX/OPF, sem duplicar builders.');
   printInfo(`Relatório: ${path.relative(process.cwd(), reportPath)}`);
   await pause(terminal);
+}
+
+async function validateEpubFromMenu(terminal) {
+  clearScreen();
+  const selected = await selectEpubForMenu(terminal);
+  if (!selected) return;
+
+  const { epub, htmlDocs, tocReport } = readSelectedEpub(selected.path);
+  const languageReport = detectLanguage(epub, htmlDocs);
+  const chapterReport = detectChapters(epub, htmlDocs, tocReport, null);
+  const structureReport = analyzeStructure(epub, htmlDocs, chapterReport, tocReport, languageReport);
+  const epub3Report = validateEpub3(structureReport, chapterReport, tocReport, languageReport);
+  const packageAudit = runPackageAuditIfAvailable(selected.path);
+  const regression = await runRegressionIfContextExists(selected.path);
+  const report = buildMenuValidationReport({
+    sourceFile: selected.path,
+    epub3Report,
+    structureReport,
+    tocReport,
+    chapterReport,
+    packageAudit,
+    regression
+  });
+  const reportPath = path.join(process.cwd(), 'reports', 'menu_epub_validation_report.json');
+  await writeJsonReport(reportPath, report);
+
+  printValidationSummary(report);
+  printInfo(`\nRelatório: ${path.relative(process.cwd(), reportPath)}`);
+  await pause(terminal);
+}
+
+async function runLegacyPipelineFromMenu(terminal, label) {
+  clearScreen();
+  printInfo(`${label}\n`);
+  printInfo('Esta opção usa o pipeline legado completo em src/main.js.');
+  printInfo('Ela preserva o contrato atual de npm start e exige exatamente um EPUB em input/.');
+  printInfo('O menu não chama canonical-resplitter ou builders diretamente neste milestone.');
+  const answer = normalizeChoice(await terminal.ask('\nExecutar pipeline completo agora? [S/N] ')).toLowerCase();
+  if (!['s', 'sim', 'y', 'yes'].includes(answer)) {
+    printInfo('Operação cancelada. Nenhum processamento foi iniciado.');
+    await pause(terminal);
+    return;
+  }
+
+  terminal.close();
+  const exitCode = await runFullPipeline();
+  process.exitCode = exitCode;
+  return true;
 }
 
 async function reviewChapterTitles(terminal) {
@@ -592,6 +661,109 @@ function readSelectedEpub(epubPath) {
   const htmlDocs = readHtmlDocuments(epub);
   const tocReport = analyzeToc(epub);
   return { epub, htmlDocs, tocReport };
+}
+
+function runPackageAuditIfAvailable(epubPath) {
+  try {
+    return { available: true, report: auditFinalEpub(epubPath) };
+  } catch (error) {
+    return {
+      available: false,
+      reason: `Auditoria final não aplicável a este EPUB isolado: ${error.message}`
+    };
+  }
+}
+
+async function runRegressionIfContextExists(epubPath) {
+  const reportsDir = path.join(process.cwd(), 'reports');
+  const relativeTarget = path.relative(process.cwd(), epubPath);
+  if (!relativeTarget.startsWith(`output${path.sep}`)) {
+    return {
+      available: false,
+      reason: 'Regressão exige EPUB final em output/ e relatórios aprovados da execução.'
+    };
+  }
+
+  const required = [
+    'chapter_report.json',
+    'toc_report.json',
+    'structure_report.json',
+    'validation_report.json',
+    'chapter_resplit_report.json'
+  ];
+  const missing = [];
+  for (const file of required) {
+    if (!(await fs.pathExists(path.join(reportsDir, file)))) missing.push(file);
+  }
+  if (missing.length) {
+    return {
+      available: false,
+      reason: `Contexto aprovado indisponível: faltam ${missing.join(', ')}.`
+    };
+  }
+
+  const report = runFinalRegressionValidation(reportsDir, epubPath);
+  const expectationCheck = report.checks.find((check) => check.code === 'APPROVED_EXPECTATION');
+  if (!expectationCheck?.ok) {
+    return {
+      available: false,
+      reason: 'Expectativa aprovada indisponível ou inconsistente nos relatórios existentes.',
+      report
+    };
+  }
+  return { available: true, report };
+}
+
+function buildMenuValidationReport({ sourceFile, epub3Report, structureReport, tocReport, chapterReport, packageAudit, regression }) {
+  const packageValidation = packageAudit.available ? packageAudit.report.validation : null;
+  const checks = [
+    { label: 'Estrutura EPUB 3', ok: epub3Report.ok, source: 'validateEpub3' },
+    { label: 'Manifest', ok: structureReport.summary.htmlItems > 0, source: 'analyzeStructure' },
+    { label: 'Spine', ok: structureReport.summary.spineItems > 0, source: 'analyzeStructure' },
+    { label: 'NAV', ok: tocReport.hasNav, source: 'analyzeToc', warningOnly: !tocReport.hasNav },
+    { label: 'NCX', ok: tocReport.hasNcx, source: 'analyzeToc' },
+    {
+      label: 'XML/XHTML',
+      ok: packageAudit.available ? packageAudit.report.xmlValidation.errors.length === 0 && packageAudit.report.xmlValidation.duplicateXmlDeclarations.length === 0 : null,
+      source: 'auditFinalEpub',
+      unavailableReason: packageAudit.available ? null : packageAudit.reason
+    },
+    { label: 'Capítulos', ok: chapterReport.chapterCount > 0 && !chapterReport.sequence.missingChapters.length, source: 'detectChapters' },
+    {
+      label: 'Regressão',
+      ok: regression.available ? regression.report.ok : null,
+      source: 'final-regression-validator',
+      unavailableReason: regression.available ? null : regression.reason
+    }
+  ];
+  const blockingFailures = checks.filter((check) => check.ok === false && !check.warningOnly);
+  return {
+    generatedAt: new Date().toISOString(),
+    sourceFile: path.relative(process.cwd(), sourceFile),
+    ok: blockingFailures.length === 0,
+    result: blockingFailures.length === 0 ? 'OK' : 'FAILED',
+    checks,
+    epub3: epub3Report,
+    packageAudit,
+    regression,
+    summary: {
+      chapterCount: chapterReport.chapterCount,
+      tocEntries: tocReport.entryCount || tocReport.entries?.length || 0,
+      htmlItems: structureReport.summary.htmlItems,
+      spineItems: structureReport.summary.spineItems,
+      manifestEntries: packageValidation?.manifestEntries ?? null
+    }
+  };
+}
+
+function printValidationSummary(report) {
+  printInfo('VALIDAÇÃO DO EPUB\n');
+  for (const check of report.checks) {
+    const marker = check.ok === true ? '✓' : check.ok === false ? '✗' : 'indisponível';
+    const suffix = check.unavailableReason ? ` (${check.unavailableReason})` : '';
+    printInfo(`${check.label.padEnd(22)} ${marker}${suffix}`);
+  }
+  printInfo(`\nResultado: ${report.result}`);
 }
 
 async function selectReferenceSource(terminal, inputDir) {

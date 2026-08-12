@@ -311,11 +311,47 @@ Pendência registrada:
 - Motivo: `buildNavXhtml` e `buildNcx` existem, mas reconstrução segura exige contexto aprovado de capítulos, OPF e empacotamento; expor isso diretamente no menu criaria risco de mini-pipeline paralelo.
 - Nenhum builder foi duplicado.
 
+## M9.4 — Exposição de validação de EPUB no menu
+
+**Status:** implementado.
+
+- Opção `10. ✅ Validar EPUB` exposta no menu principal.
+- A opção 10 reutiliza:
+  - `readEpub`;
+  - `readHtmlDocuments`;
+  - `analyzeToc`;
+  - `detectChapters`;
+  - `detectLanguage`;
+  - `analyzeStructure`;
+  - `validateEpub3`;
+  - `auditFinalEpub`, quando aplicável;
+  - `runFinalRegressionValidation`, somente quando existem relatórios aprovados suficientes.
+- A opção 10 grava `reports/menu_epub_validation_report.json`.
+- A validação de regressão não fabrica expectativa quando falta contexto aprovado.
+- Auditorias finais específicas de EPUB estruturado são marcadas como indisponíveis quando o EPUB alvo não tem o formato esperado por essas auditorias.
+- Nenhum validator paralelo foi criado.
+- Nenhuma correção automática foi adicionada.
+
+## M9.5 — Exposição conservadora de reestruturação / EPUB 3
+
+**Status:** implementado como wrapper controlado.
+
+- Opção `3. ✂️ Reestruturar capítulos` exposta no menu principal.
+- Opção `9. 🔧 Converter / reconstruir como EPUB 3` exposta no menu principal.
+- Ambas as opções chamam o pipeline legado completo em `src/main.js`, após confirmação explícita.
+- O contrato de `npm start` foi preservado:
+  - usa `findSingleEpub()`;
+  - exige exatamente um EPUB em `input/`;
+  - não altera o fluxo legado.
+- `canonical-resplitter`, builders e geração de OPF/NAV/NCX não foram chamados diretamente pelo menu.
+- Motivo: resplit e rebuild dependem de escolha aprovada de fonte, boundary coverage, prechecks, ranges e empacotamento; chamar peças isoladas criaria risco de pipeline paralelo.
+- Nenhum motor novo foi criado.
+
 ## Próximo milestone recomendado
 
-**M9.4 — Expor validação de EPUB.**
+**M9 concluído. Próximo: definir refinamentos fora do M9.**
 
-M8 foi implementado removendo o hardcode de 25 capítulos do `final-regression-validator`, e M9.1/M9.2/M9.3 expuseram capacidades já estabilizadas no menu.
+M8 foi implementado removendo o hardcode de 25 capítulos do `final-regression-validator`, e M9.1/M9.2/M9.3/M9.4/M9.5 expuseram capacidades já estabilizadas no menu.
 
 Fluxo alvo:
 
@@ -2593,10 +2629,10 @@ M9.3 concluído para análise:
 - primeiro análise;
 - reconstrução somente se houver fluxo isolado seguro.
 
-M9.4 próximo:
+M9.4 concluído:
 - opção 10: Validar EPUB.
 
-M9.5:
+M9.5 concluído como wrapper controlado:
 - opção 3: Reestruturar capítulos;
 - opção 9: Reconstruir EPUB 3.
 
