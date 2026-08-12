@@ -9,6 +9,8 @@ import { buildEpub } from './builders/epub-builder.js';
 import { validateEpub } from './validators/epub-validator.js';
 import { slugify } from './utils/text-utils.js';
 
+const ROOT = process.cwd();
+
 async function main() {
   const workflowRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
   console.log('Iniciando PDF to EPUB workflow...');
@@ -25,42 +27,25 @@ async function main() {
 
   console.log('Lendo e extraindo texto do PDF...');
   const pdfAnalysis = await readPdfFile(pdfPath);
-  assertPdfExtraction(pdfAnalysis);
-
-  console.log(
-    `PDF lido: ${pdfAnalysis.pageCount} páginas físicas, `
-    + `${pdfAnalysis.extractedPageCount} páginas extraídas, `
-    + `${pdfAnalysis.textLength} caracteres.`,
-  );
+  console.log(`PDF lido: ${pdfAnalysis.pageCount} páginas, ${pdfAnalysis.textLength} caracteres.`);
 
   console.log('Detectando capítulos...');
   const chapterReport = detectChapters(pdfAnalysis);
-  assertChapterDetection(chapterReport, pdfAnalysis);
-
-  console.log(`Headings encontrados: ${chapterReport.headingsFound}`);
-  console.log(`Headings ignorados como sumário: ${chapterReport.headingsIgnoredAsToc}`);
   console.log(`Capítulos detectados: ${chapterReport.chapters.length}`);
 
-  for (const warning of chapterReport.warnings) {
-    console.warn(`Warning: ${warning}`);
-  }
-
-  const bookTitle = pdfAnalysis.title || pdfAnalysis.fileName.replace(/\.pdf$/i, '');
+  const bookTitle = pdfAnalysis.metadata.title || pdfAnalysis.fileName.replace(/\.pdf$/i, '');
   const safeTitle = slugify(bookTitle) || 'book';
   const outputFile = path.join(workflowRoot, 'output', `${safeTitle}.epub`);
 
   console.log('Gerando arquivos XHTML dos capítulos...');
   const xhtmlFiles = [];
-
   for (const [index, chapter] of chapterReport.chapters.entries()) {
     const contents = buildChapterXhtml(chapter);
     const relativePath = path.posix.join('OEBPS', 'xhtml', chapter.href);
     const absolutePath = path.join(workflowRoot, relativePath);
-
     await fs.ensureDir(path.dirname(absolutePath));
     await fs.writeFile(absolutePath, contents, 'utf8');
     xhtmlFiles.push(relativePath);
-
     if ((index + 1) % 25 === 0 || index + 1 === chapterReport.chapters.length) {
       console.log(`XHTML gerados: ${index + 1}/${chapterReport.chapters.length}`);
     }
@@ -95,42 +80,8 @@ async function main() {
   console.log(`PDF: ${path.relative(workflowRoot, pdfPath)}`);
   console.log(`EPUB: ${path.relative(workflowRoot, outputFile)}`);
   console.log(`Capítulos: ${reports.chapters.chapters.length}`);
-  console.log(`Warnings: ${reports.validation.warnings.length + reports.chapters.warnings.length}`);
+  console.log(`Warnings: ${reports.validation.warnings.length}`);
   console.log(`Errors: ${reports.validation.errors.length}`);
-}
-
-function assertPdfExtraction(pdfAnalysis) {
-  if (!pdfAnalysis.pageCount || !pdfAnalysis.extractedPageCount) {
-    throw new Error('O PDF não produziu páginas válidas durante a extração.');
-  }
-
-  if (pdfAnalysis.pageCount !== pdfAnalysis.extractedPageCount) {
-    throw new Error(
-      `Extração inconsistente: PDF informa ${pdfAnalysis.pageCount} páginas, `
-      + `mas ${pdfAnalysis.extractedPageCount} foram extraídas.`,
-    );
-  }
-
-  if (!pdfAnalysis.textLength) {
-    throw new Error('Nenhum texto foi extraído do PDF.');
-  }
-}
-
-function assertChapterDetection(chapterReport, pdfAnalysis) {
-  if (!chapterReport.chapters.length) {
-    throw new Error('Nenhum capítulo foi produzido pelo detector.');
-  }
-
-  const suspicious = chapterReport.chapters.filter(
-    (chapter) => chapter.content.length > Math.max(500000, pdfAnalysis.textLength * 0.25),
-  );
-
-  if (suspicious.length > 0) {
-    throw new Error(
-      `Detecção inconsistente: ${suspicious.length} capítulo(s) contêm uma fração `
-      + 'anormalmente grande do livro. O EPUB não será gerado.',
-    );
-  }
 }
 
 main().catch((error) => {

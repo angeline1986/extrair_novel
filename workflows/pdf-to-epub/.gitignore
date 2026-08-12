@@ -1,6 +1,9 @@
 input/*.pdf
+output/
 output/*
 reports/*
-OEBPS/*
+OEBPS/
+OEBPS/xhtml/
+README-PATCH.md
 *.epub
 !.gitkeep
