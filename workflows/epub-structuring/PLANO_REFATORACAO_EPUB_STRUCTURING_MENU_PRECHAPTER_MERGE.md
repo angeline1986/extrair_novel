@@ -347,11 +347,235 @@ Pendência registrada:
 - Motivo: resplit e rebuild dependem de escolha aprovada de fonte, boundary coverage, prechecks, ranges e empacotamento; chamar peças isoladas criaria risco de pipeline paralelo.
 - Nenhum motor novo foi criado.
 
+## M10.0 — Diagnóstico e mapa de extração do pipeline legado
+
+**Status:** concluído como diagnóstico, sem alteração de fluxo executável.
+
+### Blocos funcionais atuais de `src/main.js`
+
+1. Preparação de entrada e contexto:
+   - `parseCliOptions`;
+   - `ensureWorkflowDirs`;
+   - `findSingleEpub`;
+   - `resolveOptionalPdf`;
+   - logs iniciais.
+
+2. Leitura base:
+   - `readEpub`;
+   - `readHtmlDocuments`;
+   - contagem de HTMLs.
+
+3. Análise inicial:
+   - `analyzeToc`;
+   - `detectLanguage`;
+   - `extractPdfCanonicalChapters`.
+
+4. Detecção de capítulos:
+   - `detectChapters`;
+   - `detectInternalChapters`;
+   - `applyBookStructureOverrides`.
+
+5. Boundaries e escolha de fonte:
+   - `analyzeChapterBoundaries` para spine/canonical;
+   - `analyzeChapterBoundaries` para internal-dom;
+   - `chooseChapterReport`.
+
+6. Estrutura e validação inicial:
+   - `analyzeStructure`;
+   - `validateEpub3`;
+   - `buildResplitPrecheckReport`;
+   - `buildSourceIdentityReport`;
+   - `buildSourceQualityReport`;
+   - escrita de relatórios preliminares.
+
+7. Gate de resplit:
+   - `assertSafeForResplit`;
+   - bloqueia sem capítulos, conflitos fortes ou boundary coverage abaixo de 100%.
+
+8. Ranges e resplit:
+   - `buildChapterRanges`;
+   - preservação opcional de teaser;
+   - `performCanonicalResplit`;
+   - erro se `resplitReport.ok !== true`.
+
+9. Build do EPUB estruturado:
+   - nome via `safeFileName`;
+   - `buildStructuredEpub`;
+   - saída em `output/*-structured-complete.epub`.
+
+10. Reanálise do EPUB final:
+    - `readEpub`;
+    - `readHtmlDocuments`;
+    - `analyzeToc`;
+    - `analyzeStructure`;
+    - `validateEpub3`;
+    - atualização manual de hrefs do `chapterReport`.
+
+11. Relatórios finais:
+    - `structure_report.json`;
+    - `chapter_report.json`;
+    - `spine_chapter_report.json`;
+    - `internal_chapter_report.json`;
+    - `book_structure_override_report.json`;
+    - `final_chapter_sequence_report.json`;
+    - `teaser_extraction_report.json`;
+    - `irregular_chapter_report.json`;
+    - `pdf_toc_report.json`;
+    - `chapter_source_*`;
+    - `toc_report.json`;
+    - `language_report.json`;
+    - `chapter_boundary_report.json`;
+    - `chapter_range_report.json`;
+    - `chapter_resplit_report.json`;
+    - `validation_report.json`.
+
+12. Regressão e auditorias finais:
+    - `runFinalRegressionValidation`;
+    - `auditFinalEpub`;
+    - `buildChapterContentAudit`;
+    - relatórios de packaging, XML, NAV namespace, conteúdo, idioma, headings, residual markers, orphan files e validação final.
+
+13. Encerramento:
+    - erro se auditoria final falha;
+    - logs finais de entrada, PDF e saída.
+
+### Objetos compartilhados críticos
+
+- `ROOT`;
+- `cliOptions`;
+- `inputDir`;
+- `inputFile`;
+- `pdfFile`;
+- `epub`;
+- `htmlDocs`;
+- `tocReport`;
+- `languageReport`;
+- `pdfTocReport`;
+- `spineChapterReport`;
+- `rawInternalChapterReport`;
+- `overrideResult`;
+- `internalChapterReport`;
+- `spineBoundaryReport`;
+- `internalBoundaryReport`;
+- `chapterSourceDecision`;
+- `chapterReport`;
+- `structureReport`;
+- `validationReport`;
+- `boundaryReport`;
+- `resplitPrecheckReport`;
+- `sourceIdentityReport`;
+- `sourceQualityReport`;
+- `rangeReport`;
+- `chaptersDir`;
+- `resplitReport`;
+- `outputFile`;
+- `updatedChapterReport`;
+- `finalEpub`;
+- `finalHtmlDocs`;
+- `finalTocReport`;
+- `finalStructureReport`;
+- `finalValidationReport`;
+- `finalRegressionReport`;
+- `finalEpubAudit`;
+- `chapterContentAudit`.
+
+### Efeitos colaterais atuais
+
+- Cria diretórios do workflow via `ensureWorkflowDirs`.
+- Lê EPUB e PDF opcional a partir de `input/`.
+- Escreve capítulos intermediários em `output/chapters`.
+- Escreve EPUB final em `output/`.
+- Sobrescreve relatórios em `reports/`.
+- Imprime logs de progresso em `stdout`.
+- Imprime falha e mensagem em `stderr`.
+- Encerra com `process.exit(1)` no catch final.
+
+### Blocos extraíveis com menor risco
+
+- `prepareContext()`:
+  - agrupar opções CLI, diretórios, EPUB único e PDF opcional.
+
+- `readSourceDocuments(context)`:
+  - carregar `epub` e `htmlDocs`.
+
+- `analyzeSources(context)`:
+  - TOC, idioma, PDF, spine, internal-dom e overrides.
+
+- `selectChapterReport(analysis)`:
+  - boundaries, escolha de fonte e relatórios de identidade/qualidade.
+
+- `runResplitPrecheck(selection)`:
+  - `buildResplitPrecheckReport` e `assertSafeForResplit`.
+
+- `runResplit(selection)`:
+  - ranges, teaser e `performCanonicalResplit`.
+
+- `buildStructuredOutput(resplitContext)`:
+  - nome de saída e `buildStructuredEpub`.
+
+- `runFinalAnalysis(outputContext)`:
+  - reanálise do EPUB final e validação inicial/final.
+
+- `writePipelineReports(pipelineState)`:
+  - centralizar escrita de relatórios sem mudar nomes.
+
+### Blocos que exigem cuidado especial
+
+- Atualização manual de hrefs para `updatedChapterReport`.
+- Escrita duplicada de alguns relatórios antes e depois do resplit.
+- `buildChapterContentAudit`, porque contém lógica diagnóstica específica para capítulos 83, 456 e 457.
+- `auditFinalEpub`, porque assume formato do EPUB final estruturado.
+- `runFinalRegressionValidation`, porque depende de relatórios aprovados e não pode virar expectativa circular.
+- `findSingleEpub`, porque define o contrato legado de `npm start`.
+
+### Proposta mínima para M10.1
+
+- Criar testes de contrato antes de qualquer extração.
+- Cobrir:
+  - 0 EPUB em `input/`;
+  - 1 EPUB em `input/`;
+  - múltiplos EPUBs em `input/`;
+  - PDF ausente;
+  - `--no-pdf`;
+  - PDF explícito;
+  - logs principais;
+  - exit code;
+  - relatórios e arquivos esperados quando o pipeline roda com fixture controlada.
+- Manter `main.js` intacto durante M10.1, salvo se for necessário expor test helper sem mudar comportamento.
+
+## M10.1 — Testes de contrato do pipeline legado
+
+**Status:** implementado.
+
+- Criado teste de caixa-preta para `src/main.js`.
+- O teste executa o entrypoint em diretórios temporários, sem importar a arquitetura interna desejada.
+- Contratos protegidos:
+  - falha com 0 EPUBs em `input/`;
+  - falha com múltiplos EPUBs em `input/`;
+  - falha com `--no-pdf` combinado com `--pdf`;
+  - falha com `--pdf` explícito inexistente, após resolver EPUB;
+  - sucesso com 1 EPUB e `--no-pdf`;
+  - seleção de PDF opcional único e falha atual quando o PDF é inválido.
+- O caso de sucesso valida:
+  - mensagens principais do pipeline;
+  - exit code `0`;
+  - EPUB final em `output/`;
+  - `output/chapters`;
+  - relatórios principais;
+  - `chapterCount`;
+  - NAV;
+  - NCX;
+  - spine;
+  - `validation_report.json`;
+  - `final_regression_report.json`.
+- `main.js` não foi alterado.
+- `npm test`: 124/124 passando.
+
 ## Próximo milestone recomendado
 
-**M9 concluído. Próximo: definir refinamentos fora do M9.**
+**M10.2 — Extrair preparação de entrada/contexto.**
 
-M8 foi implementado removendo o hardcode de 25 capítulos do `final-regression-validator`, e M9.1/M9.2/M9.3/M9.4/M9.5 expuseram capacidades já estabilizadas no menu.
+M8 foi implementado removendo o hardcode de 25 capítulos do `final-regression-validator`, M9 expôs capacidades já estabilizadas no menu, M10.0 mapeou a extração de `main.js`, e M10.1 congelou o contrato do pipeline legado antes da refatoração.
 
 Fluxo alvo:
 
