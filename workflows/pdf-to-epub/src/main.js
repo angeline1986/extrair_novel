@@ -1,6 +1,6 @@
 import path from 'path';
 import fs from 'fs-extra';
-import { ensureWorkflowDirs, findSinglePdf, cleanOutputDirectory } from './utils/file-utils.js';
+import { ensureWorkflowDirs, findSinglePdf, resolveOutputFilePath } from './utils/file-utils.js';
 import { writeJsonReport } from './utils/report-utils.js';
 import { readPdfFile } from './readers/pdf-reader.js';
 import { detectChapters } from './analyzers/chapter-detector.js';
@@ -16,8 +16,6 @@ async function main() {
 
   console.log('Preparando diretórios...');
   await ensureWorkflowDirs(workflowRoot);
-  await cleanOutputDirectory(path.join(workflowRoot, 'output'));
-  await cleanOutputDirectory(path.join(workflowRoot, 'reports'));
 
   const inputDir = path.join(workflowRoot, 'input');
   const pdfPath = await findSinglePdf(inputDir);
@@ -47,7 +45,7 @@ async function main() {
 
   const bookTitle = pdfAnalysis.title || pdfAnalysis.fileName.replace(/\.pdf$/i, '');
   const safeTitle = slugify(bookTitle) || 'book';
-  const outputFile = path.join(workflowRoot, 'output', `${safeTitle}.epub`);
+  const outputFile = await resolveOutputFilePath(path.join(workflowRoot, 'output'), safeTitle, '.epub');
 
   console.log('Gerando arquivos XHTML dos capítulos...');
   const xhtmlFiles = [];
