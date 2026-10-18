@@ -321,6 +321,23 @@ def action_structure_epub() -> None:
     show_success(f"Saída gerada em: {output_dir}")
 
 
+def action_run_salt_society_epub_legacy() -> None:
+    script = ROOT / "src" / "legacy" / "Gera_Epub2.js"
+    if not script.exists():
+        show_error(f"Script não encontrado: {script}")
+        return
+
+    print(color("success", "Executando geração do EPUB Salt Society via script legado...", bold=True))
+    if not run_command(["node", str(script)], ROOT, "Gerando EPUB Salt Society"):
+        return
+
+    epub_file = ROOT / "salt-society.epub"
+    if epub_file.exists():
+        show_success(f"Arquivo final disponível em: {epub_file}")
+    else:
+        show_warning("O script terminou sem encontrar o arquivo salt-society.epub no diretório raiz.")
+
+
 def action_list_outputs() -> None:
     sections = [
         ("PDF -> EPUB", PDF_WORKFLOW / "output"),
@@ -368,6 +385,13 @@ def build_menu() -> tuple[MenuSection, ...]:
             (
                 MenuItem(
                     3,
+                    "Gerar EPUB Salt Society",
+                    "Executa o script legado para gerar o EPUB da obra",
+                    action_run_salt_society_epub_legacy,
+                    "item_secondary",
+                ),
+                MenuItem(
+                    4,
                     "Ver saídas",
                     "Mostra arquivos gerados nas pastas de saída",
                     action_list_outputs,

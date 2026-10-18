@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="bookid" version="3.0">
+<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <dc:identifier id="bookid">salt-society</dc:identifier>
+  <dc:title>Salt Society</dc:title>
+  <dc:creator>Salt Society</dc:creator>
+  <dc:language>pt-BR</dc:language>
+</metadata>
+<manifest>
+  <item id="title_page" href="title_page.xhtml" media-type="application/xhtml+xml"/>
+  <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+  <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+  
+  <item id="chap1" href="file0001.xhtml" media-type="application/xhtml+xml"/>
+<item id="chap2" href="file0002.xhtml" media-type="application/xhtml+xml"/>
+<item id="chap3" href="file0003.xhtml" media-type="application/xhtml+xml"/>
+<item id="chap4" href="file0004.xhtml" media-type="application/xhtml+xml"/>
+<item id="chap5" href="file0005.xhtml" media-type="application/xhtml+xml"/>
+  <item id="css" href="stylesheet.css" media-type="text/css"/>
+</manifest>
+<spine toc="ncx">
+  <itemref idref="title_page"/>
+  <itemref idref="chap1"/>
+<itemref idref="chap2"/>
+<itemref idref="chap3"/>
+<itemref idref="chap4"/>
+<itemref idref="chap5"/>
+</spine>
+</package>

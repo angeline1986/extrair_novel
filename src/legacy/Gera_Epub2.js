@@ -3,119 +3,57 @@ import fs from "fs";
 import path from "path";
 import archiver from "archiver";
 
+const CHAPTER_DELAY_MIN_MS = 4000;
+const CHAPTER_DELAY_MAX_MS = 7000;
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function waitForNextChapterDelay() {
+  const range = CHAPTER_DELAY_MAX_MS - CHAPTER_DELAY_MIN_MS;
+  const delayMs = CHAPTER_DELAY_MIN_MS + Math.random() * range;
+  const seconds = (delayMs / 1000).toFixed(1);
+  console.log(`⏳ Aguardando ${seconds}s antes do próximo capítulo para reduzir risco de bloqueio...`);
+  return sleep(delayMs);
+}
+
 // ---------------- CONFIG ----------------
-const BOOK_TITLE = "Qiang Jin Jiu - Volume 1";
-const BOOK_AUTHOR = "yunmenghell";
-const BOOK_ID = "qiangjinjiu-vol1";
-const OUTPUT_FILE = "qiang_jin_jiu_vol1.epub";
+const BOOK_TITLE = "Salt Society";
+const BOOK_AUTHOR = "Salt Society";
+const BOOK_ID = "salt-society";
+const OUTPUT_FILE = "salt-society.epub";
 
 // Se houver um "cover.jpg" no diretório do script, ele será copiado.
 // Senão, o EPUB ainda é gerado, mas sem item de capa no OPF.
 const COVER_SOURCE_FILE = path.join(process.cwd(), "cover.jpg");
 
-// Lista de capítulos do Volume 1
-const URLS = [
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-0/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-0_1/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-1/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-2/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-3/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-4/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-5/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-6/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-7/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-8/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-9/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-10/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-11/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-12/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-13/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-14/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-15/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-16/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-17/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-18/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-19/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-20/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-21/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-22/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-23/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-24/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-25/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-26/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-27/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-28/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-29/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-30/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-31/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-32/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-33/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-34/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-35/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-36/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-37/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-38/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-39/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-40/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-41/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-42/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-43/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-44/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-45/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-46/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-47/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-48/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-49/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-50/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-51/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-52/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-53/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-54/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-55/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-56/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-57/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-58/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-59/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-60/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-61/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-62/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-63/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-64/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-65/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-66/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-67/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-68/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-69/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-70/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-71/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-72/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-73/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-74/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-75/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-76/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-77/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-78/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-79/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-80/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-81/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-82/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-83/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-84/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-85/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-86/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-87/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-88/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-89/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-90/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-91/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-92/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-93/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-94/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-95/",
-  "https://nocfsb.com/manga/qiang-jin-jiu/volume-1/capitulo-96/",
-];
+function buildSaltSocietyUrls() {
+  const volumes = [
+    { base: "https://nocfsb.com/manga/salt-society/volume-01", start: 0, end: 30, leading: ["00_1"] },
+    { base: "https://nocfsb.com/manga/salt-society/volume-02", start: 31, end: 59 },
+    { base: "https://nocfsb.com/manga/salt-society/volume-03", start: 60, end: 85 },
+    { base: "https://nocfsb.com/manga/salt-society/volume-04", start: 86, end: 114 },
+    { base: "https://nocfsb.com/manga/salt-society/volume-05-extra", start: 115, end: 129 },
+  ];
 
+  const urls = [];
+  for (const volume of volumes) {
+    if (volume.leading) {
+      for (const chapter of volume.leading) {
+        urls.push(`${volume.base}/capitulo-${chapter}/`);
+      }
+    }
 
+    for (let chapter = volume.start; chapter <= volume.end; chapter++) {
+      urls.push(`${volume.base}/capitulo-${chapter}/`);
+    }
+  }
+
+  return urls;
+}
+
+const URLS = buildSaltSocietyUrls();
 
 // ---------------- RESTANTE DO SCRIPT ----------------
 // (o corpo é o mesmo que revisei na versão anterior — scraping, geração de arquivos e compactação)
@@ -384,6 +322,10 @@ async function main() {
         chapters.push({ ...cap, file });
       } catch (err) {
         console.error(`❌ Erro em ${URLS[i]}:`, err.message);
+      }
+
+      if (i < URLS.length - 1) {
+        await waitForNextChapterDelay();
       }
     }
   } finally {
