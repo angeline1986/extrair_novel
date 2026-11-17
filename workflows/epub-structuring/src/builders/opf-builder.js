@@ -1,9 +1,39 @@
 import { XMLParser, XMLBuilder } from 'fast-xml-parser';
 import { toArray } from '../utils/object-utils.js';
 import { normalizeLanguageTag } from '../utils/language-utils.js';
+import { escapeXml } from '../utils/xml-utils.js';
 
 const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
 const builder = new XMLBuilder({ ignoreAttributes: false, attributeNamePrefix: '@_', format: true, suppressEmptyNode: true });
+
+// Novo livro, sem OPF de origem. Mantém o contrato de capítulos usado pelos
+// builders de NAV e NCX e pelo fluxo de estruturação.
+export function buildNewEpub3Opf({ title, author, language, identifier, chapters, cover }) {
+  const items = [
+    '<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>',
+    '<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>',
+    '<item id="css" href="style.css" media-type="text/css"/>',
+    ...chapters.map((chapter) => `<item id="chapter-${chapter.chapterNumber}" href="${escapeXml(chapter.href)}" media-type="application/xhtml+xml"/>`)
+  ];
+  if (cover) items.push(`<item id="cover" href="${escapeXml(cover.href)}" media-type="${escapeXml(cover.mediaType)}" properties="cover-image"/>`);
+  const spine = chapters.map((chapter) => `<itemref idref="chapter-${chapter.chapterNumber}"/>`).join('\n    ');
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="book-id" xml:lang="${escapeXml(normalizeLanguageTag(language))}">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:identifier id="book-id">${escapeXml(identifier)}</dc:identifier>
+    <dc:title>${escapeXml(title)}</dc:title>
+    <dc:creator>${escapeXml(author)}</dc:creator>
+    <dc:language>${escapeXml(normalizeLanguageTag(language))}</dc:language>
+    <meta property="dcterms:modified">${new Date().toISOString().replace(/\.\d{3}Z$/, 'Z')}</meta>
+  </metadata>
+  <manifest>
+    ${items.join('\n    ')}
+  </manifest>
+  <spine toc="ncx">
+    ${spine}
+  </spine>
+</package>`;
+}
 
 export function buildEpub3Opf(epub, navHref, ncxHref, updatedChapterReport) {
   const data = parser.parse(epub.opf.xml);

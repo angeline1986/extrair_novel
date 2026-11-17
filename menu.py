@@ -29,6 +29,7 @@ HEX = {
 ROOT = Path(__file__).resolve().parent
 PDF_WORKFLOW = ROOT / "workflows" / "pdf-to-epub"
 EPUB_WORKFLOW = ROOT / "workflows" / "epub-structuring"
+MARKDOWN_WORKFLOW = ROOT / "workflows" / "markdown-to-epub"
 
 
 def supports_color() -> bool:
@@ -321,6 +322,24 @@ def action_structure_epub() -> None:
     show_success(f"Saída gerada em: {output_dir}")
 
 
+def action_convert_markdown_to_epub() -> None:
+    source = input(color("prompt", "Diretório dos capítulos Markdown › ", bold=True)).strip()
+    title = input(color("prompt", "Título do livro › ", bold=True)).strip()
+    author = input(color("prompt", "Autor › ", bold=True)).strip()
+    language = input(color("prompt", "Idioma [pt-BR] › ", bold=True)).strip() or "pt-BR"
+    cover = input(color("prompt", "Capa JPG/PNG (opcional) › ", bold=True)).strip()
+    output = input(color("prompt", "EPUB de saída [workflows/markdown-to-epub/output/markdown.epub] › ", bold=True)).strip()
+    if not source or not title or not author:
+        show_error("Diretório, título e autor são obrigatórios.")
+        return
+    command = ["npm", "run", "build:markdown-epub", "--", "--input", source, "--title", title, "--author", author, "--language", language]
+    if cover:
+        command += ["--cover", cover]
+    if output:
+        command += ["--output", output]
+    run_command(command, ROOT, "Convertendo Markdown para EPUB e validando com EPUBCheck")
+
+
 def action_run_salt_society_epub_legacy() -> None:
     script = ROOT / "src" / "legacy" / "Gera_Epub2.js"
     if not script.exists():
@@ -342,6 +361,7 @@ def action_list_outputs() -> None:
     sections = [
         ("PDF -> EPUB", PDF_WORKFLOW / "output"),
         ("EPUB estruturado", EPUB_WORKFLOW / "output"),
+        ("Markdown -> EPUB", MARKDOWN_WORKFLOW / "output"),
     ]
 
     for label, directory in sections:
@@ -375,6 +395,13 @@ def build_menu() -> tuple[MenuSection, ...]:
                     "Estruturar EPUB",
                     "Ajusta e valida um EPUB já existente",
                     action_structure_epub,
+                    "item_main",
+                ),
+                MenuItem(
+                    5,
+                    "Markdown para EPUB",
+                    "Converte capítulos Markdown e valida o EPUB",
+                    action_convert_markdown_to_epub,
                     "item_main",
                 ),
             ),
