@@ -18,6 +18,7 @@ workflows/*/reports/*
 !workflows/*/reports/.gitkeep
 workflows/*/state/*
 !workflows/*/state/.gitkeep
+workflows/markdown-to-epub/tools/
 workflows/*/assets/*
 !workflows/*/assets/.gitkeep
 workflows/audit-translation-docx/input-fixed/*

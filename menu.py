@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import json
 import shlex
 import shutil
 import subprocess
@@ -30,6 +31,7 @@ ROOT = Path(__file__).resolve().parent
 PDF_WORKFLOW = ROOT / "workflows" / "pdf-to-epub"
 EPUB_WORKFLOW = ROOT / "workflows" / "epub-structuring"
 MARKDOWN_WORKFLOW = ROOT / "workflows" / "markdown-to-epub"
+MARKDOWN_STATE = MARKDOWN_WORKFLOW / "state" / "last-used.json"
 
 
 def supports_color() -> bool:
@@ -99,11 +101,10 @@ def print_header(title: str = "MENU PRINCIPAL") -> None:
 
 def print_quick_guide() -> None:
     print(color("section_main", "● ORIENTAÇÕES RÁPIDAS", bold=True))
-    print(color("muted", "1. Coloque um PDF em workflows/pdf-to-epub/input/"))
-    print(color("muted", "2. Selecione a opção 1 para converter PDF em EPUB."))
-    print(color("muted", "3. Revise a saída em workflows/pdf-to-epub/output/"))
-    print(color("muted", "4. Se o EPUB precisar de ajustes, use a opção 2."))
-    print(color("muted", "5. O menu valida entrada e mostra mensagens de erro claras."))
+    print(color("muted", "PDF: coloque o arquivo em workflows/pdf-to-epub/input/ e escolha 1."))
+    print(color("muted", "Markdown: escolha 5 para selecionar uma pasta de capítulos."))
+    print(color("muted", "O menu lembra os dados do último livro convertido."))
+    print(color("muted", "Escolha 4 para ver os EPUBs gerados."))
     print()
 
 
@@ -323,21 +324,147 @@ def action_structure_epub() -> None:
 
 
 def action_convert_markdown_to_epub() -> None:
-    source = input(color("prompt", "Diretório dos capítulos Markdown › ", bold=True)).strip()
-    title = input(color("prompt", "Título do livro › ", bold=True)).strip()
-    author = input(color("prompt", "Autor › ", bold=True)).strip()
-    language = input(color("prompt", "Idioma [pt-BR] › ", bold=True)).strip() or "pt-BR"
-    cover = input(color("prompt", "Capa JPG/PNG (opcional) › ", bold=True)).strip()
-    output = input(color("prompt", "EPUB de saída [workflows/markdown-to-epub/output/markdown.epub] › ", bold=True)).strip()
-    if not source or not title or not author:
-        show_error("Diretório, título e autor são obrigatórios.")
+    saved = load_markdown_settings()
+    source = select_markdown_directory(saved.get("source", ""))
+    if source is None:
         return
-    command = ["npm", "run", "build:markdown-epub", "--", "--input", source, "--title", title, "--author", author, "--language", language]
-    if cover:
-        command += ["--cover", cover]
-    if output:
-        command += ["--output", output]
-    run_command(command, ROOT, "Convertendo Markdown para EPUB e validando com EPUBCheck")
+    if saved.get("source") != str(source):
+        saved = {}
+    settings = {
+        "source": str(source),
+        "title": saved.get("title", ""),
+        "author": saved.get("author", ""),
+        "language": saved.get("language", "pt-BR"),
+        "cover": saved.get("cover", "") or find_markdown_cover(),
+        "output": saved.get("output", ""),
+    }
+    if not settings["title"] or not settings["author"]:
+        settings = edit_markdown_settings(settings)
+        if settings is None:
+            return
+
+    while True:
+        output = markdown_output_path(settings["output"], settings["title"], settings["author"])
+        print(color("section_secondary", "● Livro Markdown", bold=True))
+        print(f"  Capítulos: {source}")
+        print(f"  Título: {settings['title']}")
+        print(f"  Autor: {settings['author']}")
+        print(f"  Idioma: {settings['language']}")
+        print(f"  Capa: {settings['cover'] or 'sem capa'}")
+        print(f"  Saída: {output}")
+        choice = input(color("prompt", "[Enter] Gerar  [e] Editar  [c] Cancelar › ", bold=True)).strip().lower()
+        if choice == "e":
+            settings = edit_markdown_settings(settings)
+            if settings is None:
+                return
+            continue
+        if choice in {"c", "cancelar"}:
+            return
+        if choice == "":
+            break
+        show_error("Opção inválida.")
+
+    if output.exists():
+        show_warning(f"Já existe: {output.name}")
+        overwrite = input(color("prompt", "[s] Sobrescrever  [n] Criar outro nome  [Enter] Cancelar › ", bold=True)).strip().lower()
+        if overwrite == "n":
+            settings["output"] = input(color("prompt", "Novo nome do EPUB › ", bold=True)).strip()
+            output = markdown_output_path(settings["output"], settings["title"], settings["author"])
+            if output.exists():
+                show_error(f"O arquivo já existe: {output}")
+                return
+        elif overwrite not in {"s", "sim"}:
+            return
+
+    command = ["npm", "run", "build:markdown-epub", "--", "--input", str(source), "--title", settings["title"], "--author", settings["author"], "--language", settings["language"], "--output", str(output)]
+    if settings["cover"]:
+        command += ["--cover", str(Path(settings["cover"]).expanduser())]
+    if run_command(command, ROOT, "Convertendo Markdown para EPUB e validando com EPUBCheck"):
+        settings["output"] = str(output)
+        MARKDOWN_STATE.parent.mkdir(parents=True, exist_ok=True)
+        MARKDOWN_STATE.write_text(json.dumps(settings, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        show_success(f"Arquivo EPUB gerado em: {output}")
+
+
+def load_markdown_settings() -> dict[str, str]:
+    try:
+        return json.loads(MARKDOWN_STATE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def markdown_directories(last_source: str) -> list[Path]:
+    roots = [MARKDOWN_WORKFLOW / "input", ROOT.parent / "temporario"]
+    candidates = [Path(last_source).expanduser()] if last_source else []
+    for root in roots:
+        candidates.append(root)
+        if root.is_dir():
+            candidates.extend(item for item in root.iterdir() if item.is_dir())
+    return list(dict.fromkeys(item.resolve() for item in candidates if item.is_dir() and next(item.glob("capitulo_*_traducao_*.md"), None)))
+
+
+def select_markdown_directory(last_source: str) -> Path | None:
+    directories = markdown_directories(last_source)
+    if len(directories) == 1:
+        print(color("success", f"Capítulos encontrados em: {directories[0]}"))
+        return directories[0]
+    if directories:
+        print(color("section_secondary", "● Pastas de capítulos", bold=True))
+        for index, directory in enumerate(directories, 1):
+            print(f"  [{index}] {directory}")
+    print("  [0] Informar outra pasta")
+    choice = ask_number("Selecione a pasta › ", range(len(directories) + 1))
+    if choice:
+        return directories[choice - 1]
+    raw = input(color("prompt", "Caminho da pasta › ", bold=True)).strip()
+    source = Path(raw).expanduser().resolve() if raw else None
+    if source is None or not source.is_dir() or not next(source.glob("capitulo_*_traducao_*.md"), None):
+        show_error("Pasta sem capítulos Markdown reconhecidos.")
+        return None
+    return source
+
+
+def find_markdown_cover() -> str:
+    cover_dir = MARKDOWN_WORKFLOW / "input" / "img"
+    images = sorted(item for item in cover_dir.glob("*") if item.suffix.lower() in {".jpg", ".jpeg", ".png"})
+    return str(images[0]) if len(images) == 1 else ""
+
+
+def markdown_output_path(raw: str, title: str, author: str) -> Path:
+    if raw:
+        candidate = Path(raw).expanduser()
+        if candidate.parent == Path("."):
+            candidate = MARKDOWN_WORKFLOW / "output" / candidate
+        elif not candidate.is_absolute():
+            candidate = ROOT / candidate
+    else:
+        name = f"{title} - {author}".strip(" -")
+        name = "".join("_" if char in '/\\:*?\"<>|' else char for char in name)
+        candidate = MARKDOWN_WORKFLOW / "output" / name
+    if not candidate.suffix:
+        candidate = candidate.with_suffix(".epub")
+    return candidate.resolve()
+
+
+def edit_markdown_settings(settings: dict[str, str]) -> dict[str, str] | None:
+    print(color("muted", "Enter mantém o valor exibido; use - para retirar a capa."))
+    for key, label in (("title", "Título"), ("author", "Autor"), ("language", "Idioma"), ("cover", "Capa JPG/PNG"), ("output", "Nome ou caminho de saída")):
+        current = settings[key]
+        value = input(color("prompt", f"{label} [{current or 'automático'}] › ", bold=True)).strip()
+        if value == "-" and key == "cover":
+            settings[key] = ""
+        elif value:
+            settings[key] = str(Path(value).expanduser()) if key == "cover" else value
+    if not settings["title"] or not settings["author"]:
+        show_error("Título e autor são obrigatórios.")
+        return None
+    if settings["cover"] and not Path(settings["cover"]).expanduser().is_file():
+        show_error(f"Capa inexistente: {settings['cover']}")
+        return None
+    if markdown_output_path(settings["output"], settings["title"], settings["author"]).suffix.lower() != ".epub":
+        show_error("A saída deve ser um arquivo .epub.")
+        return None
+    return settings
 
 
 def action_run_salt_society_epub_legacy() -> None:

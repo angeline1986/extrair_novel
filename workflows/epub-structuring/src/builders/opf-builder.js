@@ -15,7 +15,10 @@ export function buildNewEpub3Opf({ title, author, language, identifier, chapters
     '<item id="css" href="style.css" media-type="text/css"/>',
     ...chapters.map((chapter) => `<item id="chapter-${chapter.chapterNumber}" href="${escapeXml(chapter.href)}" media-type="application/xhtml+xml"/>`)
   ];
-  if (cover) items.push(`<item id="cover" href="${escapeXml(cover.href)}" media-type="${escapeXml(cover.mediaType)}" properties="cover-image"/>`);
+  if (cover) {
+    items.push('<item id="cover-page" href="cover.xhtml" media-type="application/xhtml+xml"/>');
+    items.push(`<item id="cover" href="${escapeXml(cover.href)}" media-type="${escapeXml(cover.mediaType)}" properties="cover-image"/>`);
+  }
   const spine = chapters.map((chapter) => `<itemref idref="chapter-${chapter.chapterNumber}"/>`).join('\n    ');
   return `<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="book-id" xml:lang="${escapeXml(normalizeLanguageTag(language))}">
@@ -30,7 +33,7 @@ export function buildNewEpub3Opf({ title, author, language, identifier, chapters
     ${items.join('\n    ')}
   </manifest>
   <spine toc="ncx">
-    ${spine}
+    ${cover ? '<itemref idref="cover-page"/>\n    ' : ''}${spine}
   </spine>
 </package>`;
 }

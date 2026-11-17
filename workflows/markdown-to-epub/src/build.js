@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { randomUUID, createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import AdmZip from 'adm-zip';
@@ -13,12 +14,14 @@ import { writeZipFile, auditZipMimetype } from '../../epub-structuring/src/utils
 import { escapeXml } from '../../epub-structuring/src/utils/xml-utils.js';
 import { validateChapterSequence } from '../../epub-structuring/src/analyzers/chapter-sequence-validator.js';
 import { validateEpub3 } from '../../epub-structuring/src/validators/epub3-validator.js';
+import { normalizeLanguageTag } from '../../epub-structuring/src/utils/language-utils.js';
 
 const ROOT = path.resolve(import.meta.dirname || path.dirname(new URL(import.meta.url).pathname), '..');
 const NAME = /^capitulo_(\d+)_traducao_(?:revisada|validada)\.md$/i;
 const xmlParser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
 const asArray = (value) => value === undefined ? [] : Array.isArray(value) ? value : [value];
 const sha = (text) => createHash('sha256').update(text).digest('hex');
+const expandPath = (value) => path.resolve(value === '~' ? os.homedir() : value.startsWith(`~${path.sep}`) ? path.join(os.homedir(), value.slice(2)) : value);
 
 export function discoverChapters(input) {
   if (!fs.statSync(input, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`Diretório inexistente: ${input}`);
@@ -83,11 +86,13 @@ export function validateBuiltEpub(file, chapters) {
   const navHrefs = nav('nav#toc a').map((_, el) => nav(el).attr('href')).get();
   const ncxHrefs = ncx('navPoint content').map((_, el) => ncx(el).attr('src')).get();
   const expected = chapters.map((chapter) => chapter.href);
+  const coverPage = manifest.some((item) => item['@_id'] === 'cover-page');
   const spineHrefs = spine.map((item) => byId.get(item['@_idref'])?.['@_href']);
   if (opf['@_version'] !== '3.0') errors.push('OPF não é EPUB 3.0');
-  for (const [label, values] of [['NAV', navHrefs], ['NCX', ncxHrefs], ['spine', spineHrefs]]) {
+  for (const [label, values] of [['NAV', navHrefs], ['NCX', ncxHrefs], ['spine', coverPage ? spineHrefs.slice(1) : spineHrefs]]) {
     if (JSON.stringify(values) !== JSON.stringify(expected)) errors.push(`${label} difere da sequência Markdown`);
   }
+  if (coverPage && spineHrefs[0] !== 'cover.xhtml') errors.push('Capa ausente no início do spine');
   for (const item of manifest) if (!unique.has(`OEBPS/${item['@_href']}`)) errors.push(`Manifest sem recurso: ${item['@_href']}`);
   for (const chapter of chapters) {
     const item = manifest.find((entry) => entry['@_href'] === chapter.href);
@@ -112,10 +117,12 @@ export function validateBuiltEpub(file, chapters) {
     { match: true }
   );
   errors.push(...preflight.issues.filter((issue) => issue.level === 'error').map((issue) => issue.message));
-  return { ok: errors.length === 0, errors, chapterCount: chapters.length, navEntries: navHrefs.length, ncxEntries: ncxHrefs.length, spineEntries: spine.length, manifestEntries: manifest.length };
+  return { ok: errors.length === 0, errors, chapterCount: chapters.length, navEntries: navHrefs.length, ncxEntries: ncxHrefs.length, spineEntries: spine.length - Number(coverPage), coverPage, manifestEntries: manifest.length };
 }
 
 function checkOfficialEpub(file, jar) {
+  const cached = path.join(ROOT, 'tools', 'epubcheck-5.4.0', 'epubcheck.jar');
+  jar ||= fs.existsSync(cached) ? cached : undefined;
   const command = jar ? 'java' : 'epubcheck';
   const args = jar ? ['-jar', jar, file] : [file];
   const run = spawnSync(command, args, { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 });
@@ -125,32 +132,39 @@ function checkOfficialEpub(file, jar) {
 
 export function buildBook({ input, title, author, language = 'pt-BR', cover, output, report, epubcheck: epubcheckJar }) {
   if (!input || !title || !author) throw new Error('Informe --input, --title e --author.');
-  const destination = path.resolve(output || path.join(ROOT, 'output', 'markdown.epub'));
-  const reportPath = path.resolve(report || path.join(ROOT, 'reports', 'validation.json'));
-  const inputPath = path.resolve(input);
+  const inputPath = expandPath(input);
+  const outputName = output || path.join(ROOT, 'output', 'markdown.epub');
+  const outputPath = output && path.dirname(output) === '.' ? path.join(ROOT, 'output', output) : outputName;
+  const destination = expandPath(path.extname(outputPath) ? outputPath : `${outputPath}.epub`);
+  const reportPath = expandPath(report || path.join(ROOT, 'reports', 'validation.json'));
+  const coverPath = cover ? expandPath(cover) : undefined;
+  const bookLanguage = normalizeLanguageTag(language);
   const insideInput = (candidate) => {
     const relative = path.relative(inputPath, candidate);
     return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
   };
   if (path.extname(destination).toLowerCase() !== '.epub') throw new Error('O arquivo de saída deve terminar em .epub.');
   if (insideInput(destination) || insideInput(reportPath)) throw new Error('EPUB e relatório devem ficar fora do diretório de entrada.');
-  const chapters = discoverChapters(path.resolve(input));
-  const coverData = cover ? { href: `cover${path.extname(cover).toLowerCase()}`, mediaType: { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png' }[path.extname(cover).toLowerCase()] } : null;
+  const chapters = discoverChapters(inputPath);
+  const coverData = coverPath ? { href: `cover${path.extname(coverPath).toLowerCase()}`, mediaType: { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png' }[path.extname(coverPath).toLowerCase()] } : null;
   if (cover && !coverData.mediaType) throw new Error('Capa deve ser JPG ou PNG.');
-  if (cover && !fs.statSync(cover, { throwIfNoEntry: false })?.isFile()) throw new Error(`Capa inexistente: ${cover}`);
-  const rendered = chapters.map((chapter) => ({ ...chapter, ...renderChapter(chapter, language) }));
+  if (cover && !fs.statSync(coverPath, { throwIfNoEntry: false })?.isFile()) throw new Error(`Capa inexistente: ${coverPath}`);
+  const rendered = chapters.map((chapter) => ({ ...chapter, ...renderChapter(chapter, bookLanguage) }));
   const identifier = `urn:uuid:${randomUUID()}`;
-  const reportData = { generatedAt: new Date().toISOString(), input: path.resolve(input), output: destination, metadata: { title, author, language }, chapters: rendered.map(({ name, chapterNumber, href, title, sourceSha256, textSha256, textLength }) => ({ name, chapterNumber, href, title, sourceSha256, textSha256, textLength })) };
+  const reportData = { generatedAt: new Date().toISOString(), input: inputPath, output: destination, metadata: { title, author, language: bookLanguage, cover: coverPath || null }, chapters: rendered.map(({ name, chapterNumber, href, title, sourceSha256, textSha256, textLength }) => ({ name, chapterNumber, href, title, sourceSha256, textSha256, textLength })) };
   const entries = [
     { name: 'mimetype', data: Buffer.from('application/epub+zip'), store: true },
     { name: 'META-INF/container.xml', data: Buffer.from('<?xml version="1.0" encoding="UTF-8"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>') },
-    { name: 'OEBPS/content.opf', data: Buffer.from(buildNewEpub3Opf({ title, author, language, identifier, chapters: rendered, cover: coverData })) },
-    { name: 'OEBPS/nav.xhtml', data: Buffer.from(buildNavXhtml({ chapters: rendered }, language)) },
+    { name: 'OEBPS/content.opf', data: Buffer.from(buildNewEpub3Opf({ title, author, language: bookLanguage, identifier, chapters: rendered, cover: coverData })) },
+    { name: 'OEBPS/nav.xhtml', data: Buffer.from(buildNavXhtml({ chapters: rendered }, bookLanguage)) },
     { name: 'OEBPS/toc.ncx', data: Buffer.from(buildNcx({ chapters: rendered }, { title, identifier })) },
-    { name: 'OEBPS/style.css', data: Buffer.from('body { line-height: 1.5; margin: 5%; } h1 { text-align: center; } p { text-indent: 1.2em; } li p { text-indent: 0; }') },
+    { name: 'OEBPS/style.css', data: Buffer.from('body { line-height: 1.5; margin: 5%; } h1 { text-align: center; } p { text-indent: 1.2em; } li p { text-indent: 0; } .cover { margin: 0; padding: 0; text-align: center; } .cover img { max-width: 100%; max-height: 100%; }') },
     ...rendered.map((chapter) => ({ name: `OEBPS/${chapter.href}`, data: Buffer.from(chapter.xml) }))
   ];
-  if (coverData) entries.push({ name: `OEBPS/${coverData.href}`, data: fs.readFileSync(cover) });
+  if (coverData) {
+    entries.push({ name: 'OEBPS/cover.xhtml', data: Buffer.from(`<?xml version="1.0" encoding="UTF-8"?><html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="${escapeXml(bookLanguage)}" xml:lang="${escapeXml(bookLanguage)}"><head><title>Capa</title><link rel="stylesheet" type="text/css" href="style.css" /></head><body epub:type="cover" class="cover"><img src="${escapeXml(coverData.href)}" alt="Capa de ${escapeXml(title)}" /></body></html>`) });
+    entries.push({ name: `OEBPS/${coverData.href}`, data: fs.readFileSync(coverPath) });
+  }
   fs.mkdirSync(path.dirname(destination), { recursive: true });
   fs.mkdirSync(path.dirname(reportPath), { recursive: true });
   const temporary = `${destination}.${process.pid}.tmp.epub`;
@@ -158,7 +172,7 @@ export function buildBook({ input, title, author, language = 'pt-BR', cover, out
     writeZipFile(temporary, entries);
     reportData.internalValidation = validateBuiltEpub(temporary, rendered);
     if (!reportData.internalValidation.ok) throw new Error(reportData.internalValidation.errors.join('; '));
-    reportData.epubcheck = checkOfficialEpub(temporary, epubcheckJar || process.env.EPUBCHECK_JAR);
+    reportData.epubcheck = checkOfficialEpub(temporary, epubcheckJar || process.env.EPUBCHECK_JAR ? expandPath(epubcheckJar || process.env.EPUBCHECK_JAR) : undefined);
     if (!reportData.epubcheck.ok) throw new Error(`EPUBCheck falhou: ${reportData.epubcheck.output}`);
     fs.renameSync(temporary, destination);
     reportData.ok = true;

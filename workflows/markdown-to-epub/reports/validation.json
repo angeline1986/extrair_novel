@@ -1,11 +1,12 @@
 {
-  "generatedAt": "2026-11-17T03:30:00.249Z",
+  "generatedAt": "2026-11-17T03:46:21.378Z",
   "input": "/Users/alinesouza/Documents/TI/Projetos/temporario/Capitulos_Revisados",
-  "output": "/Users/alinesouza/Documents/TI/Projetos/extrair_novel/workflows/markdown-to-epub/output/capitulos-revisados.epub",
+  "output": "/Users/alinesouza/Documents/TI/Projetos/extrair_novel/workflows/markdown-to-epub/output/O Tirano que se Ajoelhou por Mim - Yi Jian.epub",
   "metadata": {
-    "title": "Capítulos Revisados",
-    "author": "Autor não informado",
-    "language": "pt-BR"
+    "title": "O Tirano que se Ajoelhou por Mim",
+    "author": "Yi Jian Sheng Cai Miao",
+    "language": "pt-BR",
+    "cover": "/Users/alinesouza/Documents/TI/Projetos/extrair_novel/workflows/markdown-to-epub/input/img/Capa.jpg"
   },
   "chapters": [
     {
@@ -4345,10 +4346,11 @@
     "navEntries": 481,
     "ncxEntries": 481,
     "spineEntries": 481,
-    "manifestEntries": 484
+    "coverPage": true,
+    "manifestEntries": 486
   },
   "epubcheck": {
-    "command": "java -jar /private/tmp/epubcheck-5.4.0/epubcheck.jar /Users/alinesouza/Documents/TI/Projetos/extrair_novel/workflows/markdown-to-epub/output/capitulos-revisados.epub.63574.tmp.epub",
+    "command": "java -jar /Users/alinesouza/Documents/TI/Projetos/extrair_novel/workflows/markdown-to-epub/tools/epubcheck-5.4.0/epubcheck.jar /Users/alinesouza/Documents/TI/Projetos/extrair_novel/workflows/markdown-to-epub/output/O Tirano que se Ajoelhou por Mim - Yi Jian.epub.71478.tmp.epub",
     "exitCode": 0,
     "output": "Validando usando as regras da versão EPUB 3.4.\nNenhum erro ou advertência detectados.\nMensagens: 0 erros fatais / 0 erros / 0 advertências / 0 informações\n\nEPUBCheck finalizado",
     "ok": true
